@@ -36,7 +36,7 @@ function crInjectNav(currentPage, extraNavHTML = '') {
   const user = crGetUser();
   const navLinks = CR_CONFIG.PAGES.map(p => `
     <a href="${p.href}" class="cr-nav-link ${currentPage === p.id ? 'active' : ''}">
-      <span class="cr-nav-icon">${p.icon}</span>${p.label}
+      ${p.label}
     </a>`).join('');
 
   const headerHTML = `
@@ -54,7 +54,6 @@ function crInjectNav(currentPage, extraNavHTML = '') {
     .cr-nav-link { padding:13px 20px; color:#888; font-size:12px; font-weight:600; text-decoration:none; border-bottom:3px solid transparent; white-space:nowrap; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:0.3px; display:flex; align-items:center; gap:6px; transition:color 0.2s; }
     .cr-nav-link:hover { color:#fff; }
     .cr-nav-link.active { color:#FF5E00; border-bottom-color:#FF5E00; }
-    .cr-nav-icon { font-size:14px; }
     .cr-nav-divider { width:1px; background:#333; margin:10px 0; flex-shrink:0; }
     @media(max-width:600px) { .cr-header,.cr-nav-bar { padding:0 16px; } .cr-user-name { display:none; } }
   </style>
