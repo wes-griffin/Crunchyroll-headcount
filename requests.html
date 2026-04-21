@@ -1264,7 +1264,9 @@ async function submitApproval(reqId, decision) {
       allRequests[idx][16]=newStatus; allRequests[idx][17]=decision; allRequests[idx][18]=eu.name; allRequests[idx][19]=now;
     } else {
       newStatus=decision;
-      await apiUpdate(T.requests+'!Q'+sheetRow+':W'+sheetRow,[[newStatus,'','','',decision,eu.name,now]]);
+      // Update Status (Q) and SMT columns (U,V,W) separately to avoid overwriting PBP columns (R,S,T)
+      await apiUpdate(T.requests+'!Q'+sheetRow,[[newStatus]]);
+      await apiUpdate(T.requests+'!U'+sheetRow+':W'+sheetRow,[[decision,eu.name,now]]);
       allRequests[idx][16]=newStatus; allRequests[idx][20]=decision; allRequests[idx][21]=eu.name; allRequests[idx][22]=now;
     }
     if (comment) await apiAppend(T.comments+'!A2',[[reqId,now,eu.name,eu.email,isPBP?'PBP':'SMT',comment]]);

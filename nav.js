@@ -55,6 +55,13 @@ function crInjectNav(currentPage, extraNavHTML = '') {
     .cr-nav-link:hover { color:#fff; }
     .cr-nav-link.active { color:#FF5E00; border-bottom-color:#FF5E00; }
     .cr-nav-divider { width:1px; background:#333; margin:10px 0; flex-shrink:0; }
+    .cr-refresh-btn { background:#FF5E00; color:white; border:none; padding:7px 14px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+    .cr-refresh-btn:hover { background:#e05500; }
+    .cr-refresh-btn.loading { opacity:0.7; pointer-events:none; }
+    .cr-refresh-icon { display:inline-block; }
+    .cr-refresh-btn.loading .cr-refresh-icon { animation:crspin 1s linear infinite; }
+    @keyframes crspin { to { transform:rotate(360deg); } }
+    .cr-last-updated { color:#888; font-size:11px; text-align:right; }
     @media(max-width:600px) { .cr-header,.cr-nav-bar { padding:0 16px; } .cr-user-name { display:none; } }
   </style>
   <div class="cr-header">
