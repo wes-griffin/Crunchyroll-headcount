@@ -375,6 +375,14 @@
           <tbody id="cwHCBySMT"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--gray-dark)">Loading…</td></tr></tbody>
         </table>
       </div>
+      <div class="chart-card" style="margin-bottom:18px;">
+        <h4>CW Headcount by SMT</h4>
+        <div class="horiz-bars" id="cwHCChart"></div>
+      </div>
+      <div class="chart-card">
+        <h4>CW Movement Since April 1</h4>
+        <div class="horiz-bars" id="cwMoveChart"></div>
+      </div>
     </div>
     <div>
       <div class="section-header"><h3>Headcount by Location</h3><span class="pill">Click to drill</span></div>
@@ -385,11 +393,6 @@
         </table>
       </div>
     </div>
-  </div>
-
-  <div class="charts-grid">
-    <div class="chart-card"><h4>CW Headcount by SMT</h4><div class="horiz-bars" id="cwHCChart"></div></div>
-    <div class="chart-card"><h4>CW Movement Since April 1</h4><div class="horiz-bars" id="cwMoveChart"></div></div>
   </div>
 </div>
 
@@ -695,13 +698,13 @@ function parseHC(eeRaw, cwRaw, combRaw, eeLocRaw, cwLocRaw) {
       (r[2] !== undefined && r[2] !== null && r[2] !== ''))
     .map(r => [r[0], r[2]]); // normalise to [location, count]
 
-  // CW Location E38:G80 — col E=location (idx 0), col F=count (idx 1). Skip blanks and header rows.
+  // CW Location E38:G80 — col E=location (idx 0), col G=count (idx 2). Skip blanks and header rows.
   const cwLoc = (cwLocRaw || [])
     .filter(r => r && r[0] && r[0].toString().trim() !== '' &&
       !r[0].toString().toLowerCase().includes('global') &&
       !r[0].toString().toLowerCase().includes('location') &&
-      (r[1] !== undefined && r[1] !== null && r[1] !== ''))
-    .map(r => [r[0], r[1]]); // normalise to [location, count]
+      (r[2] !== undefined && r[2] !== null && r[2] !== ''))
+    .map(r => [r[0], r[2]]); // normalise to [location, count]
 
   D.eeData = eeData;
   D.cwData = cwData;
