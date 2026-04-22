@@ -122,7 +122,7 @@ td { padding:10px 14px; vertical-align:middle; }
 .tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
 .tag-pending{background:#FFF3E0;color:#BF6000} .tag-pbp{background:#E3F2FD;color:var(--blue)}
 .tag-smt{background:#F3E5F5;color:var(--purple)} .tag-approved{background:#E8F5EE;color:var(--green)}
-.tag-rejected{background:#FDECEA;color:var(--red)} .tag-ee{background:#E3F2FD;color:var(--blue)}
+.tag-rejected{background:#FDECEA;color:var(--red)} .tag-cancelled{background:#F5F5F5;color:#666;text-decoration:line-through} .tag-ee{background:#E3F2FD;color:var(--blue)}
 .tag-cw{background:#FFF3E0;color:#BF6000} .tag-new{background:#E8F5EE;color:var(--green)}
 .tag-backfill{background:#F3E5F5;color:var(--purple)} .tag-recruited{background:#E8F5EE;color:var(--green)}
 
@@ -439,7 +439,7 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
   <div class="filter-row">
     <input type="text" id="eeSearch" placeholder="Search…" oninput="renderAdminEE()">
-    <select id="eeStatusF" onchange="renderAdminEE()"><option value="">All Statuses</option><option>Pending PBP</option><option>Pending SMT</option><option>Approved</option><option>Rejected</option></select>
+    <select id="eeStatusF" onchange="renderAdminEE()"><option value="">All Statuses</option><option>Pending PBP</option><option>Pending SMT</option><option>Approved</option><option>Rejected</option><option>Cancelled</option></select>
     <select id="eeSMTF" onchange="renderAdminEE()"><option value="">All SMTs</option></select>
     <select id="eeRequestorF" onchange="renderAdminEE()"><option value="">All Requestors</option></select>
     <select id="eeLocationF" onchange="renderAdminEE()"><option value="">All Locations</option></select>
@@ -466,7 +466,7 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
   <div class="filter-row">
     <input type="text" id="cwSearch" placeholder="Search…" oninput="renderAdminCW()">
-    <select id="cwStatusF" onchange="renderAdminCW()"><option value="">All Statuses</option><option>Pending PBP</option><option>Pending SMT</option><option>Approved</option><option>Rejected</option></select>
+    <select id="cwStatusF" onchange="renderAdminCW()"><option value="">All Statuses</option><option>Pending PBP</option><option>Pending SMT</option><option>Approved</option><option>Rejected</option><option>Cancelled</option></select>
     <select id="cwSMTF" onchange="renderAdminCW()"><option value="">All SMTs</option></select>
     <select id="cwRequestorF" onchange="renderAdminCW()"><option value="">All Requestors</option></select>
     <select id="cwLocationF" onchange="renderAdminCW()"><option value="">All Locations</option></select>
@@ -1168,6 +1168,7 @@ function renderAdminEE() {
           <td><div class="row-actions">
             <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
             ${actionBtns}
+            ${!ro&&r[16]!=='Cancelled'&&r[16]!=='Hired'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
           </div></td>
         </tr>`;
       }).join('')
@@ -1222,6 +1223,7 @@ function renderAdminCW() {
           <td><div class="row-actions">
             <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
             ${actionBtns}
+            ${!ro&&r[16]!=='Cancelled'&&r[16]!=='Engaged'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
           </div></td>
         </tr>`;
       }).join('')
@@ -1250,7 +1252,26 @@ async function setAdminStatus(reqId, status) {
   } catch(e){toast('Error: '+e.message,'error');}
 }
 
-function adminActionSteps(reqId, isCW, adminSt) {
+async function cancelReq(reqId) {
+  if (!confirm('Cancel this requisition? This will set the status to Cancelled and cannot be undone.')) return;
+  const idx = allRequests.findIndex(r=>r[0]===reqId); if(idx<0)return;
+  const sheetRow = idx + 2;
+  try {
+    await apiUpdate(T.requests+'!Q'+sheetRow, [['Cancelled']]);
+    allRequests[idx][16] = 'Cancelled';
+    toast('Requisition cancelled','success');
+    // Update modal status cell in-place if open
+    const statusCell = document.getElementById('modalStatusCell-'+reqId);
+    if (statusCell) statusCell.innerHTML = `<div class="label">Status</div><div class="value">${stag('Cancelled')}</div>`;
+    // Hide the cancel button in modal
+    const cancelRow = document.getElementById('modalCancelRow-'+reqId);
+    if (cancelRow) cancelRow.style.display = 'none';
+    closeModal();
+    renderAdminEE(); renderAdminCW();
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+
   // Define steps: key = the adminSt value set when this step is completed
   const steps = isCW
     ? [
@@ -1399,6 +1420,11 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
       <div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;" id="adminActionsRow-${reqId}">
         ${adminActionSteps(reqId, isCW, r[23]||'')}
       </div>
+    </div>`:''}
+    ${isAdmin&&!ro&&status!=='Cancelled'&&status!=='Hired'&&status!=='Engaged'?`
+    <div style="margin-top:12px;border-top:1px solid var(--gray-mid);padding-top:12px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12px;color:var(--gray-dark)">Cancel this request? This cannot be undone.</span>
+      <button class="btn btn-danger btn-sm" onclick="cancelReq('${reqId}')">Cancel Requisition</button>
     </div>`:''}
   `;
   document.getElementById('modalOverlay').classList.add('open');
@@ -1613,7 +1639,7 @@ function clearPeopleForm(){
 // HELPERS
 // ============================================================
 function stag(s){
-  const m={'Pending PBP':'tag-pbp','Pending SMT':'tag-smt','Pending Admin':'tag-pending','Approved':'tag-approved','Rejected':'tag-rejected','Recruited':'tag-recruited','Engaged':'tag-recruited','Recruiting':'tag-pbp','Hired':'tag-approved'};
+  const m={'Pending PBP':'tag-pbp','Pending SMT':'tag-smt','Pending Admin':'tag-pending','Approved':'tag-approved','Rejected':'tag-rejected','Cancelled':'tag-cancelled','Recruited':'tag-recruited','Engaged':'tag-recruited','Recruiting':'tag-pbp','Hired':'tag-approved'};
   return `<span class="tag ${m[s]||'tag-pending'}">${s||'Pending'}</span>`;
 }
 function fd(iso){
