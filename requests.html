@@ -497,7 +497,7 @@ document.addEventListener("DOMContentLoaded", function() {
 <div class="view" id="view-comp">
   <div class="page-title"><h2>Compensation Queue</h2><p>Approved requests sent to Compensation for review</p></div>
   <div class="kpi-row kpi-row-3">
-    <div class="kpi amber" style="cursor:pointer" onclick="filterComp('not-reviewed')"><div class="kpi-label">Not Reviewed</div><div class="kpi-value" id="comp-not-reviewed">—</div><div class="kpi-sub">No data entered yet</div></div>
+    <div class="kpi amber" style="cursor:pointer" onclick="filterComp('with-compensation')"><div class="kpi-label">With Compensation</div><div class="kpi-value" id="comp-with">—</div><div class="kpi-sub">Sent — not yet reviewed</div></div>
     <div class="kpi" style="cursor:pointer;border-top:3px solid var(--orange)" onclick="filterComp('in-progress')"><div class="kpi-label">In Progress</div><div class="kpi-value" id="comp-in-progress">—</div><div class="kpi-sub">Saved for later</div></div>
     <div class="kpi green" style="cursor:pointer" onclick="filterComp('done')"><div class="kpi-label">Comp Done</div><div class="kpi-value" id="comp-done">—</div><div class="kpi-sub">Marked as complete</div></div>
   </div>
@@ -505,7 +505,7 @@ document.addEventListener("DOMContentLoaded", function() {
     <select id="compTypeF" onchange="renderComp()"><option value="">All Types</option><option value="EE">Employee</option><option value="CW">Contingent</option></select>
     <select id="compStatusF" onchange="renderComp()">
       <option value="">All Comp Statuses</option>
-      <option value="not-reviewed">Not Reviewed</option>
+      <option value="with-compensation">With Compensation</option>
       <option value="in-progress">In Progress</option>
       <option value="done">Comp Done</option>
       <option value="skipped">Comp Skipped</option>
@@ -1048,7 +1048,7 @@ function renderComp() {
   const statusF = document.getElementById('compStatusF')?.value || '';
   const smtf    = document.getElementById('compSMTF')?.value   || '';
 
-  // All reqs that have any comp status (sent, in progress, done) or comp skipped
+  // Reqs that have any comp status set
   const compAll = allRequests.filter(r => r[27] && r[27] !== '');
 
   // Populate SMT filter
@@ -1060,23 +1060,28 @@ function renderComp() {
       smts.map(s=>`<option${s===cur?' selected':''}>${s}</option>`).join('');
   }
 
-  const notReviewed = compAll.filter(r => r[27]==='With Compensation' && !r[29] && !r[30] && !r[36]);
-  const inProgress  = compAll.filter(r => r[27]==='Comp In Progress');
-  const done        = compAll.filter(r => r[27]==='Compensation Done');
+  // Board counts — keyed exactly to the CompStatus values
+  const withComp   = compAll.filter(r => r[27]==='With Compensation');
+  const inProgress = compAll.filter(r => r[27]==='Comp In Progress');
+  const done       = compAll.filter(r => r[27]==='Compensation Done');
+  const skipped    = compAll.filter(r => r[27]==='Compensation Skipped');
 
-  set('comp-not-reviewed', notReviewed.length);
-  set('comp-in-progress',  inProgress.length);
-  set('comp-done',         done.length);
+  set('comp-with',        withComp.length);
+  set('comp-in-progress', inProgress.length);
+  set('comp-done',        done.length);
 
-  const compStatus = r => r[27]==='Compensation Done' ? 'done'
-    : r[27]==='Comp In Progress' ? 'in-progress'
-    : r[27]==='Compensation Skipped' ? 'skipped'
-    : 'not-reviewed'; // With Compensation with no data
+  // Map board filter value → CompStatus value(s)
+  const boardToStatus = {
+    'with-compensation': ['With Compensation'],
+    'in-progress':       ['Comp In Progress'],
+    'done':              ['Compensation Done'],
+    'skipped':           ['Compensation Skipped'],
+  };
 
   const queue = compAll.filter(r => {
     if (typeF   && r[4] !== typeF)     return false;
     if (smtf    && r[8] !== smtf)      return false;
-    if (statusF && compStatus(r) !== statusF) return false;
+    if (statusF && boardToStatus[statusF] && !boardToStatus[statusF].includes(r[27])) return false;
     return true;
   });
 
@@ -1422,7 +1427,7 @@ function renderAdminEE() {
           <td>${statusTags}</td>
           <td><div class="row-actions">
             <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
-            ${!ro&&!isFinished&&status!=='Cancelled'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
+            
             ${!ro&&status==='Cancelled'?`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();reopenReq('${r[0]}')">Reopen</button>`:''}
           </div></td>
         </tr>`;
@@ -1473,7 +1478,7 @@ function renderAdminCW() {
           <td>${statusTags}</td>
           <td><div class="row-actions">
             <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
-            ${!ro&&!isFinished&&status!=='Cancelled'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
+            
             ${!ro&&status==='Cancelled'?`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();reopenReq('${r[0]}')">Reopen</button>`:''}
           </div></td>
         </tr>`;
@@ -1488,7 +1493,7 @@ function renderAdminCW() {
           <td>${statusTags}</td>
           <td><div class="row-actions">
             <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
-            ${!ro&&!isFinished&&status!=='Cancelled'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
+            
             ${!ro&&status==='Cancelled'?`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();reopenReq('${r[0]}')">Reopen</button>`:''}
           </div></td>
         </tr>`;
@@ -1712,6 +1717,7 @@ function adminActionSteps(reqId, isCW, adminSt, compSt, recruitSt) {
     if (active)  return `color:var(--orange);font-weight:700`;
     return `color:var(--gray-dark)`;
   }
+  const isCompOnly = canSeeComp() && !hasGroup('master_admin') && !hasGroup('admin_ee') && !hasGroup('admin_cw');
   const revertBtn = (onclick, hide) => hide ? '' :
     `<button class="btn btn-sm" style="margin-top:4px;font-size:10px;background:none;border:1px solid var(--gray-mid);color:var(--gray-dark)" onclick="${onclick}">Revert</button>`;
   const connector = `<div style="height:2px;width:20px;background:var(--gray-mid);margin:0 2px;flex-shrink:0;align-self:flex-start;margin-top:16px;"></div>`;
@@ -1748,12 +1754,12 @@ function adminActionSteps(reqId, isCW, adminSt, compSt, recruitSt) {
   const recSkipped = recruitSt === 'Recruiting Skipped';
   const recResolved= recDone || recSkipped;
   const recLabel   = recDone ? 'Recruiting' : recSkipped ? 'Rec Skipped' : 'Recruiting';
-  const recBtns = (!ro && !isFinished && !recDone && !recSkipped)
+  const recBtns = (!ro && !isCompOnly && !isFinished && !recDone && !recSkipped)
     ? `<div style="display:flex;flex-direction:column;gap:3px;margin-top:6px">
         <button class="btn btn-sm btn-primary" onclick="setRecruitStatus('${reqId}','Recruiting')">Send to Recruiting</button>
         <button class="btn btn-sm btn-secondary" style="font-size:10px" onclick="setRecruitStatus('${reqId}','Recruiting Skipped')">Skip Recruiting</button>
        </div>` : '';
-  const recRevert = (!ro && !isFinished && (recDone || recSkipped))
+  const recRevert = (!ro && !isCompOnly && !isFinished && (recDone || recSkipped))
     ? revertBtn(`setRecruitStatus('${reqId}','')`, false) : '';
   const step3 = `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;min-width:90px;">
     <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;${dot(recDone, recSkipped, false)}">${recDone?'✓':recSkipped?'—':'3'}</div>
@@ -1763,11 +1769,11 @@ function adminActionSteps(reqId, isCW, adminSt, compSt, recruitSt) {
 
   // Step 4 — Final (gate: comp must be Done or Skipped, recruiting must be Recruiting or Skipped)
   const gateOpen = compResolved && recResolved;
-  const finalRevert = (!ro && isFinished)
+  const finalRevert = (!ro && !isCompOnly && isFinished)
     ? revertBtn(`setAdminStatus('${reqId}','')`, false) : '';
-  const finalBtnHtml = (!ro && !isFinished && gateOpen)
+  const finalBtnHtml = (!ro && !isCompOnly && !isFinished && gateOpen)
     ? `<button class="btn btn-sm btn-success" style="margin-top:6px" onclick="setAdminStatus('${reqId}','${finalKey}')">${finalLabel}</button>`
-    : (!ro && !isFinished && !gateOpen)
+    : (!ro && !isCompOnly && !isFinished && !gateOpen)
     ? `<div style="font-size:10px;color:var(--gray-dark);margin-top:6px">Resolve comp &amp;<br>recruiting first</div>` : '';
   const step4 = `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;min-width:80px;">
     <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;${dot(isFinished, false, gateOpen && !isFinished)}">${isFinished?'✓':'4'}</div>
@@ -1864,21 +1870,41 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
             <div class="step-info"><div class="step-label">Reopened</div><div class="step-meta">Restarted with prior history</div></div>
           </div>
           <div class="timeline-step">
-            <div class="step-dot ${status==='Pending PBP'?'active':'pending'}">2</div>
-            <div class="step-info">
-              <div class="step-label">PBP Review${r[9]?' · '+r[9]:''}</div>
-              <div class="step-meta">${status==='Pending PBP'?'Awaiting review':'Not yet reached'}</div>
-              ${isAdmin&&!ro&&status==='Pending PBP'?`<div class="action-row" style="margin-top:10px"><button class="btn btn-success btn-sm" onclick="promptApproval('${reqId}','Approved')">✓ Approve</button><button class="btn btn-danger btn-sm" onclick="promptApproval('${reqId}','Rejected')">✕ Reject</button></div>`:''}
-            </div>
+            ${(() => {
+              // PBP: approved in current round if status has moved past Pending PBP
+              const pbpCurDone = status !== 'Pending PBP' && status !== 'Cancelled';
+              const pbpCurAct  = status === 'Pending PBP';
+              const dotClass   = pbpCurDone ? 'done' : pbpCurAct ? 'active' : 'pending';
+              const dotContent = pbpCurDone ? '✓' : '2';
+              const meta       = pbpCurDone
+                ? (r[17]+' by '+r[18]+' on '+fd(r[19]))
+                : pbpCurAct ? 'Awaiting review' : 'Not yet reached';
+              const actBtns    = (isAdmin&&!ro&&pbpCurAct)
+                ? `<div class="action-row" style="margin-top:10px"><button class="btn btn-success btn-sm" onclick="promptApproval('${reqId}','Approved')">✓ Approve</button><button class="btn btn-danger btn-sm" onclick="promptApproval('${reqId}','Rejected')">✕ Reject</button></div>` : '';
+              return `<div class="step-dot ${dotClass}">${dotContent}</div>
+              <div class="step-info">
+                <div class="step-label">PBP Review${r[9]?' · '+r[9]:''}</div>
+                <div class="step-meta">${meta}</div>${actBtns}
+              </div>`;
+            })()}
           </div>
           <div class="timeline-step">
-            <div class="step-dot ${status==='Pending SMT'?'active':'pending'}">3</div>
-            <div class="step-info">
-              <div class="step-label">SMT or Delegate Review${r[8]?' · '+r[8]:''}</div>
-              <div class="step-meta">${status==='Pending SMT'?'Awaiting review':'Not yet reached'}</div>
-              ${isAdmin&&!ro&&status==='Pending SMT'?`<div class="action-row" style="margin-top:10px"><button class="btn btn-success btn-sm" onclick="promptApproval('${reqId}','Approved')">✓ Approve</button><button class="btn btn-danger btn-sm" onclick="promptApproval('${reqId}','Rejected')">✕ Reject</button></div>`:''}
-            </div>
-          </div>
+            ${(() => {
+              const smtCurDone = status === 'Approved' || status === 'Rejected';
+              const smtCurAct  = status === 'Pending SMT';
+              const dotClass   = smtCurDone ? (r[20]==='Approved'?'done':'rejected') : smtCurAct ? 'active' : 'pending';
+              const dotContent = smtCurDone ? (r[20]==='Approved'?'✓':'✕') : '3';
+              const meta       = smtCurDone
+                ? (r[20]+' by '+r[21]+' on '+fd(r[22]))
+                : smtCurAct ? 'Awaiting review' : 'Not yet reached';
+              const actBtns    = (isAdmin&&!ro&&smtCurAct)
+                ? `<div class="action-row" style="margin-top:10px"><button class="btn btn-success btn-sm" onclick="promptApproval('${reqId}','Approved')">✓ Approve</button><button class="btn btn-danger btn-sm" onclick="promptApproval('${reqId}','Rejected')">✕ Reject</button></div>` : '';
+              return `<div class="step-dot ${dotClass}">${dotContent}</div>
+              <div class="step-info">
+                <div class="step-label">SMT or Delegate Review${r[8]?' · '+r[8]:''}</div>
+                <div class="step-meta">${meta}</div>${actBtns}
+              </div>`;
+            })()}
         </div>
       </div>
     </div>` : `
@@ -1941,23 +1967,26 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
         ${adminActionSteps(reqId, isCW, r[23]||'', r[27]||'', r[28]||'')}
       </div>
     </div>`:''}
-    ${isAdmin&&!ro&&status==='Approved'&&r[27]==='With Compensation'?`
+    ${(r[27]||r[29]||r[30]||r[36])?`
     <div style="margin-top:12px;background:#FFF8F0;border:1px solid var(--orange);border-radius:10px;padding:16px;" id="compFieldsSection-${reqId}">
-      <div style="font-size:12px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Compensation Details</div>
+      <div style="font-size:12px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Compensation Details${r[27]?` <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--gray-dark)">· ${r[27]}</span>`:''}</div>
       <div class="form-grid" style="gap:10px">
-        <div class="form-group"><label style="font-size:11px">Job Level</label><input id="cf-level-${reqId}" value="${r[29]||''}"></div>
-        <div class="form-group"><label style="font-size:11px">Job Code</label><input id="cf-code-${reqId}" value="${r[30]||''}"></div>
-        <div class="form-group"><label style="font-size:11px">Job Profile</label><input id="cf-profile-${reqId}" value="${r[31]||''}"></div>
-        <div class="form-group"><label style="font-size:11px">Compensation Geo</label><input id="cf-geo-${reqId}" value="${r[32]||''}"></div>
-        <div class="form-group"><label style="font-size:11px">Bonus Target %</label><input id="cf-bonus-${reqId}" value="${r[33]||''}"></div>
-        <div class="form-group"><label style="font-size:11px">Annual Salary Range</label><input id="cf-salary-${reqId}" value="${r[34]||''}"></div>
-        <div class="form-group"><label style="font-size:11px">Hourly Range</label><input id="cf-hourly-${reqId}" value="${r[35]||''}"></div>
-        <div class="form-group full"><label style="font-size:11px">Compensation Notes</label><textarea id="cf-notes-${reqId}" style="min-height:60px">${r[36]||''}</textarea></div>
+        ${canSeeComp()&&!ro?`
+          <div class="form-group"><label style="font-size:11px">Job Level</label><input id="cf-level-${reqId}" value="${r[29]||''}"></div>
+          <div class="form-group"><label style="font-size:11px">Job Code</label><input id="cf-code-${reqId}" value="${r[30]||''}"></div>
+          <div class="form-group"><label style="font-size:11px">Job Profile</label><input id="cf-profile-${reqId}" value="${r[31]||''}"></div>
+          <div class="form-group"><label style="font-size:11px">Compensation Geo</label><input id="cf-geo-${reqId}" value="${r[32]||''}"></div>
+          <div class="form-group"><label style="font-size:11px">Bonus Target %</label><input id="cf-bonus-${reqId}" value="${r[33]||''}"></div>
+          <div class="form-group"><label style="font-size:11px">Annual Salary Range</label><input id="cf-salary-${reqId}" value="${r[34]||''}"></div>
+          <div class="form-group"><label style="font-size:11px">Hourly Range</label><input id="cf-hourly-${reqId}" value="${r[35]||''}"></div>
+          <div class="form-group full"><label style="font-size:11px">Compensation Notes</label><textarea id="cf-notes-${reqId}" style="min-height:60px">${r[36]||''}</textarea></div>
+        `: [['Job Level',r[29]],['Job Code',r[30]],['Job Profile',r[31]],['Comp Geo',r[32]],['Bonus Target',r[33]],['Salary Range',r[34]],['Hourly Range',r[35]]].filter(x=>x[1]).map(x=>`<div class="detail-item"><div class="label" style="font-size:11px">${x[0]}</div><div class="value" style="font-size:13px">${x[1]}</div></div>`).join('') + (r[36]?`<div class="detail-item full"><div class="label" style="font-size:11px">Notes</div><div class="value" style="font-size:13px;font-weight:400">${r[36]}</div></div>`:'')}
       </div>
+      ${canSeeComp()&&!ro?`
       <div style="margin-top:10px;display:flex;gap:8px;">
         <button class="btn btn-success btn-sm" onclick="saveCompFields('${reqId}', true)">✓ Save &amp; Done</button>
         <button class="btn btn-secondary btn-sm" onclick="saveCompFields('${reqId}', false)">Save for Later</button>
-      </div>
+      </div>`:''}
     </div>`:''}
     ${isAdmin&&!ro&&status!=='Cancelled'&&!isFinished?`
     <div id="modalCancelRow-${reqId}" style="margin-top:12px;border-top:1px solid var(--gray-mid);padding-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">

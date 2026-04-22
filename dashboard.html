@@ -592,7 +592,7 @@ async function getToken() {
   if (_token && Date.now() < _tokenExp - 60000) return _token;
   const now = Math.floor(Date.now() / 1000);
   const b64u = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-  const unsigned = b64u({alg:'RS256',typ:'JWT'}) + '.' + b64u({iss:SA_EMAIL,scope:'https://www.googleapis.com/auth/spreadsheets.readonly',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now});
+  const unsigned = b64u({alg:'RS256',typ:'JWT'}) + '.' + b64u({iss:SA_EMAIL,scope:'https://www.googleapis.com/auth/spreadsheets',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now});
   const keyData = SA_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
   const binaryKey = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
   const cryptoKey = await crypto.subtle.importKey('pkcs8', binaryKey, {name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'}, false, ['sign']);
@@ -611,6 +611,291 @@ async function fetchRange(sheet, range) {
   const r = await fetch(url, {headers:{Authorization:'Bearer '+token}});
   if (!r.ok) { const t = await r.text(); throw new Error(`${sheet}!${range}: ${r.status} ${t}`); }
   return (await r.json()).values || [];
+}
+
+// ============================================================
+// CONFIG SYSTEM
+// ============================================================
+const REQUESTS_SHEET_ID = '1YDCy3nR1WKukL-y-Xt4xBBhhNdq2amYlA0YYckCnSdM';
+const CONFIG_TAB = '[Config] Dashboard Mapping';
+const HR = SHEET_ID; // Headcount Report sheet — shorthand for config rows
+
+// Config tab columns A-P (0-based index):
+// 0=metricKey, 1=displayName, 2=spreadsheetId, 3=sheetTab, 4=range,
+// 5=filterCol, 6=filterValue, 7=filterCol2, 8=filterValue2,
+// 9=valueCol, 10=groupCol, 11=seriesCol, 12=operation, 13=dashboardTab,
+// 14=columnMapping(JSON), 15=notes
+
+const CONFIG_HEADER = ['Metric Key','Display Name','Spreadsheet ID','Sheet Tab','Range',
+  'Filter Col','Filter Value','Filter Col 2','Filter Value 2',
+  'Value Col','Group Col','Series Col','Operation','Dashboard Tab',
+  'Column Mapping (JSON)','Notes'];
+
+// Pre-populated defaults — each array matches CONFIG_HEADER columns
+const CONFIG_DEFAULTS = [
+  ['data-as-of',        'Data As Of Date',              HR, '[IMPORT] Workday Data',       'B1:B1',     '','','','', '','','', 'SINGLE_CELL',  'all',        '', 'Export timestamp from B1'],
+  ['hc-ee',             'EE Headcount by SMT',          HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', '','A','', 'LIST',         'employees',  '{"0":"SMT Leader","1":"Start HC","2":"Attrition","3":"Hires","4":"Current HC","5":"Fut Attrition","6":"Fut Hires","7":"Fut HC","8":"Open Reqs","9":"Proj HC","10":"Top Line","11":"Available","12":"Pend Reqs"}', 'EE rows A5:M13; A=name B=startHC C=attr D=hires E=currHC F=futAttr G=futHires H=futHC I=openReqs J=projHC K=topLine L=avail M=pendReqs'],
+  ['hc-cw',             'CW Headcount by SMT',          HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', '','A','', 'LIST',         'contingent', '{"0":"SMT Leader","1":"Start HC","2":"Attrition","3":"Hires","4":"Current HC","5":"Fut Attrition","6":"Fut Hires","7":"Fut HC","8":"Open Reqs","9":"Proj HC"}', 'CW rows A20:J28'],
+  ['hc-comb',           'HC Combined Totals',           HR, 'Headcount Summary by SMT',    'E14:H29',   '','','','', '','','', 'LIST',         'summary',    '', 'E14=EE curr total, H14=EE future, E29=CW curr, H29=CW future'],
+  ['hc-ee-loc',         'EE by Location',               HR, 'Headcount Summary by SMT',    'A38:C65',   '','','','', 'B','A','', 'GROUP_BY_SUM', 'employees',  '', 'A=location B=count'],
+  ['hc-cw-loc',         'CW by Location',               HR, 'Headcount Summary by SMT',    'E38:G80',   '','','','', 'B','A','', 'GROUP_BY_SUM', 'contingent', '', 'E(→A)=location F(→B)=count'],
+  ['gh-reqs',           'Open Reqs (Greenhouse)',        HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '','','', 'LIST',         'reqs',       '', 'Greenhouse open job detail export'],
+  ['wd-main',           'Workday Worker Data',          HR, '[IMPORT] Workday Data',       'A2:AK4500', '','','','', '','','', 'LIST',         'summary',    '', 'Full Workday export — verify column mapping against actual export'],
+  ['pa-hires-smt',      'Pending Hires by SMT',         HR, 'Pending Hires & Attrition',   'A5:D20',    '','','','', '','A','', 'LIST',         'pa',         '{"0":"SMT Leader","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Hires by SMT A5:D20'],
+  ['pa-hires-loc',      'Pending Hires by Location',    HR, 'Pending Hires & Attrition',   'F5:I20',    '','','','', '','A','', 'LIST',         'pa',         '{"0":"Location","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Hires by location F5:I20'],
+  ['pa-attrition-smt',  'Pending Attrition by SMT',     HR, 'Pending Hires & Attrition',   'A28:D45',   '','','','', '','A','', 'LIST',         'pa',         '{"0":"SMT Leader","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Attrition by SMT A28:D45'],
+  ['pa-attrition-loc',  'Pending Attrition by Location',HR, 'Pending Hires & Attrition',   'F28:I45',   '','','','', '','A','', 'LIST',         'pa',         '{"0":"Location","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Attrition by location F28:I45'],
+];
+
+// ── Operation definitions (used in dropdown + tooltips) ──────
+const OPERATION_DEFS = {
+  'COUNT_ROWS':     'Count all rows that match the filter(s)',
+  'SUM':            'Add up all values in Value Col for matching rows',
+  'COUNT_DISTINCT': 'Count unique values in Value Col for matching rows',
+  'GROUP_BY_COUNT': 'Group rows by Group Col; return count per group',
+  'GROUP_BY_SUM':   'Group rows by Group Col; sum Value Col per group',
+  'FILTER_COUNT':   'Count rows where two filter conditions are both true',
+  'PERCENTAGE':     'One metric as a % of another — put "numeratorKey/denominatorKey" in Value Col',
+  'DELTA':          'Subtract values across metrics — put comma-separated metric keys in Value Col',
+  'LIST':           'Return all matching rows for table rendering; use Column Mapping JSON',
+  'SINGLE_CELL':    'Return the exact value from the first cell of the fetched range',
+  'FIRST_VALUE':    'Return the value from Value Col in the first matching row',
+  'CROSS_TAB':      'Group by Group Col; sub-count or sub-sum by Series Col values',
+  'MULTI_SERIES':   'Merge multiple GROUP_BY operations on a shared dimension; define series in Column Mapping JSON',
+};
+
+// ── Config state ─────────────────────────────────────────────
+let _configRows = []; // parsed config rows as objects
+
+function parseConfigRow(raw) {
+  return {
+    metricKey:     (raw[0]  || '').toString().trim(),
+    displayName:   (raw[1]  || '').toString().trim(),
+    spreadsheetId: (raw[2]  || HR).toString().trim(),
+    sheetTab:      (raw[3]  || '').toString().trim(),
+    range:         (raw[4]  || '').toString().trim(),
+    filterCol:     (raw[5]  || '').toString().trim(),
+    filterValue:   (raw[6]  || '').toString().trim(),
+    filterCol2:    (raw[7]  || '').toString().trim(),
+    filterValue2:  (raw[8]  || '').toString().trim(),
+    valueCol:      (raw[9]  || '').toString().trim(),
+    groupCol:      (raw[10] || '').toString().trim(),
+    seriesCol:     (raw[11] || '').toString().trim(),
+    operation:     (raw[12] || 'LIST').toString().trim(),
+    dashboardTab:  (raw[13] || '').toString().trim(),
+    columnMapping: (raw[14] || '').toString().trim(),
+    notes:         (raw[15] || '').toString().trim(),
+  };
+}
+
+// ── Generic sheet access (any spreadsheet) ───────────────────
+async function fetchFromAnySheet(spreadsheetId, sheet, range) {
+  const token = await getToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("'"+sheet+"'!"+range)}`;
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!r.ok) throw new Error(`${sheet}!${range}: ${r.status}`);
+  return (await r.json()).values || [];
+}
+
+async function fetchFromRequestsSheet(sheet, range) {
+  return fetchFromAnySheet(REQUESTS_SHEET_ID, sheet, range);
+}
+
+async function writeToRequestsSheet(sheet, range, values) {
+  const token = await getToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${REQUESTS_SHEET_ID}/values/${encodeURIComponent("'"+sheet+"'!"+range)}?valueInputOption=USER_ENTERED`;
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values }),
+  });
+  if (!r.ok) throw new Error(`Write failed: ${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+async function clearRequestsSheetRange(sheet, range) {
+  const token = await getToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${REQUESTS_SHEET_ID}/values/${encodeURIComponent("'"+sheet+"'!"+range)}:clear`;
+  await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+}
+
+async function createConfigTabIfMissing() {
+  const token = await getToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${REQUESTS_SHEET_ID}:batchUpdate`;
+  await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: CONFIG_TAB } } }] }),
+  }).catch(() => {}); // Ignore if tab already exists
+}
+
+async function seedConfigTab() {
+  await createConfigTabIfMissing();
+  await writeToRequestsSheet(CONFIG_TAB, 'A1:P1', [CONFIG_HEADER]);
+  await writeToRequestsSheet(CONFIG_TAB, 'A2:P'+(CONFIG_DEFAULTS.length+1), CONFIG_DEFAULTS);
+}
+
+async function loadConfig() {
+  try {
+    const rows = await fetchFromRequestsSheet(CONFIG_TAB, 'A2:P200');
+    if (!rows || rows.length === 0) {
+      await seedConfigTab();
+      _configRows = CONFIG_DEFAULTS.map(parseConfigRow);
+    } else {
+      _configRows = rows.filter(r => r[0] && r[0].toString().trim()).map(parseConfigRow);
+    }
+  } catch(e) {
+    // Tab likely doesn't exist — seed it
+    try { await seedConfigTab(); } catch(e2) { console.warn('Could not seed config tab:', e2.message); }
+    _configRows = CONFIG_DEFAULTS.map(parseConfigRow);
+  }
+  return _configRows;
+}
+
+// ── Fetch plan builder (deduplicate by spreadsheetId+tab+range) ──
+function buildFetchPlan(configRows) {
+  const plan = {};
+  configRows.forEach(cfg => {
+    if (!cfg.sheetTab || !cfg.range) return;
+    if (cfg.operation === 'PERCENTAGE' || cfg.operation === 'DELTA') return; // computed post-fetch
+    const key = `${cfg.spreadsheetId}|||${cfg.sheetTab}|||${cfg.range}`;
+    plan[key] = { spreadsheetId: cfg.spreadsheetId, tab: cfg.sheetTab, range: cfg.range };
+  });
+  return plan;
+}
+
+async function executeFetches(plan) {
+  const results = {};
+  for (const key of Object.keys(plan)) {
+    const { spreadsheetId, tab, range } = plan[key];
+    try {
+      results[key] = await fetchFromAnySheet(spreadsheetId, tab, range);
+    } catch(e) {
+      console.warn(`Fetch failed [${tab}!${range}]:`, e.message);
+      results[key] = [];
+    }
+  }
+  return results;
+}
+
+function fetchKey(cfg) { return `${cfg.spreadsheetId}|||${cfg.sheetTab}|||${cfg.range}`; }
+
+function getRaw(metricKey, fetchResults) {
+  const cfg = _configRows.find(c => c.metricKey === metricKey);
+  if (!cfg) return [];
+  return fetchResults[fetchKey(cfg)] || [];
+}
+
+// ── Column index helper (letter or number → 0-based int) ─────
+function colIndex(spec) {
+  if (spec === null || spec === undefined || spec === '') return null;
+  const s = spec.toString().trim();
+  if (!isNaN(s)) return parseInt(s);
+  const upper = s.toUpperCase();
+  let idx = 0;
+  for (let i = 0; i < upper.length; i++) idx = idx * 26 + (upper.charCodeAt(i) - 64);
+  return idx - 1;
+}
+
+// ── Filter helpers ────────────────────────────────────────────
+function matchesFilter(row, colIdx, filterValue) {
+  if (colIdx === null || !filterValue) return true;
+  const cell = (row[colIdx] || '').toString().trim();
+  const fv   = filterValue.toString().trim();
+  if (fv.startsWith('>=')) { const v=fv.slice(2); return isNaN(v) ? cell>=v : parseFloat(cell)>=parseFloat(v); }
+  if (fv.startsWith('<=')) { const v=fv.slice(2); return isNaN(v) ? cell<=v : parseFloat(cell)<=parseFloat(v); }
+  if (fv.startsWith('>'))  return parseFloat(cell) >  parseFloat(fv.slice(1));
+  if (fv.startsWith('<'))  return parseFloat(cell) <  parseFloat(fv.slice(1));
+  if (fv.startsWith('~'))  return cell.toLowerCase().includes(fv.slice(1).toLowerCase());
+  return cell.toLowerCase() === fv.toLowerCase();
+}
+
+function applyFilters(rows, cfg) {
+  const fc1 = colIndex(cfg.filterCol), fc2 = colIndex(cfg.filterCol2);
+  return rows.filter(r => matchesFilter(r, fc1, cfg.filterValue) && matchesFilter(r, fc2, cfg.filterValue2));
+}
+
+// ── Operation executor ────────────────────────────────────────
+function applyOperation(cfg, rows) {
+  const filtered = applyFilters(rows, cfg);
+  const vc = colIndex(cfg.valueCol);
+  const gc = colIndex(cfg.groupCol);
+  const sc = colIndex(cfg.seriesCol);
+
+  switch (cfg.operation) {
+    case 'COUNT_ROWS':
+    case 'FILTER_COUNT':
+      return filtered.length;
+
+    case 'SUM':
+      return filtered.reduce((s, r) => s + (parseFloat(r[vc]) || 0), 0);
+
+    case 'COUNT_DISTINCT':
+      return new Set(filtered.map(r => r[vc]).filter(Boolean)).size;
+
+    case 'GROUP_BY_COUNT': {
+      const acc = {};
+      filtered.forEach(r => { const k = r[gc]||'(Unassigned)'; acc[k]=(acc[k]||0)+1; });
+      return acc;
+    }
+
+    case 'GROUP_BY_SUM': {
+      const acc = {};
+      filtered.forEach(r => { const k = r[gc]||'(Unassigned)'; acc[k]=(acc[k]||0)+(parseFloat(r[vc])||0); });
+      return acc;
+    }
+
+    case 'FIRST_VALUE':
+      return filtered.length ? (filtered[0][vc] || '') : '';
+
+    case 'SINGLE_CELL':
+      return rows[0]?.[0] ?? '';
+
+    case 'LIST': {
+      let mapping = null;
+      try { mapping = cfg.columnMapping ? JSON.parse(cfg.columnMapping) : null; } catch(e){}
+      return { rows: filtered, columnMapping: mapping };
+    }
+
+    case 'CROSS_TAB': {
+      let mapCfg = {};
+      try { mapCfg = cfg.columnMapping ? JSON.parse(cfg.columnMapping) : {}; } catch(e){}
+      const cgc = gc !== null ? gc : colIndex(mapCfg.groupCol);
+      const csc = sc !== null ? sc : colIndex(mapCfg.seriesCol);
+      const cvc = vc !== null ? vc : colIndex(mapCfg.valueCol);
+      const data = {}, series = new Set();
+      filtered.forEach(r => {
+        const g = r[cgc]||'(Unassigned)', s = r[csc]||'Other';
+        series.add(s);
+        if (!data[g]) data[g] = {};
+        data[g][s] = (data[g][s]||0) + (cvc !== null ? (parseFloat(r[cvc])||0) : 1);
+      });
+      return { data, series: [...series] };
+    }
+
+    case 'MULTI_SERIES': {
+      let seriesDefs = [];
+      try { seriesDefs = JSON.parse(cfg.columnMapping) || []; } catch(e){}
+      const result = {};
+      seriesDefs.forEach(sd => {
+        const sfc = colIndex(sd.filterCol), svc = colIndex(sd.valueCol);
+        filtered.filter(r => matchesFilter(r, sfc, sd.filterValue)).forEach(r => {
+          const g = r[gc]||'(Unassigned)';
+          if (!result[g]) result[g] = {};
+          result[g][sd.seriesName] = (result[g][sd.seriesName]||0) + (svc !== null ? (parseFloat(r[svc])||0) : 1);
+        });
+      });
+      return result;
+    }
+
+    // PERCENTAGE and DELTA are computed post-execution — return null placeholder
+    case 'PERCENTAGE':
+    case 'DELTA':
+      return null;
+
+    default:
+      return filtered;
+  }
 }
 
 // ============================================================
@@ -666,44 +951,72 @@ function tsNow() {
 let D = {}; // all parsed data
 
 // ============================================================
-// LOAD ALL DATA
+// LOAD ALL DATA  (config-driven)
 // ============================================================
 async function loadAllData() {
-  setLoading(true, 'Connecting to Google Sheets…');
+  setLoading(true, 'Loading configuration…');
   document.getElementById('errorBanner').classList.remove('visible');
   try {
-    setLoading(true, 'Loading Headcount Summary…');
-    const hcRaw    = await fetchRange('Headcount Summary by SMT', 'A5:M13');
-    const cwRaw    = await fetchRange('Headcount Summary by SMT', 'A20:J28');
-    const combRaw  = await fetchRange('Headcount Summary by SMT', 'E14:H29'); // E14=EE curr total, H14=EE future total, E29=CW curr total, H29=CW future total
-    const eeLocRaw = await fetchRange('Headcount Summary by SMT', 'A38:C65');
-    const cwLocRaw = await fetchRange('Headcount Summary by SMT', 'E38:G80');
+    // 1. Read config from Requests sheet (seeds defaults on first run)
+    await loadConfig();
 
-    setLoading(true, 'Loading Open Requisitions…');
-    const ghRaw = await fetchRange('[IMPORT] GH Open Job Detail', 'A4:AN2000');
-    const wdDateRaw = await fetchRange('[IMPORT] Workday Data', 'B1:B1');
-    const wdRaw = await fetchRange('[IMPORT] Workday Data', 'A2:AK4500');
+    // 2. Build deduplicated fetch plan
+    const plan = buildFetchPlan(_configRows);
 
-    setLoading(true, 'Loading Pending Hires & Attrition…');
-    const hiresSMTRaw = await fetchRange('Pending Hires & Attrition', 'A5:D20');
-    const hiresLocRaw = await fetchRange('Pending Hires & Attrition', 'F5:I20');
-    const attrSMTRaw  = await fetchRange('Pending Hires & Attrition', 'A28:D45');
-    const attrLocRaw  = await fetchRange('Pending Hires & Attrition', 'F28:I45');
+    // 3. Execute all unique fetches
+    setLoading(true, 'Fetching data sources…');
+    const fetchResults = await executeFetches(plan);
 
-    parseHC(hcRaw, cwRaw, combRaw, eeLocRaw, cwLocRaw);
-    parseGH(ghRaw);
-    parseWorkday(wdRaw);
-    parsePA(hiresSMTRaw, hiresLocRaw, attrSMTRaw, attrLocRaw);
+    // 4. Apply operations — store results in D keyed by metricKey
+    _configRows.forEach(cfg => {
+      if (cfg.operation === 'PERCENTAGE' || cfg.operation === 'DELTA') return;
+      const raw = fetchResults[fetchKey(cfg)] || [];
+      D[cfg.metricKey] = applyOperation(cfg, raw);
+    });
+
+    // 5. Compute DELTA metrics (subtract values from other D entries)
+    _configRows.filter(c => c.operation === 'DELTA').forEach(cfg => {
+      const keys = cfg.valueCol.split(',').map(s => s.trim());
+      let val = typeof D[keys[0]] === 'number' ? D[keys[0]] : 0;
+      for (let i = 1; i < keys.length; i++) val -= typeof D[keys[i]] === 'number' ? D[keys[i]] : 0;
+      D[cfg.metricKey] = val;
+    });
+
+    // 6. Compute PERCENTAGE metrics
+    _configRows.filter(c => c.operation === 'PERCENTAGE').forEach(cfg => {
+      const [numKey, denKey] = cfg.valueCol.split('/').map(s => s.trim());
+      const num = typeof D[numKey] === 'number' ? D[numKey] : 0;
+      const den = typeof D[denKey] === 'number' ? D[denKey] : 0;
+      D[cfg.metricKey] = den > 0 ? (num / den * 100).toFixed(1) + '%' : '—';
+    });
+
+    // 7. Pass raw arrays to existing parse functions via getRaw()
+    setLoading(true, 'Processing data…');
+    parseHC(
+      getRaw('hc-ee',          fetchResults),
+      getRaw('hc-cw',          fetchResults),
+      getRaw('hc-comb',        fetchResults),
+      getRaw('hc-ee-loc',      fetchResults),
+      getRaw('hc-cw-loc',      fetchResults)
+    );
+    parseGH(getRaw('gh-reqs',  fetchResults));
+    parseWorkday(getRaw('wd-main', fetchResults));
+    parsePA(
+      getRaw('pa-hires-smt',     fetchResults),
+      getRaw('pa-hires-loc',     fetchResults),
+      getRaw('pa-attrition-smt', fetchResults),
+      getRaw('pa-attrition-loc', fetchResults)
+    );
 
     renderAll();
 
-    // "Data as of" date comes from B1 of the Workday import tab
-    const workdayDateRaw = (wdDateRaw[0] && wdDateRaw[0][0]) ? wdDateRaw[0][0] : '';
-    const dataAsOf = workdayDateRaw ? ('Data as of ' + workdayDateRaw) : '';
+    // 8. Update "Data as of" banners
+    const dataAsOf = D['data-as-of'] ? 'Data as of ' + D['data-as-of'] : '';
     ['summaryUpdated','eeUpdated','cwUpdated','reqsUpdated','paUpdated'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = dataAsOf;
     });
+
   } catch(err) {
     showError('Failed to load data: ' + err.message);
     console.error(err);
@@ -1466,22 +1779,10 @@ function switchTab(id, btn) {
 }
 
 // ============================================================
-// DATA MAPPING TAB
+// DATA MAPPING TAB — sheet-backed config UI
 // ============================================================
-// The Headcount Requests spreadsheet — used to check the People tab for security groups.
-// The dashboard service account must have read access to this sheet.
-const REQUESTS_SHEET_ID = '1YDCy3nR1WKukL-y-Xt4xBBhhNdq2amYlA0YYckCnSdM';
-
-async function fetchFromRequestsSheet(sheet, range) {
-  const token = await getToken();
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${REQUESTS_SHEET_ID}/values/${encodeURIComponent("'"+sheet+"'!"+range)}`;
-  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-  if (!r.ok) throw new Error(`${sheet}!${range}: ${r.status}`);
-  return (await r.json()).values || [];
-}
 
 // Returns true if the signed-in user has 'master_admin' in the People sheet
-// of the Headcount Requests app. Falls back to false on any error.
 async function checkIsMasterAdmin() {
   try {
     const u = crGetUser();
@@ -1490,35 +1791,8 @@ async function checkIsMasterAdmin() {
     const email = u.email.toLowerCase();
     const match = rows.find(r => r[1] && r[1].toLowerCase() === email);
     if (!match) return false;
-    const groups = (match[4] || '').split(',').map(s => s.trim().toLowerCase());
-    return groups.includes('master_admin');
-  } catch(e) {
-    console.warn('Could not verify admin status from People sheet:', e.message);
-    return false;
-  }
-}
-
-const MAPPING_DEFAULTS = [
-  { metric:'Total Employees',          source:'[IMPORT] Workday Data',         logic:'Count of active EE workers (worker type = Employee)',                                         tab:'Headcount Summary' },
-  { metric:'Total Contingent Workers', source:'[IMPORT] Workday Data',         logic:'Count of active CW workers (worker type = Contingent)',                                      tab:'Headcount Summary' },
-  { metric:'Hires Since April 1',      source:'[IMPORT] Workday Data',         logic:'Workers with hire date ≥ April 1 of current fiscal year',                                    tab:'Headcount Summary' },
-  { metric:'Attrition Since April 1',  source:'[IMPORT] Workday Data',         logic:'Workers with termination date ≥ April 1 of current fiscal year',                            tab:'Headcount Summary' },
-  { metric:'Future Attrition',         source:'Pending Hires & Attrition',     logic:'Workers with a future-dated termination (pending departures)',                              tab:'Headcount Summary' },
-  { metric:'Top Line Target',          source:'Headcount Summary by SMT',      logic:'Column K in the Headcount Summary by SMT tab (manually set)',                                tab:'Headcount Summary' },
-  { metric:'Headroom / Available',     source:'Headcount Summary by SMT',      logic:'Top Line − Current HC − Pending Hires',                                                     tab:'Headcount Summary' },
-  { metric:'Open Reqs (GH)',           source:'[IMPORT] GH Open Job Detail',   logic:'All rows in Greenhouse open job detail export (A4:AN)',                                     tab:'Open & Pending Reqs' },
-  { metric:'EE by SMT table',          source:'Headcount Summary by SMT',      logic:'Rows A5:M13 — each row is one SMT, columns are start HC, attrition, hires, current, etc.', tab:'Employees' },
-  { metric:'CW by SMT table',          source:'Headcount Summary by SMT',      logic:'Rows A20:J28 — same structure as EE section',                                               tab:'Contingent Workers' },
-  { metric:'EE location bars',         source:'Headcount Summary by SMT',      logic:'Rows A38:C65 — col A=location, col B=count',                                                tab:'Employees' },
-  { metric:'CW location bars',         source:'Headcount Summary by SMT',      logic:'Rows E38:G80 — col E=location, col F=count',                                                tab:'Contingent Workers' },
-  { metric:'Pending Hires table',      source:'Pending Hires & Attrition',     logic:'Rows A5:D20 (by SMT) and F5:I20 (by location)',                                            tab:'Pending Hires & Attrition' },
-  { metric:'Pending Attrition',        source:'Pending Hires & Attrition',     logic:'Rows A28:D45 (by SMT) and F28:I45 (by location)',                                          tab:'Pending Hires & Attrition' },
-  { metric:'Data as of date',          source:'[IMPORT] Workday Data',         logic:'Cell B1 — the export timestamp set when the Workday data was last refreshed',               tab:'All tabs' },
-];
-
-function getMappingRows() {
-  try { return JSON.parse(localStorage.getItem('crDashboardMappingRows') || 'null') || MAPPING_DEFAULTS.map(r=>({...r, notes:''})); }
-  catch(e) { return MAPPING_DEFAULTS.map(r=>({...r, notes:''})); }
+    return (match[4] || '').split(',').map(s => s.trim().toLowerCase()).includes('master_admin');
+  } catch(e) { return false; }
 }
 
 let _mappingEditMode = false;
@@ -1526,43 +1800,77 @@ let _mappingEditMode = false;
 function renderDataMapping() {
   const el = document.getElementById('mappingTable');
   if (!el) return;
-  const rows = getMappingRows();
+  const rows = _configRows;
+  const ops  = Object.keys(OPERATION_DEFS);
 
   if (_mappingEditMode) {
     el.innerHTML = `
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>Metric / KPI</th><th>Source Tab</th><th>Logic / Calculation</th><th>Dashboard Tab</th><th>Notes</th><th style="width:40px"></th>
+      <div style="overflow-x:auto">
+        <table style="min-width:1400px;font-size:12px">
+          <thead><tr style="font-size:11px">
+            <th>Metric Key</th><th>Display Name</th><th>Spreadsheet ID</th><th>Sheet Tab</th><th>Range</th>
+            <th title="Column letter or 0-based index">Filter Col</th><th>Filter Value</th>
+            <th title="Column letter or 0-based index">Filter Col 2</th><th>Filter Value 2</th>
+            <th title="Column to sum, count, or return">Value Col</th>
+            <th title="Column to group rows by">Group Col</th>
+            <th title="Second grouping dimension (CROSS_TAB, MULTI_SERIES)">Series Col</th>
+            <th>Operation</th><th>Dashboard Tab</th>
+            <th title="JSON object mapping column index to display name, or series definitions for MULTI_SERIES">Column Mapping (JSON)</th>
+            <th>Notes</th><th></th>
           </tr></thead>
-          <tbody id="mappingTbody">
-            ${rows.map((row, i) => `<tr id="mrow-${i}">
-              <td><input class="map-input" data-i="${i}" data-f="metric" value="${row.metric||''}"></td>
-              <td><input class="map-input" data-i="${i}" data-f="source" value="${row.source||''}"></td>
-              <td><textarea class="map-input" data-i="${i}" data-f="logic" style="min-height:48px;resize:vertical">${row.logic||''}</textarea></td>
-              <td><input class="map-input" data-i="${i}" data-f="tab" value="${row.tab||''}"></td>
-              <td><textarea class="map-input" data-i="${i}" data-f="notes" style="min-height:48px;resize:vertical">${row.notes||''}</textarea></td>
-              <td><button onclick="deleteMappingRow(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px" title="Delete row">✕</button></td>
+          <tbody>
+            ${rows.map((row, i) => `<tr>
+              <td><input class="map-input" style="width:110px" data-i="${i}" data-f="metricKey"     value="${esc(row.metricKey)}"></td>
+              <td><input class="map-input" style="width:130px" data-i="${i}" data-f="displayName"   value="${esc(row.displayName)}"></td>
+              <td><input class="map-input" style="width:110px;font-size:10px" data-i="${i}" data-f="spreadsheetId" value="${esc(row.spreadsheetId)}"></td>
+              <td><input class="map-input" style="width:150px" data-i="${i}" data-f="sheetTab"      value="${esc(row.sheetTab)}"></td>
+              <td><input class="map-input" style="width:80px;font-family:monospace" data-i="${i}" data-f="range" value="${esc(row.range)}"></td>
+              <td><input class="map-input" style="width:44px;text-align:center" data-i="${i}" data-f="filterCol"   value="${esc(row.filterCol)}"></td>
+              <td><input class="map-input" style="width:90px" data-i="${i}" data-f="filterValue"   value="${esc(row.filterValue)}"></td>
+              <td><input class="map-input" style="width:44px;text-align:center" data-i="${i}" data-f="filterCol2"  value="${esc(row.filterCol2)}"></td>
+              <td><input class="map-input" style="width:90px" data-i="${i}" data-f="filterValue2"  value="${esc(row.filterValue2)}"></td>
+              <td><input class="map-input" style="width:44px;text-align:center" data-i="${i}" data-f="valueCol"    value="${esc(row.valueCol)}"></td>
+              <td><input class="map-input" style="width:44px;text-align:center" data-i="${i}" data-f="groupCol"    value="${esc(row.groupCol)}"></td>
+              <td><input class="map-input" style="width:44px;text-align:center" data-i="${i}" data-f="seriesCol"   value="${esc(row.seriesCol)}"></td>
+              <td>
+                <select class="map-input" data-i="${i}" data-f="operation" title="${esc(OPERATION_DEFS[row.operation]||'')}">
+                  ${ops.map(op=>`<option value="${op}"${op===row.operation?' selected':''}>${op}</option>`).join('')}
+                </select>
+              </td>
+              <td><input class="map-input" style="width:80px" data-i="${i}" data-f="dashboardTab"  value="${esc(row.dashboardTab)}"></td>
+              <td><textarea class="map-input" data-i="${i}" data-f="columnMapping" style="width:130px;min-height:48px;font-size:10px;font-family:monospace;resize:vertical">${row.columnMapping||''}</textarea></td>
+              <td><textarea class="map-input" data-i="${i}" data-f="notes" style="width:120px;min-height:48px;resize:vertical">${row.notes||''}</textarea></td>
+              <td><button onclick="deleteMappingRow(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:0" title="Delete row">✕</button></td>
             </tr>`).join('')}
           </tbody>
         </table>
       </div>
-      <button onclick="addMappingRow()" class="btn btn-secondary" style="margin-top:10px;font-size:12px">+ Add Row</button>`;
-    document.querySelectorAll('.map-input').forEach(el => el.addEventListener('input', () => {}));
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+        <button onclick="addMappingRow()" class="btn btn-secondary" style="font-size:12px">+ Add Row</button>
+        <div style="font-size:11px;color:var(--gray-dark);max-width:700px">
+          <strong>Operations:</strong>
+          ${ops.map(op=>`<span title="${OPERATION_DEFS[op]}" style="display:inline-block;margin:2px 6px 2px 0;cursor:help;text-decoration:underline dotted;color:var(--orange)">${op}</span>`).join('')}
+        </div>
+      </div>`;
   } else {
     el.innerHTML = `
-      <div class="table-wrap">
-        <table>
+      <div style="overflow-x:auto">
+        <table style="min-width:800px">
           <thead><tr>
-            <th>Metric / KPI</th><th>Source Tab</th><th>Logic / Calculation</th><th>Dashboard Tab</th><th>Notes</th>
+            <th>Metric Key</th><th>Display Name</th><th>Spreadsheet ID</th><th>Source Tab</th>
+            <th>Range</th><th>Operation</th><th>Filter</th><th>Dashboard Tab</th><th>Notes</th>
           </tr></thead>
           <tbody>
             ${rows.map(row => `<tr>
-              <td style="font-weight:600">${row.metric||''}</td>
-              <td><span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace">${row.source||''}</span></td>
-              <td style="font-size:12px;color:var(--gray-dark)">${row.logic||''}</td>
-              <td style="font-size:12px">${row.tab||''}</td>
-              <td style="font-size:12px;color:var(--gray-dark)">${row.notes||'<em style="color:#bbb">—</em>'}</td>
+              <td style="font-family:monospace;font-size:11px;color:var(--gray-dark)">${row.metricKey}</td>
+              <td style="font-weight:600">${row.displayName}</td>
+              <td style="font-family:monospace;font-size:10px;color:var(--gray-dark)" title="${row.spreadsheetId}">${row.spreadsheetId===HR?'<em style="color:#aaa">Headcount Report</em>':row.spreadsheetId.slice(0,12)+'…'}</td>
+              <td><span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace">${row.sheetTab}</span></td>
+              <td style="font-family:monospace;font-size:11px">${row.range}</td>
+              <td><span style="background:#FFF0E8;color:var(--orange);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700" title="${OPERATION_DEFS[row.operation]||''}">${row.operation}</span></td>
+              <td style="font-size:11px;color:var(--gray-dark)">${row.filterCol?`Col ${row.filterCol} = "${row.filterValue}"${row.filterCol2?' &amp; Col '+row.filterCol2+'="'+row.filterValue2+'"':''}':''}</td>
+              <td style="font-size:11px">${row.dashboardTab}</td>
+              <td style="font-size:11px;color:var(--gray-dark)">${row.notes||'<em style="color:#ccc">—</em>'}</td>
             </tr>`).join('')}
           </tbody>
         </table>
@@ -1571,31 +1879,21 @@ function renderDataMapping() {
 }
 
 function addMappingRow() {
-  const rows = getMappingRows();
-  rows.push({ metric:'', source:'', logic:'', tab:'', notes:'' });
-  localStorage.setItem('crDashboardMappingRows', JSON.stringify(rows));
+  _configRows.push({ metricKey:'', displayName:'', spreadsheetId:HR, sheetTab:'', range:'',
+    filterCol:'', filterValue:'', filterCol2:'', filterValue2:'',
+    valueCol:'', groupCol:'', seriesCol:'', operation:'LIST',
+    dashboardTab:'', columnMapping:'', notes:'' });
   renderDataMapping();
 }
 
 function deleteMappingRow(i) {
-  const rows = getMappingRows();
-  rows.splice(i, 1);
-  localStorage.setItem('crDashboardMappingRows', JSON.stringify(rows));
+  _configRows.splice(i, 1);
   renderDataMapping();
-}
-
-function collectMappingEdits() {
-  const rows = getMappingRows();
-  document.querySelectorAll('.map-input').forEach(el => {
-    const i = parseInt(el.dataset.i), f = el.dataset.f;
-    if (!isNaN(i) && f && rows[i]) rows[i][f] = el.value;
-  });
-  return rows;
 }
 
 function toggleMappingEdit() {
   if (_mappingEditMode) {
-    // Cancel — discard unsaved edits
+    // Cancel — reload from _configRows (discards unsaved input)
     _mappingEditMode = false;
     document.getElementById('mappingEditBtn').textContent = '✏️ Edit Mapping';
     document.getElementById('mappingEditBanner').style.display = 'none';
@@ -1608,13 +1906,36 @@ function toggleMappingEdit() {
   }
 }
 
-function saveMappingNotes() {
-  const rows = collectMappingEdits();
-  localStorage.setItem('crDashboardMappingRows', JSON.stringify(rows));
-  _mappingEditMode = false;
-  document.getElementById('mappingEditBtn').textContent = '✏️ Edit Mapping';
-  document.getElementById('mappingEditBanner').style.display = 'none';
-  renderDataMapping();
+async function saveMappingNotes() {
+  // Collect all edits from form inputs into _configRows
+  document.querySelectorAll('.map-input').forEach(el => {
+    const i = parseInt(el.dataset.i), f = el.dataset.f;
+    if (!isNaN(i) && f && _configRows[i]) _configRows[i] = { ..._configRows[i], [f]: el.value };
+  });
+
+  const dataRows = _configRows.map(r => [
+    r.metricKey, r.displayName, r.spreadsheetId, r.sheetTab, r.range,
+    r.filterCol, r.filterValue, r.filterCol2, r.filterValue2,
+    r.valueCol, r.groupCol, r.seriesCol, r.operation, r.dashboardTab,
+    r.columnMapping, r.notes,
+  ]);
+
+  try {
+    // Write header then data, clearing any old rows first
+    await clearRequestsSheetRange(CONFIG_TAB, 'A1:P500');
+    await writeToRequestsSheet(CONFIG_TAB, 'A1:P1', [CONFIG_HEADER]);
+    await writeToRequestsSheet(CONFIG_TAB, 'A2:P'+(dataRows.length+1), dataRows);
+
+    _mappingEditMode = false;
+    document.getElementById('mappingEditBtn').textContent = '✏️ Edit Mapping';
+    document.getElementById('mappingEditBanner').style.display = 'none';
+    renderDataMapping();
+    // Notify that changes need a refresh to take effect on data
+    const banner = document.getElementById('errorBanner');
+    if (banner) { banner.textContent = '✓ Mapping saved. Click Refresh to reload data from new sources.'; banner.classList.add('visible'); banner.style.background='var(--green)';banner.style.color='white'; setTimeout(()=>{banner.classList.remove('visible');banner.style.background='';banner.style.color='';},5000); }
+  } catch(e) {
+    alert('Error saving mapping: ' + e.message);
+  }
 }
 
 // ============================================================
