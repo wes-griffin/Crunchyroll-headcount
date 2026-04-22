@@ -274,6 +274,33 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
 </div>
 
+<!-- ADMIN COMMENT MODAL -->
+<div class="modal-overlay" id="adminCommentOverlay" onclick="adminCommentOutside(event)">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-hdr">
+      <div>
+        <h3 id="adminCommentTitle">Confirm Action</h3>
+        <div class="sub" id="adminCommentSub"></div>
+      </div>
+      <button class="modal-close" onclick="closeAdminComment()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--gray-dark);margin-bottom:14px;line-height:1.5">
+        Please add a note explaining this action. This will be saved to the request's comment history.
+      </p>
+      <div class="form-group">
+        <label for="adminCommentText">Comment <span class="req">*</span></label>
+        <textarea id="adminCommentText" placeholder="e.g. Sent to recruiting team — req posted in Greenhouse…" style="min-height:100px"></textarea>
+        <span id="adminCommentErr" style="font-size:11px;color:var(--red);display:none">A comment is required to proceed.</span>
+      </div>
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn btn-primary" id="adminCommentConfirmBtn" onclick="confirmAdminStatus()">Confirm</button>
+        <button class="btn btn-secondary" onclick="closeAdminComment()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- HEADER -->
 <div class="header">
   <div class="logo-area">
@@ -1177,9 +1204,9 @@ function renderAdminEE() {
         let actionBtns = '';
         if (!ro && approved) {
           if (!adminSt || adminSt==='') {
-            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Recruiting')">Send to Recruiting</button>`;
+            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Recruiting','Send to Recruiting')">Send to Recruiting</button>`;
           } else if (adminSt==='Recruiting') {
-            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Hired')">Mark as Hired</button>`;
+            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Hired','Mark as Hired')">Mark as Hired</button>`;
           } else if (adminSt==='Hired') {
             actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Hired</span>`;
           }
@@ -1232,9 +1259,9 @@ function renderAdminCW() {
         let actionBtns = '';
         if (!ro && approved) {
           if (!adminSt || adminSt==='') {
-            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Recruiting')">Send to Recruiting</button>`;
+            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Recruiting','Send to Recruiting')">Send to Recruiting</button>`;
           } else if (adminSt==='Recruiting') {
-            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Engaged')">Mark as Engaged</button>`;
+            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Engaged','Mark as Engaged')">Mark as Engaged</button>`;
           } else if (adminSt==='Engaged') {
             actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Engaged</span>`;
           }
@@ -1258,16 +1285,65 @@ function renderAdminCW() {
     : `<tr><td colspan="9"><div class="empty-state"><div class="icon">🔄</div><p>No CW requests found.</p></div></td></tr>`;
 }
 
-async function setAdminStatus(reqId, status) {
-  const idx=allRequests.findIndex(r=>r[0]===reqId); if(idx<0)return;
+// ============================================================
+// ADMIN STATUS — comment-gated advancement
+// ============================================================
+let _pendingAdminReqId  = null;
+let _pendingAdminStatus = null;
+let _pendingAdminLabel  = null;
+
+function promptAdminStatus(reqId, status, label) {
+  _pendingAdminReqId  = reqId;
+  _pendingAdminStatus = status;
+  _pendingAdminLabel  = label;
+
+  const r = allRequests.find(x => x[0] === reqId);
+  document.getElementById('adminCommentTitle').textContent = label;
+  document.getElementById('adminCommentSub').textContent   = r ? (r[5] || reqId) : reqId;
+  document.getElementById('adminCommentText').value        = '';
+  document.getElementById('adminCommentErr').style.display = 'none';
+  document.getElementById('adminCommentOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('adminCommentText').focus(), 120);
+}
+
+function closeAdminComment() {
+  document.getElementById('adminCommentOverlay').classList.remove('open');
+  _pendingAdminReqId = _pendingAdminStatus = _pendingAdminLabel = null;
+}
+
+function adminCommentOutside(e) {
+  if (e.target === document.getElementById('adminCommentOverlay')) closeAdminComment();
+}
+
+async function confirmAdminStatus() {
+  const comment = document.getElementById('adminCommentText').value.trim();
+  if (!comment) {
+    document.getElementById('adminCommentErr').style.display = 'block';
+    document.getElementById('adminCommentText').focus();
+    return;
+  }
+  const reqId  = _pendingAdminReqId;
+  const status = _pendingAdminStatus;
+  closeAdminComment();
+  await setAdminStatus(reqId, status, comment);
+}
+
+async function setAdminStatus(reqId, status, comment) {
+  const idx = allRequests.findIndex(r => r[0] === reqId); if (idx < 0) return;
+  const eu  = effectiveUser();
+  const now = new Date().toISOString();
   try {
-    await apiUpdate(T.requests+'!X'+(idx+2),[[status]]);
-    allRequests[idx][23]=status;
-    toast('Marked as '+status,'success');
-    // Refresh action steps pipeline in-place
+    await apiUpdate(T.requests+'!X'+(idx+2), [[status]]);
+    allRequests[idx][23] = status;
+    // Always write comment to Comments sheet (comment is required via UI)
+    if (comment) {
+      await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Admin', comment]]);
+    }
+    toast('Marked as '+status, 'success');
+    // Refresh action steps pipeline in-place if modal is open
     const actionsRow = document.getElementById('adminActionsRow-'+reqId);
     if (actionsRow) {
-      const isCW = allRequests[idx][4]==='CW';
+      const isCW = allRequests[idx][4] === 'CW';
       actionsRow.innerHTML = adminActionSteps(reqId, isCW, status);
     }
     // Refresh admin status detail cell in-place
@@ -1277,7 +1353,7 @@ async function setAdminStatus(reqId, status) {
       adminCell.innerHTML = `<div class="label">Admin Status</div><div class="value"><span class="tag ${tagMap[status]||'tag-pending'}">${status}</span></div>`;
     }
     renderAdminEE(); renderAdminCW();
-  } catch(e){toast('Error: '+e.message,'error');}
+  } catch(e) { toast('Error: '+e.message, 'error'); }
 }
 
 async function cancelReq(reqId) {
@@ -1333,7 +1409,7 @@ function adminActionSteps(reqId, isCW, adminSt) {
     } else if (isNext) {
       dotStyle   = `background:var(--orange);color:white`;
       labelStyle = `color:var(--orange);font-weight:700`;
-      btn = `<button class="btn btn-sm btn-primary" style="margin-top:6px" onclick="setAdminStatus('${reqId}','${step.key}')">${step.label}</button>`;
+      btn = `<button class="btn btn-sm btn-primary" style="margin-top:6px" onclick="promptAdminStatus('${reqId}','${step.key}','${step.label}')">${step.label}</button>`;
     } else {
       dotStyle   = `background:var(--gray-mid);color:var(--gray-dark)`;
       labelStyle = `color:var(--gray-dark)`;
