@@ -1100,7 +1100,7 @@ function renderReviewTable() {
   const statF = document.getElementById('revStatusF')?.value||'pending';
 
   const myPBPRow          = peopleData.find(r=>r[1]&&r[1].toLowerCase()===eu.email.toLowerCase()&&r[2]==='Y');
-  const myPBPName         = myPBPRow ? myPBPRow[0] : null;
+  const myPBPName         = (myPBPRow ? myPBPRow[0] : null) || (eu.isPBP ? eu.name : null);
   const myPBPCostCenters  = myPBPName ? matrixData.filter(r=>r[1]===myPBPName).map(r=>r[0]) : [];
   const mySMTName         = eu.isSMT ? eu.name : null;
   const isAdmin           = hasGroup('master_admin')||hasGroup('admin_ee')||hasGroup('admin_cw');
@@ -1118,14 +1118,7 @@ function renderReviewTable() {
     if (typeF && r[4]!==typeF) return false;
     const s = r[16]||'';
 
-    // Admins see everything, filtered by status selector
-    if (isAdmin) {
-      if (statF==='pending') return s.includes('Pending');
-      if (statF) return s===statF;
-      return true;
-    }
-
-    // Non-admins: only see requests they submitted OR acted on OR currently pending for them
+    // Only show requests pending for this user, acted on by them, or submitted by them
     const isPendingForMe =
       (eu.isPBP && s==='Pending PBP' && inMyPBPScope(r)) ||
       (eu.isSMT && s==='Pending SMT' && inMySMTScope(r));
@@ -1141,7 +1134,6 @@ function renderReviewTable() {
   // KPIs — awaiting MY action specifically
   const awaitingCount = allRequests.filter(r=>{
     const s=r[16]||'';
-    if (isAdmin) return s.includes('Pending');
     if (eu.isPBP&&s==='Pending PBP') return inMyPBPScope(r);
     if (eu.isSMT&&s==='Pending SMT') return inMySMTScope(r);
     return false;
@@ -1473,11 +1465,11 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
   // Determine if this user can act
   const myPBPName = (() => {
     const p=peopleData.find(x=>x[1]&&x[1].toLowerCase()===eu.email.toLowerCase()&&x[2]==='Y');
-    return p?p[0]:null;
+    return (p?p[0]:null) || (eu.isPBP ? eu.name : null);
   })();
   const myPBPCCs = myPBPName?matrixData.filter(x=>x[1]===myPBPName).map(x=>x[0]):[];
   const canActPBP = canApprove && !ro && status==='Pending PBP' &&
-    (myPBPCCs.includes(r[7]) || r[9]===myPBPName || (eu.isPBP && r[9]===eu.name));
+    (myPBPCCs.includes(r[7]) || r[9]===myPBPName);
   const canActSMT = canApprove && !ro && status==='Pending SMT' &&
     r[8]===eu.name;
 
