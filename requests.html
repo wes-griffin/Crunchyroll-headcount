@@ -591,11 +591,11 @@ document.addEventListener("DOMContentLoaded", function() {
       <div class="form-group full">
         <label>Security Groups (select all that apply)</label>
         <div class="sg-chips" id="sgChips">
-          <span class="sg-chip sg-chip-master_admin" data-sg="master_admin" onclick="toggleSG(this)">Master Admin</span>
-          <span class="sg-chip sg-chip-admin_ee"     data-sg="admin_ee"     onclick="toggleSG(this)">Admin — Employee</span>
-          <span class="sg-chip sg-chip-admin_cw"     data-sg="admin_cw"     onclick="toggleSG(this)">Admin — CW</span>
-          <span class="sg-chip sg-chip-view_admin"   data-sg="view_admin"   onclick="toggleSG(this)">View Only Admin</span>
-          <span class="sg-chip sg-chip-normal"       data-sg="normal"       onclick="toggleSG(this)">Normal User</span>
+          <span class="sg-chip sg-chip-master_admin" data-sg="master_admin" onclick="toggleSG(this)" title="Full access to all tabs and features">Master Admin</span>
+          <span class="sg-chip sg-chip-admin_ee"     data-sg="admin_ee"     onclick="toggleSG(this)" title="Full access to the Admin: Employees tab">Admin — Employee</span>
+          <span class="sg-chip sg-chip-admin_cw"     data-sg="admin_cw"     onclick="toggleSG(this)" title="Full access to the Admin: Contingent tab">Admin — CW</span>
+          <span class="sg-chip sg-chip-view_admin"   data-sg="view_admin"   onclick="toggleSG(this)" title="View-only access to the Admin: Employees and Admin: Contingent tabs">View Only Admin</span>
+          <span class="sg-chip sg-chip-normal"       data-sg="normal"       onclick="toggleSG(this)" title="Access to New Request, My Requests, and Approvals tabs — standard for all users">Normal User</span>
         </div>
       </div>
     </div>
@@ -1463,8 +1463,8 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
   const ro=isReadOnly();
 
   // Determine if this user can act
-  const canActPBP = canApprove && !ro && status==='Pending PBP' && eu.isPBP;
-  const canActSMT = canApprove && !ro && status==='Pending SMT' && (eu.isSMT || r[8]===eu.name);
+  const canActPBP = canApprove && status==='Pending PBP' && eu.isPBP;
+  const canActSMT = canApprove && status==='Pending SMT' && (eu.isSMT || r[8]===eu.name);
 
   document.getElementById('modalTitle').textContent=r[5]||'Request Detail';
   document.getElementById('modalSub').textContent=`${r[0]} · ${r[2]} · ${fd(r[1])}`;
@@ -1683,8 +1683,9 @@ function renderPeopleTable() {
     ? rows.map((r,i)=>{
         const ri=peopleData.indexOf(r);
         const sgs=(r[4]||'').split(',').map(s=>s.trim()).filter(Boolean);
-        const sgLabels={master_admin:'Master Admin',admin_ee:'Admin EE',admin_cw:'Admin CW',view_admin:'View Only',normal:'Normal User'};
-        const sgHtml=sgs.map(s=>`<span class="role-badge badge-${s}" style="font-size:10px">${sgLabels[s]||s}</span>`).join(' ');
+        const sgLabels={master_admin:'Master Admin',admin_ee:'Admin — Employee',admin_cw:'Admin — CW',view_admin:'View Only',normal:'Normal User'};
+        const sgTitles={master_admin:'Full access to all tabs and features',admin_ee:'Full access to the Admin: Employees tab',admin_cw:'Full access to the Admin: Contingent tab',view_admin:'View-only access to the Admin: Employees and Admin: Contingent tabs',normal:'Access to New Request, My Requests, and Approvals tabs — standard for all users'};
+        const sgHtml=sgs.map(s=>`<span class="role-badge badge-${s}" style="font-size:10px" title="${sgTitles[s]||s}">${sgLabels[s]||s}</span>`).join(' ');
         return `<tr>
           <td><strong>${r[0]||'—'}</strong></td>
           <td style="font-size:12px">${r[1]||'—'}</td>
