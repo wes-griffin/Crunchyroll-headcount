@@ -1170,6 +1170,11 @@ function renderReviewTable() {
 // ============================================================
 // ADMIN TABLES
 // ============================================================
+function adminStatusTag(s) {
+  const m = {'Recruiting':'tag-pbp','Hired':'tag-approved','Engaged':'tag-approved','Sourcing':'tag-pending'};
+  return s ? `<span class="tag ${m[s]||'tag-pending'}">${s}</span>` : '';
+}
+
 function renderAdminEE() {
   const search  = (document.getElementById('eeSearch')?.value||'').toLowerCase();
   const sf      = document.getElementById('eeStatusF')?.value||'';
@@ -1192,10 +1197,6 @@ function renderAdminEE() {
   set('adm-ee-approved', rows.filter(r=>r[16]==='Approved').length);
   set('adm-ee-rejected', rows.filter(r=>r[16]==='Rejected').length);
   const ro = isReadOnly();
-  const adminStatusTag = s => {
-    const m = {'Recruiting':'tag-pbp','Hired':'tag-approved','Engaged':'tag-approved','Sourcing':'tag-pending'};
-    return s ? `<span class="tag ${m[s]||'tag-pending'}">${s}</span>` : '';
-  };
 
   document.getElementById('adminEETable').innerHTML = rows.length
     ? [...rows].reverse().map(r=>{
