@@ -475,13 +475,14 @@ document.addEventListener("DOMContentLoaded", function() {
 <div class="view" id="view-review">
   <div class="page-title"><h2>Approvals Queue</h2><p>Requests awaiting your review</p></div>
   <div class="kpi-row kpi-row-3">
-    <div class="kpi amber"><div class="kpi-label">Awaiting Action</div><div class="kpi-value" id="rev-pending">—</div></div>
-    <div class="kpi green"><div class="kpi-label">Approved by You</div><div class="kpi-value" id="rev-approved">—</div></div>
-    <div class="kpi red"><div class="kpi-label">Rejected by You</div><div class="kpi-value" id="rev-rejected">—</div></div>
+    <div class="kpi amber" style="cursor:pointer" onclick="filterReview('pending')"><div class="kpi-label">Awaiting Action</div><div class="kpi-value" id="rev-pending">—</div></div>
+    <div class="kpi green" style="cursor:pointer" onclick="filterReview('Approved')"><div class="kpi-label">Approved by You</div><div class="kpi-value" id="rev-approved">—</div></div>
+    <div class="kpi red" style="cursor:pointer" onclick="filterReview('Rejected')"><div class="kpi-label">Rejected by You</div><div class="kpi-value" id="rev-rejected">—</div></div>
   </div>
   <div class="filter-row">
     <select id="revTypeF" onchange="renderReviewTable()"><option value="">All Types</option><option value="EE">Employee</option><option value="CW">Contingent</option></select>
     <select id="revStatusF" onchange="renderReviewTable()"><option value="pending">Awaiting Action</option><option value="">All</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option></select>
+    <button class="btn btn-secondary btn-sm" onclick="filterReview('')">Clear</button>
   </div>
   <div class="table-wrap">
     <div class="table-header"><h3>Queue</h3></div>
@@ -527,10 +528,10 @@ document.addEventListener("DOMContentLoaded", function() {
 <div class="view" id="view-adminEE">
   <div class="page-title"><h2>Admin: Employee Requests</h2><p>All employee headcount requests</p></div>
   <div class="kpi-row kpi-row-4">
-    <div class="kpi"><div class="kpi-label">Total</div><div class="kpi-value" id="adm-ee-total">—</div></div>
-    <div class="kpi amber"><div class="kpi-label">In Review</div><div class="kpi-value" id="adm-ee-review">—</div></div>
-    <div class="kpi green"><div class="kpi-label">Approved</div><div class="kpi-value" id="adm-ee-approved">—</div></div>
-    <div class="kpi red"><div class="kpi-label">Rejected</div><div class="kpi-value" id="adm-ee-rejected">—</div></div>
+    <div class="kpi" style="cursor:pointer" onclick="filterAdminEE('')"><div class="kpi-label">Total</div><div class="kpi-value" id="adm-ee-total">—</div></div>
+    <div class="kpi amber" style="cursor:pointer" onclick="filterAdminEE('pending')"><div class="kpi-label">In Review</div><div class="kpi-value" id="adm-ee-review">—</div></div>
+    <div class="kpi green" style="cursor:pointer" onclick="filterAdminEE('Approved')"><div class="kpi-label">Approved</div><div class="kpi-value" id="adm-ee-approved">—</div></div>
+    <div class="kpi red" style="cursor:pointer" onclick="filterAdminEE('Rejected')"><div class="kpi-label">Rejected</div><div class="kpi-value" id="adm-ee-rejected">—</div></div>
   </div>
   <div class="filter-row">
     <input type="text" id="eeSearch" placeholder="Search…" oninput="renderAdminEE()">
@@ -554,10 +555,10 @@ document.addEventListener("DOMContentLoaded", function() {
 <div class="view" id="view-adminCW">
   <div class="page-title"><h2>Admin: Contingent Worker Requests</h2><p>All contingent worker requests</p></div>
   <div class="kpi-row kpi-row-4">
-    <div class="kpi"><div class="kpi-label">Total</div><div class="kpi-value" id="adm-cw-total">—</div></div>
-    <div class="kpi amber"><div class="kpi-label">In Review</div><div class="kpi-value" id="adm-cw-review">—</div></div>
-    <div class="kpi green"><div class="kpi-label">Approved</div><div class="kpi-value" id="adm-cw-approved">—</div></div>
-    <div class="kpi red"><div class="kpi-label">Rejected</div><div class="kpi-value" id="adm-cw-rejected">—</div></div>
+    <div class="kpi" style="cursor:pointer" onclick="filterAdminCW('')"><div class="kpi-label">Total</div><div class="kpi-value" id="adm-cw-total">—</div></div>
+    <div class="kpi amber" style="cursor:pointer" onclick="filterAdminCW('pending')"><div class="kpi-label">In Review</div><div class="kpi-value" id="adm-cw-review">—</div></div>
+    <div class="kpi green" style="cursor:pointer" onclick="filterAdminCW('Approved')"><div class="kpi-label">Approved</div><div class="kpi-value" id="adm-cw-approved">—</div></div>
+    <div class="kpi red" style="cursor:pointer" onclick="filterAdminCW('Rejected')"><div class="kpi-label">Rejected</div><div class="kpi-value" id="adm-cw-rejected">—</div></div>
   </div>
   <div class="filter-row">
     <input type="text" id="cwSearch" placeholder="Search…" oninput="renderAdminCW()">
@@ -1174,8 +1175,7 @@ function setReqType(t) {
   curType=t;
   document.getElementById('typeEE').classList.toggle('active',t==='EE');
   document.getElementById('typeCW').classList.toggle('active',t==='CW');
-  document.getElementById('cwEndGroup').style.display  = t==='CW'?'':'none';
-  document.getElementById('eeLevelGroup').style.display= t==='EE'?'':'none';
+  document.getElementById('cwEndGroup').style.display = t==='CW'?'':'none';
   document.getElementById('f-endDate').required = t==='CW';
 }
 
@@ -1232,6 +1232,33 @@ function resetForm() {
 // ============================================================
 // MY REQUESTS
 // ============================================================
+function filterReview(val) {
+  const sel = document.getElementById('revStatusF');
+  if (sel) sel.value = val === 'pending' ? 'pending' : val;
+  renderReviewTable();
+}
+
+function filterAdminEE(val) {
+  const sel = document.getElementById('eeStatusF');
+  if (!sel) return;
+  // 'pending' isn't a single option — map it to empty (All) and let renderAdminEE filter with _eeKPIFilter
+  _eeKPIFilter = val;
+  sel.value = '';
+  renderAdminEE();
+}
+
+function filterAdminCW(val) {
+  const sel = document.getElementById('cwStatusF');
+  if (!sel) return;
+  _cwKPIFilter = val;
+  sel.value = '';
+  renderAdminCW();
+}
+
+// KPI board overrides — set by clicking a board, cleared when user uses the dropdown manually
+let _eeKPIFilter = '';
+let _cwKPIFilter = '';
+
 function filterMyReqs(val) {
   const sel = document.getElementById('myStatusF');
   if (sel) sel.value = val;
@@ -1260,8 +1287,14 @@ function renderMyRequests() {
   set('my-cancelled',all.filter(r=>r[16]==='Cancelled').length);
   document.getElementById('myTable').innerHTML = mine.length
     ? [...mine].reverse().map(r=>{
-        const a = r[23]||'';
-        const dispStatus = (a==='Hired'||a==='Engaged') ? stag(a) : stag(r[16]);
+        const status    = r[16]||'';
+        const adminSt   = r[23]||'';
+        const compSt    = r[27]||'';
+        const recruitSt = r[28]||'';
+        const isFinished = adminSt==='Hired' || adminSt==='Engaged';
+        const dispStatus = isFinished ? stag(adminSt)
+          : status==='Cancelled' ? stag('Cancelled')
+          : `${stag(status)}${compSt?` <span class="tag tag-pending" style="font-size:10px">${compSt}</span>`:''}${recruitSt?` <span class="tag tag-pbp" style="font-size:10px">${recruitSt}</span>`:''}`;
         return `<tr class="clickable" onclick="openReqModal('${r[0]}')">
           <td style="font-size:11px;color:var(--gray-dark)">${fd(r[1])}</td>
           <td><strong>${r[5]||'—'}</strong></td>
@@ -1385,13 +1418,19 @@ function adminStatusTag(s) {
 function renderAdminEE() {
   const search  = (document.getElementById('eeSearch')?.value||'').toLowerCase();
   const sf      = document.getElementById('eeStatusF')?.value||'';
+  // If user changes dropdown manually, clear the KPI override
+  if (sf) _eeKPIFilter = '';
   const smtf    = document.getElementById('eeSMTF')?.value||'';
   const reqf    = document.getElementById('eeRequestorF')?.value||'';
   const locf    = document.getElementById('eeLocationF')?.value||'';
   const actionf = document.getElementById('eeActionF')?.value||'';
   const rows = allRequests.filter(r=>{
     if (r[4]!=='EE') return false;
-    if (sf     && r[16]!==sf)   return false;
+    const status = r[16]||'';
+    if (_eeKPIFilter === 'pending'   && !status.includes('Pending')) return false;
+    if (_eeKPIFilter === 'Approved'  && status !== 'Approved')        return false;
+    if (_eeKPIFilter === 'Rejected'  && status !== 'Rejected')        return false;
+    if (!_eeKPIFilter && sf && r[16]!==sf) return false;
     if (smtf   && r[8]!==smtf)  return false;
     if (reqf   && r[2]!==reqf)  return false;
     if (locf   && r[10]!==locf) return false;
@@ -1399,10 +1438,12 @@ function renderAdminEE() {
     if (search && ![r[5],r[2],r[7],r[8],r[10]].join(' ').toLowerCase().includes(search)) return false;
     return true;
   });
-  set('adm-ee-total',    rows.length);
-  set('adm-ee-review',   rows.filter(r=>(r[16]||'').includes('Pending')).length);
-  set('adm-ee-approved', rows.filter(r=>r[16]==='Approved').length);
-  set('adm-ee-rejected', rows.filter(r=>r[16]==='Rejected').length);
+  // KPIs always show totals across ALL EE reqs (unfiltered)
+  const allEE = allRequests.filter(r=>r[4]==='EE');
+  set('adm-ee-total',    allEE.length);
+  set('adm-ee-review',   allEE.filter(r=>(r[16]||'').includes('Pending')).length);
+  set('adm-ee-approved', allEE.filter(r=>r[16]==='Approved').length);
+  set('adm-ee-rejected', allEE.filter(r=>r[16]==='Rejected').length);
   const ro = isReadOnly();
 
   document.getElementById('adminEETable').innerHTML = rows.length
@@ -1438,13 +1479,18 @@ function renderAdminEE() {
 function renderAdminCW() {
   const search  = (document.getElementById('cwSearch')?.value||'').toLowerCase();
   const sf      = document.getElementById('cwStatusF')?.value||'';
+  if (sf) _cwKPIFilter = '';
   const smtf    = document.getElementById('cwSMTF')?.value||'';
   const reqf    = document.getElementById('cwRequestorF')?.value||'';
   const locf    = document.getElementById('cwLocationF')?.value||'';
   const actionf = document.getElementById('cwActionF')?.value||'';
   const rows=allRequests.filter(r=>{
     if(r[4]!=='CW')return false;
-    if(sf     && r[16]!==sf)   return false;
+    const status = r[16]||'';
+    if (_cwKPIFilter === 'pending'   && !status.includes('Pending')) return false;
+    if (_cwKPIFilter === 'Approved'  && status !== 'Approved')        return false;
+    if (_cwKPIFilter === 'Rejected'  && status !== 'Rejected')        return false;
+    if (!_cwKPIFilter && sf && r[16]!==sf) return false;
     if(smtf   && r[8]!==smtf)  return false;
     if(reqf   && r[2]!==reqf)  return false;
     if(locf   && r[10]!==locf) return false;
@@ -1452,10 +1498,11 @@ function renderAdminCW() {
     if(search&&![r[5],r[2],r[7],r[8],r[10]].join(' ').toLowerCase().includes(search))return false;
     return true;
   });
-  set('adm-cw-total',    rows.length);
-  set('adm-cw-review',   rows.filter(r=>(r[16]||'').includes('Pending')).length);
-  set('adm-cw-approved', rows.filter(r=>r[16]==='Approved').length);
-  set('adm-cw-rejected', rows.filter(r=>r[16]==='Rejected').length);
+  const allCW = allRequests.filter(r=>r[4]==='CW');
+  set('adm-cw-total',    allCW.length);
+  set('adm-cw-review',   allCW.filter(r=>(r[16]||'').includes('Pending')).length);
+  set('adm-cw-approved', allCW.filter(r=>r[16]==='Approved').length);
+  set('adm-cw-rejected', allCW.filter(r=>r[16]==='Rejected').length);
   const ro=isReadOnly();
   document.getElementById('adminCWTable').innerHTML = rows.length
     ? [...rows].reverse().map(r=>{
