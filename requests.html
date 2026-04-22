@@ -263,6 +263,11 @@ document.addEventListener("DOMContentLoaded", async function() {
     showScreen('auth');
     toast('Session error — please sign in again: ' + e.message, 'error');
   }
+  } else {
+    // ── CASE 2: No session — show sign-in screen ──────────────
+    // window.onload will initialise Google sign-in button
+    showScreen('auth');
+  }
 });
 </script>
 
