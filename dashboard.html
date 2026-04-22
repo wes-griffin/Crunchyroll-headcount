@@ -183,6 +183,9 @@ document.addEventListener("DOMContentLoaded", function() {
     window.location.href = "index.html";
     return;
   }
+  // Dashboard uses service account for all Sheets API calls.
+  // Suppress user OAuth token requests entirely to avoid popup blocker issues.
+  window.crGetAccessToken = function() { return Promise.resolve(null); };
   crInjectNav("dashboard");
   crUpdateHeaderUser(user);
   // Inject refresh button + last updated into shared header right
@@ -1804,79 +1807,82 @@ function renderDataMapping() {
   const ops  = Object.keys(OPERATION_DEFS);
 
   if (_mappingEditMode) {
-    el.innerHTML = `
-      <div style="overflow-x:auto">
-        <table style="min-width:1400px;font-size:12px">
-          <thead><tr style="font-size:11px">
-            <th>Metric Key</th><th>Display Name</th><th>Spreadsheet ID</th><th>Sheet Tab</th><th>Range</th>
-            <th title="Column letter or 0-based index">Filter Col</th><th>Filter Value</th>
-            <th title="Column letter or 0-based index">Filter Col 2</th><th>Filter Value 2</th>
-            <th title="Column to sum, count, or return">Value Col</th>
-            <th title="Column to group rows by">Group Col</th>
-            <th title="Second grouping dimension (CROSS_TAB, MULTI_SERIES)">Series Col</th>
-            <th>Operation</th><th>Dashboard Tab</th>
-            <th title="JSON object mapping column index to display name, or series definitions for MULTI_SERIES">Column Mapping (JSON)</th>
-            <th>Notes</th><th></th>
-          </tr></thead>
-          <tbody>
-            ${rows.map((row, i) => `<tr>
-              <td><input class="map-input" style="width:110px" data-i="${i}" data-f="metricKey"     value="${esc(row.metricKey)}"></td>
-              <td><input class="map-input" style="width:130px" data-i="${i}" data-f="displayName"   value="${esc(row.displayName)}"></td>
-              <td><input class="map-input" style="width:110px;font-size:10px" data-i="${i}" data-f="spreadsheetId" value="${esc(row.spreadsheetId)}"></td>
-              <td><input class="map-input" style="width:150px" data-i="${i}" data-f="sheetTab"      value="${esc(row.sheetTab)}"></td>
-              <td><input class="map-input" style="width:80px;font-family:monospace" data-i="${i}" data-f="range" value="${esc(row.range)}"></td>
-              <td><input class="map-input" style="width:44px;text-align:center" data-i="${i}" data-f="filterCol"   value="${esc(row.filterCol)}"></td>
-              <td><input class="map-input" style="width:90px" data-i="${i}" data-f="filterValue"   value="${esc(row.filterValue)}"></td>
-              <td><input class="map-input" style="width:44px;text-align:center" data-i="${i}" data-f="filterCol2"  value="${esc(row.filterCol2)}"></td>
-              <td><input class="map-input" style="width:90px" data-i="${i}" data-f="filterValue2"  value="${esc(row.filterValue2)}"></td>
-              <td><input class="map-input" style="width:44px;text-align:center" data-i="${i}" data-f="valueCol"    value="${esc(row.valueCol)}"></td>
-              <td><input class="map-input" style="width:44px;text-align:center" data-i="${i}" data-f="groupCol"    value="${esc(row.groupCol)}"></td>
-              <td><input class="map-input" style="width:44px;text-align:center" data-i="${i}" data-f="seriesCol"   value="${esc(row.seriesCol)}"></td>
-              <td>
-                <select class="map-input" data-i="${i}" data-f="operation" title="${esc(OPERATION_DEFS[row.operation]||'')}">
-                  ${ops.map(op=>`<option value="${op}"${op===row.operation?' selected':''}>${op}</option>`).join('')}
-                </select>
-              </td>
-              <td><input class="map-input" style="width:80px" data-i="${i}" data-f="dashboardTab"  value="${esc(row.dashboardTab)}"></td>
-              <td><textarea class="map-input" data-i="${i}" data-f="columnMapping" style="width:130px;min-height:48px;font-size:10px;font-family:monospace;resize:vertical">${row.columnMapping||''}</textarea></td>
-              <td><textarea class="map-input" data-i="${i}" data-f="notes" style="width:120px;min-height:48px;resize:vertical">${row.notes||''}</textarea></td>
-              <td><button onclick="deleteMappingRow(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:0" title="Delete row">✕</button></td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div style="margin-top:12px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
-        <button onclick="addMappingRow()" class="btn btn-secondary" style="font-size:12px">+ Add Row</button>
-        <div style="font-size:11px;color:var(--gray-dark);max-width:700px">
-          <strong>Operations:</strong>
-          ${ops.map(op=>`<span title="${OPERATION_DEFS[op]}" style="display:inline-block;margin:2px 6px 2px 0;cursor:help;text-decoration:underline dotted;color:var(--orange)">${op}</span>`).join('')}
-        </div>
-      </div>`;
+    let editRows = '';
+    rows.forEach(function(row, i) {
+      const opOptions = ops.map(function(op) {
+        return '<option value="' + op + '"' + (op === row.operation ? ' selected' : '') + '>' + op + '</option>';
+      }).join('');
+      editRows +=
+        '<tr>' +
+        '<td><input class="map-input" style="width:110px" data-i="' + i + '" data-f="metricKey" value="' + esc(row.metricKey) + '"></td>' +
+        '<td><input class="map-input" style="width:130px" data-i="' + i + '" data-f="displayName" value="' + esc(row.displayName) + '"></td>' +
+        '<td><input class="map-input" style="width:110px;font-size:10px" data-i="' + i + '" data-f="spreadsheetId" value="' + esc(row.spreadsheetId) + '"></td>' +
+        '<td><input class="map-input" style="width:150px" data-i="' + i + '" data-f="sheetTab" value="' + esc(row.sheetTab) + '"></td>' +
+        '<td><input class="map-input" style="width:80px;font-family:monospace" data-i="' + i + '" data-f="range" value="' + esc(row.range) + '"></td>' +
+        '<td><input class="map-input" style="width:44px;text-align:center" data-i="' + i + '" data-f="filterCol" value="' + esc(row.filterCol) + '"></td>' +
+        '<td><input class="map-input" style="width:90px" data-i="' + i + '" data-f="filterValue" value="' + esc(row.filterValue) + '"></td>' +
+        '<td><input class="map-input" style="width:44px;text-align:center" data-i="' + i + '" data-f="filterCol2" value="' + esc(row.filterCol2) + '"></td>' +
+        '<td><input class="map-input" style="width:90px" data-i="' + i + '" data-f="filterValue2" value="' + esc(row.filterValue2) + '"></td>' +
+        '<td><input class="map-input" style="width:44px;text-align:center" data-i="' + i + '" data-f="valueCol" value="' + esc(row.valueCol) + '"></td>' +
+        '<td><input class="map-input" style="width:44px;text-align:center" data-i="' + i + '" data-f="groupCol" value="' + esc(row.groupCol) + '"></td>' +
+        '<td><input class="map-input" style="width:44px;text-align:center" data-i="' + i + '" data-f="seriesCol" value="' + esc(row.seriesCol) + '"></td>' +
+        '<td><select class="map-input" data-i="' + i + '" data-f="operation" title="' + esc(OPERATION_DEFS[row.operation] || '') + '">' + opOptions + '</select></td>' +
+        '<td><input class="map-input" style="width:80px" data-i="' + i + '" data-f="dashboardTab" value="' + esc(row.dashboardTab) + '"></td>' +
+        '<td><textarea class="map-input" data-i="' + i + '" data-f="columnMapping" style="width:130px;min-height:48px;font-size:10px;font-family:monospace;resize:vertical">' + esc(row.columnMapping) + '</textarea></td>' +
+        '<td><textarea class="map-input" data-i="' + i + '" data-f="notes" style="width:120px;min-height:48px;resize:vertical">' + esc(row.notes) + '</textarea></td>' +
+        '<td><button onclick="deleteMappingRow(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:0" title="Delete">&#x2715;</button></td>' +
+        '</tr>';
+    });
+    const opLegend = ops.map(function(op) {
+      return '<span title="' + esc(OPERATION_DEFS[op]) + '" style="display:inline-block;margin:2px 6px 2px 0;cursor:help;text-decoration:underline dotted;color:var(--orange)">' + op + '</span>';
+    }).join('');
+    el.innerHTML =
+      '<div style="overflow-x:auto"><table style="min-width:1400px;font-size:12px">' +
+      '<thead><tr style="font-size:11px">' +
+      '<th>Metric Key</th><th>Display Name</th><th>Spreadsheet ID</th><th>Sheet Tab</th><th>Range</th>' +
+      '<th title="Column letter or 0-based index">Filter Col</th><th>Filter Value</th>' +
+      '<th title="Column letter or 0-based index">Filter Col 2</th><th>Filter Value 2</th>' +
+      '<th title="Column to sum, count, or return">Value Col</th>' +
+      '<th title="Column to group rows by">Group Col</th>' +
+      '<th title="Second grouping dimension">Series Col</th>' +
+      '<th>Operation</th><th>Dashboard Tab</th><th title="JSON column mapping or series definitions">Column Mapping (JSON)</th>' +
+      '<th>Notes</th><th></th>' +
+      '</tr></thead><tbody>' + editRows + '</tbody></table></div>' +
+      '<div style="margin-top:12px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">' +
+      '<button onclick="addMappingRow()" class="btn btn-secondary" style="font-size:12px">+ Add Row</button>' +
+      '<div style="font-size:11px;color:var(--gray-dark);max-width:700px"><strong>Operations:</strong> ' + opLegend + '</div>' +
+      '</div>';
   } else {
-    el.innerHTML = `
-      <div style="overflow-x:auto">
-        <table style="min-width:800px">
-          <thead><tr>
-            <th>Metric Key</th><th>Display Name</th><th>Spreadsheet ID</th><th>Source Tab</th>
-            <th>Range</th><th>Operation</th><th>Filter</th><th>Dashboard Tab</th><th>Notes</th>
-          </tr></thead>
-          <tbody>
-            ${rows.map(row => `<tr>
-              <td style="font-family:monospace;font-size:11px;color:var(--gray-dark)">${row.metricKey}</td>
-              <td style="font-weight:600">${row.displayName}</td>
-              <td style="font-family:monospace;font-size:10px;color:var(--gray-dark)" title="${row.spreadsheetId}">${row.spreadsheetId===HR?'<em style="color:#aaa">Headcount Report</em>':row.spreadsheetId.slice(0,12)+'…'}</td>
-              <td><span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace">${row.sheetTab}</span></td>
-              <td style="font-family:monospace;font-size:11px">${row.range}</td>
-              <td><span style="background:#FFF0E8;color:var(--orange);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700" title="${OPERATION_DEFS[row.operation]||''}">${row.operation}</span></td>
-              <td style="font-size:11px;color:var(--gray-dark)">${row.filterCol ? ("Col " + row.filterCol + " = " + row.filterValue + (row.filterCol2 ? " &amp; Col " + row.filterCol2 + "=" + row.filterValue2 : "")) : ""}</td>
-              <td style="font-size:11px">${row.dashboardTab}</td>
-              <td style="font-size:11px;color:var(--gray-dark)">${row.notes||'<em style="color:#ccc">—</em>'}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>`;
+    let readRows = '';
+    rows.forEach(function(row) {
+      const filterText = row.filterCol
+        ? ('Col ' + row.filterCol + ' = ' + row.filterValue + (row.filterCol2 ? ' &amp; Col ' + row.filterCol2 + '=' + row.filterValue2 : ''))
+        : '';
+      const sheetIdDisplay = row.spreadsheetId === HR
+        ? '<em style="color:#aaa">Headcount Report</em>'
+        : (row.spreadsheetId || '').slice(0, 12) + '&hellip;';
+      readRows +=
+        '<tr>' +
+        '<td style="font-family:monospace;font-size:11px;color:var(--gray-dark)">' + row.metricKey + '</td>' +
+        '<td style="font-weight:600">' + row.displayName + '</td>' +
+        '<td style="font-family:monospace;font-size:10px;color:var(--gray-dark)" title="' + esc(row.spreadsheetId) + '">' + sheetIdDisplay + '</td>' +
+        '<td><span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace">' + row.sheetTab + '</span></td>' +
+        '<td style="font-family:monospace;font-size:11px">' + row.range + '</td>' +
+        '<td><span style="background:#FFF0E8;color:var(--orange);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700" title="' + esc(OPERATION_DEFS[row.operation] || '') + '">' + row.operation + '</span></td>' +
+        '<td style="font-size:11px;color:var(--gray-dark)">' + filterText + '</td>' +
+        '<td style="font-size:11px">' + row.dashboardTab + '</td>' +
+        '<td style="font-size:11px;color:var(--gray-dark)">' + (row.notes || '<em style="color:#ccc">&mdash;</em>') + '</td>' +
+        '</tr>';
+    });
+    el.innerHTML =
+      '<div style="overflow-x:auto"><table style="min-width:800px">' +
+      '<thead><tr>' +
+      '<th>Metric Key</th><th>Display Name</th><th>Spreadsheet ID</th><th>Source Tab</th>' +
+      '<th>Range</th><th>Operation</th><th>Filter</th><th>Dashboard Tab</th><th>Notes</th>' +
+      '</tr></thead><tbody>' + readRows + '</tbody></table></div>';
   }
 }
+
 
 function addMappingRow() {
   _configRows.push({ metricKey:'', displayName:'', spreadsheetId:HR, sheetTab:'', range:'',
