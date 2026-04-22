@@ -325,6 +325,7 @@ document.addEventListener("DOMContentLoaded", function() {
   <button class="nav-btn active" id="nav-submit"   onclick="showView('submit',this)">New Request</button>
   <button class="nav-btn"        id="nav-my"        onclick="showView('my',this)">My Requests</button>
   <button class="nav-btn hidden" id="nav-review"    onclick="showView('review',this)">Approvals</button>
+  <button class="nav-btn hidden" id="nav-comp"      onclick="showView('comp',this)">Compensation</button>
   <button class="nav-btn hidden" id="nav-admin-ee"  onclick="showView('adminEE',this)">Admin: Employees</button>
   <button class="nav-btn hidden" id="nav-admin-cw"  onclick="showView('adminCW',this)">Admin: Contingent</button>
   <button class="nav-btn hidden" id="nav-matrix"    onclick="showView('matrix',this)">Approval Matrix</button>
@@ -426,6 +427,10 @@ document.addEventListener("DOMContentLoaded", function() {
           <label>Business Justification <span class="req">*</span></label>
           <textarea id="f-justification" required placeholder="Describe why this role is needed and the impact of not filling it…"></textarea>
         </div>
+        <div class="form-group full">
+          <label>Job Description Link</label>
+          <input type="url" id="f-jdlink" placeholder="https://… (optional link to JD doc or Greenhouse posting)">
+        </div>
         <div class="budget-check">
           <input type="checkbox" id="f-budget" required>
           <label for="f-budget">I confirm that budget has been approved and is available for this headcount request. I understand that submitting does not constitute final approval.</label>
@@ -477,6 +482,27 @@ document.addEventListener("DOMContentLoaded", function() {
       <th>Cost Center</th><th>Stage</th><th>Status</th><th></th>
     </tr></thead>
     <tbody id="reviewTable"><tr><td colspan="8"><div class="empty-state"><div class="icon">✅</div><p>Loading…</p></div></td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- ── COMPENSATION ── -->
+<div class="view" id="view-comp">
+  <div class="page-title"><h2>Compensation Queue</h2><p>Approved requests sent to Compensation for review</p></div>
+  <div class="kpi-row kpi-row-3">
+    <div class="kpi amber"><div class="kpi-label">With Compensation</div><div class="kpi-value" id="comp-pending">—</div></div>
+    <div class="kpi green"><div class="kpi-label">Comp Done</div><div class="kpi-value" id="comp-done">—</div></div>
+    <div class="kpi"><div class="kpi-label">Skipped</div><div class="kpi-value" id="comp-skipped">—</div></div>
+  </div>
+  <div class="filter-row">
+    <select id="compTypeF" onchange="renderComp()"><option value="">All Types</option><option value="EE">Employee</option><option value="CW">Contingent</option></select>
+  </div>
+  <div class="table-wrap">
+    <div class="table-header"><h3>Compensation Queue</h3></div>
+    <table><thead><tr>
+      <th>Submitted</th><th>Requestor</th><th>Title</th><th>Type</th>
+      <th>Cost Center</th><th>Comp Status</th><th>Status</th><th></th>
+    </tr></thead>
+    <tbody id="compTable"><tr><td colspan="8"><div class="empty-state"><div class="icon">💰</div><p>Loading…</p></div></td></tr></tbody></table>
   </div>
 </div>
 
@@ -679,6 +705,7 @@ function canManagePeople() { return hasGroup('master_admin'); }
 function canTestAsUser()   { return hasGroup('master_admin')||hasGroup('admin_ee')||hasGroup('admin_cw'); }
 function canApprove()      { return effectiveUser().isPBP || effectiveUser().isSMT || hasGroup('master_admin'); }
 function isReadOnly()      { return hasGroup('view_admin') && !hasGroup('master_admin') && !hasGroup('admin_ee') && !hasGroup('admin_cw'); }
+function canSeeComp()      { return hasGroup('compensation') || hasGroup('master_admin'); }
 
 // ============================================================
 // AUTH
@@ -750,6 +777,7 @@ function setupUI() {
 
   // Nav visibility
   if (canApprove())      show('nav-review');
+  if (canSeeComp())      show('nav-comp');
   if (canSeeAdminEE())   show('nav-admin-ee');
   if (canSeeAdminCW())   show('nav-admin-cw');
   if (canEditMatrix())   show('nav-matrix');
@@ -811,8 +839,9 @@ function activateProxy() {
   document.getElementById('proxyBannerText').textContent = `Acting as: ${proxyUser.name} — You are acting as ${proxyUser.name} - this is not a sandbox`;
   renderUserBadges();
   // Re-run nav visibility
-  ['nav-review','nav-admin-ee','nav-admin-cw','nav-matrix','nav-people'].forEach(hide);
+  ['nav-review','nav-comp','nav-admin-ee','nav-admin-cw','nav-matrix','nav-people'].forEach(hide);
   if (canApprove())      show('nav-review');
+  if (canSeeComp())      show('nav-comp');
   if (canSeeAdminEE())   show('nav-admin-ee');
   if (canSeeAdminCW())   show('nav-admin-cw');
   if (canEditMatrix())   show('nav-matrix');
@@ -827,8 +856,9 @@ function clearProxy() {
   document.getElementById('proxyBanner').classList.remove('visible');
   renderUserBadges();
   // Restore nav for real user
-  ['nav-review','nav-admin-ee','nav-admin-cw','nav-matrix','nav-people'].forEach(hide);
+  ['nav-review','nav-comp','nav-admin-ee','nav-admin-cw','nav-matrix','nav-people'].forEach(hide);
   if (canApprove())      show('nav-review');
+  if (canSeeComp())      show('nav-comp');
   if (canSeeAdminEE())   show('nav-admin-ee');
   if (canSeeAdminCW())   show('nav-admin-cw');
   if (canEditMatrix())   show('nav-matrix');
@@ -892,7 +922,7 @@ async function ensureTabs() {
 
 async function ensureHeaders() {
   const checks = [
-    [T.requests+'!A1', [['ID','Submitted','RequestorName','RequestorEmail','Type','Title','Category','CostCenter','SMT','PBP','Location','StartDate','EndDate','Level','Justification','BudgetConfirmed','Status','PBPAction','PBPBy','PBPDate','SMTAction','SMTBy','SMTDate','AdminStatus','PBPViewed','SMTViewed']]],
+    [T.requests+'!A1', [['ID','Submitted','RequestorName','RequestorEmail','Type','Title','Category','CostCenter','SMT','PBP','Location','StartDate','EndDate','Level','Justification','BudgetConfirmed','Status','PBPAction','PBPBy','PBPDate','SMTAction','SMTBy','SMTDate','AdminStatus','PBPViewed','SMTViewed','JobDescLink','CompStatus','RecruitingStatus','CompJobLevel','CompJobCode','CompJobProfile','CompGeo','CompBonusTarget','CompSalaryRange','CompHourlyRange','CompNotes']]],
     [T.matrix+'!A1',   [['CostCenter','PBP','SMT_Delegate','Notes']]],
     [T.people+'!A1',   [['Name','Email','IsPBP','IsSMT','SecurityGroups','LastLogin']]],
     [T.comments+'!A1', [['RequestID','Timestamp','Author','AuthorEmail','Stage','Comment']]],
@@ -906,7 +936,7 @@ async function ensureHeaders() {
 // LOAD DATA
 // ============================================================
 async function loadMatrix()   { try { matrixData  = await apiGet(T.matrix+'!A2:D500');  } catch(e){matrixData=[];} }
-async function loadRequests() { try { allRequests  = await apiGet(T.requests+'!A2:Z2000'); } catch(e){allRequests=[];} }
+async function loadRequests() { try { allRequests  = await apiGet(T.requests+'!A2:AK2000'); } catch(e){allRequests=[];} }
 async function loadPeople()   {
   try {
     peopleData = await apiGet(T.people+'!A2:F500');
@@ -951,8 +981,51 @@ async function refreshData() {
   renderAll();
 }
 
+// ============================================================
+// COMPENSATION TAB
+// ============================================================
+async function saveCompFields(reqId) {
+  const idx = allRequests.findIndex(r => r[0] === reqId); if (idx < 0) return;
+  const eu = effectiveUser();
+  const now = new Date().toISOString();
+  const g = prefix => (document.getElementById(prefix+reqId)?.value||'');
+  const vals = [g('cf-level-'), g('cf-code-'), g('cf-profile-'), g('cf-geo-'), g('cf-bonus-'), g('cf-salary-'), g('cf-hourly-'), g('cf-notes-')];
+  try {
+    await apiUpdate(T.requests+'!AD'+(idx+2)+':AK'+(idx+2), [vals]);
+    vals.forEach((v, i) => { allRequests[idx][29 + i] = v; });
+    await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Compensation', 'Compensation details recorded']]);
+    toast('Compensation details saved', 'success');
+    const section = document.getElementById('compFieldsSection-'+reqId);
+    if (section) section.style.borderColor = 'var(--green)';
+    renderComp();
+  } catch(e) { toast('Error: '+e.message, 'error'); }
+}
+
+function renderComp() {
+  const typeF = document.getElementById('compTypeF')?.value || '';
+  const queue = allRequests.filter(r => {
+    if (typeF && r[4] !== typeF) return false;
+    return r[27] === 'With Compensation';
+  });
+  set('comp-pending',  queue.length);
+  set('comp-done',     allRequests.filter(r => r[27] === 'With Compensation' && (r[29]||r[30]||r[36])).length);
+  set('comp-skipped',  allRequests.filter(r => r[27] === 'Compensation Skipped').length);
+  document.getElementById('compTable').innerHTML = queue.length
+    ? [...queue].reverse().map(r => `<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
+        <td style="font-size:11px;color:var(--gray-dark)">${fd(r[1])}</td>
+        <td style="font-size:11px">${r[2]||'—'}</td>
+        <td><strong>${r[5]||'—'}</strong></td>
+        <td><span class="tag tag-${(r[4]||'').toLowerCase()}">${r[4]||'—'}</span></td>
+        <td style="font-size:11px">${r[7]||'—'}</td>
+        <td><span class="tag tag-pending">${r[27]||'—'}</span></td>
+        <td>${stag(r[16])}</td>
+        <td><button class="btn btn-sm btn-primary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">Review</button></td>
+      </tr>`).join('')
+    : `<tr><td colspan="8"><div class="empty-state"><div class="icon">💰</div><p>No requests with Compensation status.</p></div></td></tr>`;
+}
+
 function renderAll() {
-  renderMyRequests(); renderReviewTable();
+  renderMyRequests(); renderReviewTable(); renderComp();
   renderAdminEE(); renderAdminCW();
   renderMatrix(); renderPeopleTable();
 }
@@ -1052,7 +1125,11 @@ async function submitRequest(e) {
       curType==='EE'?document.getElementById('f-level').value:'',
       document.getElementById('f-justification').value,
       'Yes', status,
-      '','','','','','',''
+      '','','','','','','', // PBPAction…SMTDate, AdminStatus
+      '','',                // PBPViewed, SMTViewed
+      document.getElementById('f-jdlink')?.value||'', // JobDescLink (col 26)
+      '','',                // CompStatus, RecruitingStatus
+      '','','','','','','','' // comp fields
     ]]);
     toast('Request submitted!','success');
     resetForm();
@@ -1226,16 +1303,9 @@ function renderAdminEE() {
     ? [...rows].reverse().map(r=>{
         const status   = r[16]||'';
         const adminSt  = r[23]||'';
-        let actionBtns = '';
-        if (!ro && status==='Approved') {
-          if (!adminSt || adminSt==='') {
-            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Recruiting')">Send to Recruiting</button>`;
-          } else if (adminSt==='Recruiting') {
-            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Hired')">Mark as Hired</button>`;
-          } else if (adminSt==='Hired') {
-            actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Hired</span>`;
-          }
-        }
+        const compSt   = r[27]||'';
+        const recruitSt= r[28]||'';
+        const statusTags = `${stag(status)}${adminSt?' '+adminStatusTag(adminSt):''}${compSt?` <span class="tag tag-pending" style="font-size:10px">${compSt}</span>`:''}${recruitSt?` <span class="tag tag-pbp" style="font-size:10px">${recruitSt}</span>`:''}`;
         return `<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
           <td style="font-size:11px;color:var(--gray-dark)">${fd(r[1])}</td>
           <td style="font-size:11px">${r[2]||'—'}</td>
@@ -1244,11 +1314,11 @@ function renderAdminEE() {
           <td style="font-size:11px">${r[7]||'—'}</td>
           <td style="font-size:11px;font-weight:600">${r[8]||'—'}</td>
           <td style="font-size:11px">${r[10]||'—'}</td>
-          <td>${stag(r[16])}${adminSt?' '+adminStatusTag(adminSt):''}</td>
+          <td>${statusTags}</td>
           <td><div class="row-actions">
             <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
-            ${actionBtns}
-            ${!ro&&r[16]!=='Cancelled'&&r[23]!=='Hired'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
+            ${!ro&&status!=='Cancelled'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
+            ${!ro&&status==='Cancelled'?`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();reopenReq('${r[0]}')">Reopen</button>`:''}
           </div></td>
         </tr>`;
       }).join('')
@@ -1281,16 +1351,9 @@ function renderAdminCW() {
     ? [...rows].reverse().map(r=>{
         const status   = r[16]||'';
         const adminSt  = r[23]||'';
-        let actionBtns = '';
-        if (!ro && status==='Approved') {
-          if (!adminSt || adminSt==='') {
-            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Recruiting')">Send to Recruiting</button>`;
-          } else if (adminSt==='Recruiting') {
-            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Engaged')">Mark as Engaged</button>`;
-          } else if (adminSt==='Engaged') {
-            actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Engaged</span>`;
-          }
-        }
+        const compSt   = r[27]||'';
+        const recruitSt= r[28]||'';
+        const statusTags = `${stag(status)}${adminSt?' '+adminStatusTag(adminSt):''}${compSt?` <span class="tag tag-pending" style="font-size:10px">${compSt}</span>`:''}${recruitSt?` <span class="tag tag-pbp" style="font-size:10px">${recruitSt}</span>`:''}`;
         return `<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
           <td style="font-size:11px;color:var(--gray-dark)">${fd(r[1])}</td>
           <td style="font-size:11px">${r[2]||'—'}</td>
@@ -1299,11 +1362,11 @@ function renderAdminCW() {
           <td style="font-size:11px;font-weight:600">${r[8]||'—'}</td>
           <td style="font-size:11px">${r[11]||'—'}</td>
           <td style="font-size:11px">${r[12]||'—'}</td>
-          <td>${stag(r[16])}${adminSt?' '+adminStatusTag(adminSt):''}</td>
+          <td>${statusTags}</td>
           <td><div class="row-actions">
             <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
-            ${actionBtns}
-            ${!ro&&r[16]!=='Cancelled'&&r[23]!=='Engaged'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
+            ${!ro&&status!=='Cancelled'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
+            ${!ro&&status==='Cancelled'?`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();reopenReq('${r[0]}')">Reopen</button>`:''}
           </div></td>
         </tr>`;
       }).join('')
@@ -1383,101 +1446,203 @@ async function setAdminStatus(reqId, status, comment) {
   try {
     await apiUpdate(T.requests+'!X'+(idx+2), [[status]]);
     allRequests[idx][23] = status;
-    // Always write comment to Comments sheet (comment is required via UI)
     if (comment) {
       await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Admin', comment]]);
     }
     toast('Marked as '+status, 'success');
-    // Refresh action steps pipeline in-place if modal is open
-    const actionsRow = document.getElementById('adminActionsRow-'+reqId);
-    if (actionsRow) {
-      const isCW = allRequests[idx][4] === 'CW';
-      actionsRow.innerHTML = adminActionSteps(reqId, isCW, status);
-    }
-    // Refresh admin status detail cell in-place
+    _refreshAdminActionsRow(reqId, idx);
     const adminCell = document.getElementById('modalAdminStatusCell-'+reqId);
     if (adminCell) {
-      const tagMap = {'Recruiting':'tag-pbp','Hired':'tag-approved','Engaged':'tag-approved'};
+      const tagMap = {'Hired':'tag-approved','Engaged':'tag-approved'};
       adminCell.innerHTML = `<div class="label">Admin Status</div><div class="value"><span class="tag ${tagMap[status]||'tag-pending'}">${status}</span></div>`;
     }
     renderAdminEE(); renderAdminCW();
   } catch(e) { toast('Error: '+e.message, 'error'); }
 }
 
+async function setCompStatus(reqId, status) {
+  const idx = allRequests.findIndex(r => r[0] === reqId); if (idx < 0) return;
+  const eu  = effectiveUser();
+  const now = new Date().toISOString();
+  try {
+    // CompStatus is column AB = index 27, sheet column AB = row offset 27
+    await apiUpdate(T.requests+'!AB'+(idx+2), [[status]]);
+    allRequests[idx][27] = status;
+    const label = status || 'Compensation status cleared';
+    if (status) await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Admin', label]]);
+    toast(label || 'Comp status cleared', 'success');
+    _refreshAdminActionsRow(reqId, idx);
+    renderComp();
+  } catch(e) { toast('Error: '+e.message, 'error'); }
+}
+
+async function setRecruitStatus(reqId, status) {
+  const idx = allRequests.findIndex(r => r[0] === reqId); if (idx < 0) return;
+  const eu  = effectiveUser();
+  const now = new Date().toISOString();
+  try {
+    // RecruitingStatus is column AC = index 28
+    await apiUpdate(T.requests+'!AC'+(idx+2), [[status]]);
+    allRequests[idx][28] = status;
+    const label = status || 'Recruiting status cleared';
+    if (status) await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Admin', label]]);
+    toast(label || 'Recruiting status cleared', 'success');
+    _refreshAdminActionsRow(reqId, idx);
+    renderAdminEE(); renderAdminCW();
+  } catch(e) { toast('Error: '+e.message, 'error'); }
+}
+
+function _refreshAdminActionsRow(reqId, idx) {
+  const actionsRow = document.getElementById('adminActionsRow-'+reqId);
+  if (actionsRow) {
+    const r = allRequests[idx];
+    actionsRow.innerHTML = adminActionSteps(reqId, r[4]==='CW', r[23]||'', r[27]||'', r[28]||'');
+  }
+}
+
 async function cancelReq(reqId) {
-  if (!confirm('Cancel this requisition? This will set the status to Cancelled and cannot be undone.')) return;
+  const idx = allRequests.findIndex(r=>r[0]===reqId); if(idx<0)return;
+  // Show inline confirmation by replacing the cancel row content
+  const cancelRow = document.getElementById('modalCancelRow-'+reqId);
+  if (cancelRow) {
+    cancelRow.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--red);font-weight:600">Confirm cancel? Approval progress is preserved and can be resubmitted later.</span>
+        <button class="btn btn-danger btn-sm" onclick="confirmCancelReq('${reqId}')">Yes, Cancel Req</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetCancelRow('${reqId}')">No, Keep It</button>
+      </div>`;
+  }
+}
+
+async function confirmCancelReq(reqId) {
   const idx = allRequests.findIndex(r=>r[0]===reqId); if(idx<0)return;
   const sheetRow = idx + 2;
   try {
     await apiUpdate(T.requests+'!Q'+sheetRow, [['Cancelled']]);
     allRequests[idx][16] = 'Cancelled';
     toast('Requisition cancelled','success');
-    // Update modal status cell in-place if open
     const statusCell = document.getElementById('modalStatusCell-'+reqId);
     if (statusCell) statusCell.innerHTML = `<div class="label">Status</div><div class="value">${stag('Cancelled')}</div>`;
-    // Hide the cancel button in modal
     const cancelRow = document.getElementById('modalCancelRow-'+reqId);
-    if (cancelRow) cancelRow.style.display = 'none';
-    closeModal();
+    if (cancelRow) cancelRow.innerHTML = reopenRowHtml(reqId);
+    renderAdminEE(); renderAdminCW();
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+function resetCancelRow(reqId) {
+  const cancelRow = document.getElementById('modalCancelRow-'+reqId);
+  if (cancelRow) cancelRow.innerHTML = cancelRowHtml(reqId);
+}
+
+function cancelRowHtml(reqId) {
+  return `<span style="font-size:12px;color:var(--gray-dark)">Cancel this request? Approval progress will be preserved.</span>
+    <button class="btn btn-danger btn-sm" onclick="cancelReq('${reqId}')">Cancel Requisition</button>`;
+}
+
+function reopenRowHtml(reqId) {
+  return `<span style="font-size:12px;color:var(--gray-dark)">This requisition was cancelled. Admins can reopen it — all prior approval history is preserved.</span>
+    <button class="btn btn-primary btn-sm" onclick="reopenReq('${reqId}')">Reopen / Resubmit</button>`;
+}
+
+async function reopenReq(reqId) {
+  const idx = allRequests.findIndex(r=>r[0]===reqId); if(idx<0)return;
+  const r = allRequests[idx];
+  // Determine correct restart status based on existing PBP/SMT data
+  const hasPBP = !!(r[9]);  // assigned PBP field
+  const status = hasPBP ? 'Pending PBP' : (r[8] ? 'Pending SMT' : 'Pending Admin');
+  try {
+    await apiUpdate(T.requests+'!Q'+(idx+2), [[status]]);
+    allRequests[idx][16] = status;
+    toast('Requisition reopened — status set to '+status,'success');
+    const statusCell = document.getElementById('modalStatusCell-'+reqId);
+    if (statusCell) statusCell.innerHTML = `<div class="label">Status</div><div class="value">${stag(status)}</div>`;
+    const cancelRow = document.getElementById('modalCancelRow-'+reqId);
+    if (cancelRow) cancelRow.innerHTML = cancelRowHtml(reqId);
     renderAdminEE(); renderAdminCW();
   } catch(e) { toast('Error: '+e.message,'error'); }
 }
 
 
-function adminActionSteps(reqId, isCW, adminSt) {
-  // Define steps: key = the adminSt value set when this step is completed
-  const steps = isCW
-    ? [
-        { key: '',           label: 'Approved',          completedLabel: 'Approved'    },
-        { key: 'Recruiting', label: 'Send to Recruiting', completedLabel: 'Recruiting'  },
-        { key: 'Engaged',    label: 'Mark as Engaged',    completedLabel: 'Engaged'     },
-      ]
-    : [
-        { key: '',           label: 'Approved',          completedLabel: 'Approved'    },
-        { key: 'Recruiting', label: 'Send to Recruiting', completedLabel: 'Recruiting'  },
-        { key: 'Hired',      label: 'Mark as Hired',      completedLabel: 'Hired'       },
-      ];
+function adminActionSteps(reqId, isCW, adminSt, compSt, recruitSt) {
+  // adminSt  = col 23: '' | 'Hired' | 'Engaged'
+  // compSt   = col 27: '' | 'With Compensation' | 'Compensation Skipped'
+  // recruitSt= col 28: '' | 'Recruiting' | 'Recruiting Skipped'
+  const ro = isReadOnly();
+  const finalLabel   = isCW ? 'Mark as Engaged' : 'Mark as Hired';
+  const finalDoneLabel = isCW ? 'Engaged' : 'Hired';
+  const finalKey     = isCW ? 'Engaged' : 'Hired';
+  const isFinished   = (adminSt === 'Hired' || adminSt === 'Engaged');
 
-  // Which step index has been reached?
-  // '' = only step 0 done, 'Recruiting' = steps 0+1 done, 'Hired'/'Engaged' = all done
-  const completedUpTo = adminSt === ''           ? 0
-                      : adminSt === 'Recruiting'  ? 1
-                      : 2; // Hired or Engaged
+  function stepDot(done, skipped, active) {
+    if (done)    return `background:var(--green);color:white`;
+    if (skipped) return `background:#aaa;color:white`;
+    if (active)  return `background:var(--orange);color:white`;
+    return `background:var(--gray-mid);color:var(--gray-dark)`;
+  }
+  function stepLabel(done, skipped, active) {
+    if (done)    return `color:var(--green);font-weight:700`;
+    if (skipped) return `color:#aaa;font-weight:600`;
+    if (active)  return `color:var(--orange);font-weight:700`;
+    return `color:var(--gray-dark)`;
+  }
 
-  return steps.map((step, i) => {
-    const isCompleted = i <= completedUpTo;
-    const isNext      = i === completedUpTo + 1;
-    const isLocked    = i > completedUpTo + 1;
+  // Step 1: Approved (always completed if we're in admin actions)
+  const step1 = `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;min-width:80px;">
+    <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:var(--green);color:white">✓</div>
+    <div style="font-size:11px;margin-top:6px;max-width:80px;line-height:1.3;color:var(--green);font-weight:700">Approved</div>
+  </div>`;
 
-    let dotStyle, labelStyle, btn = '';
+  const connector = `<div style="height:2px;width:24px;background:var(--gray-mid);margin:0 2px;flex-shrink:0;align-self:flex-start;margin-top:16px;"></div>`;
 
-    if (isCompleted) {
-      dotStyle   = `background:var(--green);color:white`;
-      labelStyle = `color:var(--green);font-weight:700`;
-    } else if (isNext) {
-      dotStyle   = `background:var(--orange);color:white`;
-      labelStyle = `color:var(--orange);font-weight:700`;
-      btn = `<button class="btn btn-sm btn-primary" style="margin-top:6px" onclick="setAdminStatus('${reqId}','${step.key}')">${step.label}</button>`;
-    } else {
-      dotStyle   = `background:var(--gray-mid);color:var(--gray-dark)`;
-      labelStyle = `color:var(--gray-dark)`;
-    }
+  // Step 2: Compensation (independent)
+  const compDone    = compSt === 'With Compensation';
+  const compSkipped = compSt === 'Compensation Skipped';
+  const compPending = !compDone && !compSkipped;
+  const compBtns = (!ro && compPending && !isFinished) ? `
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+      <button class="btn btn-sm btn-primary" onclick="setCompStatus('${reqId}','With Compensation')">Send to Comp</button>
+      <button class="btn btn-sm btn-secondary" style="font-size:10px" onclick="setCompStatus('${reqId}','Compensation Skipped')">Skip Comp</button>
+    </div>` : '';
+  const compRevertBtn = (!ro && (compDone || compSkipped) && !isFinished) ? `
+    <button class="btn btn-sm" style="margin-top:4px;font-size:10px;background:none;border:1px solid var(--gray-mid);color:var(--gray-dark)" onclick="setCompStatus('${reqId}','')">Revert</button>` : '';
 
-    const connectorColor = isCompleted && i < steps.length - 1 && i < completedUpTo
-      ? 'var(--green)' : 'var(--gray-mid)';
-    const connector = i < steps.length - 1
-      ? `<div style="height:2px;width:32px;background:${connectorColor};margin:0 4px;flex-shrink:0;align-self:flex-start;margin-top:16px;"></div>`
-      : '';
+  const step2 = `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;min-width:90px;">
+    <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;${stepDot(compDone, compSkipped, compPending)}">${compDone?'✓':compSkipped?'—':'2'}</div>
+    <div style="font-size:11px;margin-top:6px;max-width:90px;line-height:1.3;${stepLabel(compDone, compSkipped, compPending)}">${compDone?'With Compensation':compSkipped?'Comp Skipped':'Compensation'}</div>
+    ${compBtns}${compRevertBtn}
+  </div>`;
 
-    const dotContent = isCompleted ? '✓' : (i + 1).toString();
-    const displayLabel = isCompleted ? step.completedLabel : step.label;
+  // Step 3: Recruiting (independent)
+  const recDone    = recruitSt === 'Recruiting';
+  const recSkipped = recruitSt === 'Recruiting Skipped';
+  const recPending = !recDone && !recSkipped;
+  const recBtns = (!ro && recPending && !isFinished) ? `
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+      <button class="btn btn-sm btn-primary" onclick="setRecruitStatus('${reqId}','Recruiting')">Send to Recruiting</button>
+      <button class="btn btn-sm btn-secondary" style="font-size:10px" onclick="setRecruitStatus('${reqId}','Recruiting Skipped')">Skip Recruiting</button>
+    </div>` : '';
+  const recRevertBtn = (!ro && (recDone || recSkipped) && !isFinished) ? `
+    <button class="btn btn-sm" style="margin-top:4px;font-size:10px;background:none;border:1px solid var(--gray-mid);color:var(--gray-dark)" onclick="setRecruitStatus('${reqId}','')">Revert</button>` : '';
 
-    return `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;min-width:90px;">
-      <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;${dotStyle}">${dotContent}</div>
-      <div style="font-size:11px;margin-top:6px;max-width:90px;line-height:1.3;${labelStyle}">${displayLabel}</div>
-      ${btn}
-    </div>${connector}`;
-  }).join('');
+  const step3 = `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;min-width:90px;">
+    <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;${stepDot(recDone, recSkipped, recPending)}">${recDone?'✓':recSkipped?'—':'3'}</div>
+    <div style="font-size:11px;margin-top:6px;max-width:90px;line-height:1.3;${stepLabel(recDone, recSkipped, recPending)}">${recDone?'Recruiting':recSkipped?'Rec Skipped':'Recruiting'}</div>
+    ${recBtns}${recRevertBtn}
+  </div>`;
+
+  // Step 4: Final (Hired / Engaged) — only available after comp+recruiting each resolved
+  const bothResolved = (compDone || compSkipped) && (recDone || recSkipped);
+  const finalBtnHtml = (!ro && !isFinished && bothResolved) ? `
+    <button class="btn btn-sm btn-success" style="margin-top:6px" onclick="setAdminStatus('${reqId}','${finalKey}')">${finalLabel}</button>` :
+    (!ro && !isFinished && !bothResolved) ? `<div style="font-size:10px;color:var(--gray-dark);margin-top:6px">Resolve comp &amp;<br>recruiting first</div>` : '';
+
+  const step4 = `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;min-width:80px;">
+    <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;${stepDot(isFinished, false, bothResolved && !isFinished)}">${isFinished?'✓':'4'}</div>
+    <div style="font-size:11px;margin-top:6px;max-width:80px;line-height:1.3;${stepLabel(isFinished, false, bothResolved && !isFinished)}">${isFinished?finalDoneLabel:finalLabel}</div>
+    ${finalBtnHtml}
+  </div>`;
+
+  return `${step1}${connector}${step2}${connector}${step3}${connector}${step4}`;
 }
 
 
@@ -1522,6 +1687,9 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
       <div class="detail-item"><div class="label">Budget Confirmed</div><div class="value" style="color:var(--green)">✓ Yes</div></div>
       <div class="detail-item" id="modalStatusCell-${reqId}"><div class="label">Status</div><div class="value">${stag(status)}</div></div>
       <div class="detail-item" id="modalAdminStatusCell-${reqId}"><div class="label">Admin Status</div><div class="value">${r[23]?`<span class="tag tag-pbp">${r[23]}</span>`:'<span style="color:var(--gray-dark);font-style:italic;font-size:12px">None</span>'}</div></div>
+      ${r[27]?`<div class="detail-item"><div class="label">Comp Status</div><div class="value"><span class="tag tag-pending">${r[27]}</span></div></div>`:''}
+      ${r[28]?`<div class="detail-item"><div class="label">Recruiting Status</div><div class="value"><span class="tag tag-pbp">${r[28]}</span></div></div>`:''}
+      ${r[26]?`<div class="detail-item full"><div class="label">Job Description Link</div><div class="value"><a href="${r[26]}" target="_blank" style="color:var(--orange)">${r[26]}</a></div></div>`:''}
       <div class="detail-item full"><div class="label">Justification</div><div class="value" style="font-weight:400;line-height:1.5">${r[14]||'—'}</div></div>
     </div>
     <div style="font-size:13px;font-weight:700;margin-bottom:12px">Approval Progress</div>
@@ -1580,14 +1748,34 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
     ${isAdmin&&!ro&&status==='Approved'?`
     <div style="margin-top:16px;background:var(--gray);border-radius:10px;padding:16px;">
       <div style="font-size:12px;font-weight:700;color:var(--gray-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Admin Actions</div>
-      <div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;" id="adminActionsRow-${reqId}">
-        ${adminActionSteps(reqId, isCW, r[23]||'')}
+      <div style="display:flex;align-items:flex-start;gap:0;flex-wrap:wrap;" id="adminActionsRow-${reqId}">
+        ${adminActionSteps(reqId, isCW, r[23]||'', r[27]||'', r[28]||'')}
       </div>
     </div>`:''}
-    ${isAdmin&&!ro&&status!=='Cancelled'&&r[23]!=='Hired'&&r[23]!=='Engaged'?`
-    <div style="margin-top:12px;border-top:1px solid var(--gray-mid);padding-top:12px;display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-size:12px;color:var(--gray-dark)">Cancel this request? This cannot be undone.</span>
-      <button class="btn btn-danger btn-sm" onclick="cancelReq('${reqId}')">Cancel Requisition</button>
+    ${isAdmin&&!ro&&status==='Approved'&&r[27]==='With Compensation'?`
+    <div style="margin-top:12px;background:#FFF8F0;border:1px solid var(--orange);border-radius:10px;padding:16px;" id="compFieldsSection-${reqId}">
+      <div style="font-size:12px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Compensation Details</div>
+      <div class="form-grid" style="gap:10px">
+        <div class="form-group"><label style="font-size:11px">Job Level</label><input id="cf-level-${reqId}" value="${r[29]||''}" placeholder="e.g. L5"></div>
+        <div class="form-group"><label style="font-size:11px">Job Code</label><input id="cf-code-${reqId}" value="${r[30]||''}" placeholder="e.g. 1234"></div>
+        <div class="form-group"><label style="font-size:11px">Job Profile</label><input id="cf-profile-${reqId}" value="${r[31]||''}" placeholder="e.g. Sr Software Engineer"></div>
+        <div class="form-group"><label style="font-size:11px">Compensation Geo</label><input id="cf-geo-${reqId}" value="${r[32]||''}" placeholder="e.g. US Zone 1"></div>
+        <div class="form-group"><label style="font-size:11px">Bonus Target %</label><input id="cf-bonus-${reqId}" value="${r[33]||''}" placeholder="e.g. 15%"></div>
+        <div class="form-group"><label style="font-size:11px">Annual Salary Range</label><input id="cf-salary-${reqId}" value="${r[34]||''}" placeholder="e.g. $120,000–$150,000"></div>
+        <div class="form-group"><label style="font-size:11px">Hourly Range</label><input id="cf-hourly-${reqId}" value="${r[35]||''}" placeholder="e.g. $50–$65/hr (CW only)"></div>
+        <div class="form-group full"><label style="font-size:11px">Compensation Notes</label><textarea id="cf-notes-${reqId}" style="min-height:60px" placeholder="Any notes for recruiting or the hiring manager…">${r[36]||''}</textarea></div>
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn btn-success btn-sm" onclick="saveCompFields('${reqId}')">✓ Save &amp; Done</button>
+      </div>
+    </div>`:''}
+    ${isAdmin&&!ro&&status!=='Cancelled'?`
+    <div id="modalCancelRow-${reqId}" style="margin-top:12px;border-top:1px solid var(--gray-mid);padding-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      ${cancelRowHtml(reqId)}
+    </div>`:''}
+    ${isAdmin&&!ro&&status==='Cancelled'?`
+    <div id="modalCancelRow-${reqId}" style="margin-top:12px;border-top:1px solid var(--gray-mid);padding-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      ${reopenRowHtml(reqId)}
     </div>`:''}
   `;
   // Silently record that the PBP/SMT has viewed this request

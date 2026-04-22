@@ -191,7 +191,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const extra = document.createElement('div');
     extra.style.cssText = 'display:flex;align-items:center;gap:12px;';
     extra.innerHTML =
-      '<div style="color:#888;font-size:11px;text-align:right"><strong style="color:#FF5E00;display:block;font-size:13px;">Global Headcount Report</strong><span id="lastUpdatedHeader">Loading…</span></div>' +
+      '<div style="color:#888;font-size:11px;text-align:right"><strong style="color:#FF5E00;display:block;font-size:13px;">Global Headcount Report</strong></div>' +
       '<button class="cr-refresh-btn" id="refreshBtn" onclick="loadAllData()"><span class="cr-refresh-icon">↻</span> Refresh</button>';
     hdrRight.prepend(extra);
   }
@@ -247,6 +247,7 @@ document.addEventListener("DOMContentLoaded", function() {
   <button class="tab-btn"        onclick="switchTab('cw',this)">Contingent Workers</button>
   <button class="tab-btn"        onclick="switchTab('reqs',this)">Open &amp; Pending Reqs</button>
   <button class="tab-btn"        onclick="switchTab('pa',this)">Pending Hires &amp; Attrition</button>
+  <button class="tab-btn hidden" id="tabBtnMapping" onclick="switchTab('mapping',this)">Data Mapping</button>
 </div>
 
 <div class="error-banner" id="errorBanner"></div>
@@ -556,6 +557,24 @@ document.addEventListener("DOMContentLoaded", function() {
   <div class="chart-card" style="margin-bottom:24px;"><h4>Pending Hires vs Attrition by SMT</h4><div class="horiz-bars" id="paCompareChart"></div></div>
 </div>
 
+<!-- ================================================================
+     TAB 6 — DATA MAPPING (admin-only)
+================================================================ -->
+<div id="tab-mapping" class="tab-panel">
+  <div class="page-title">
+    <div><h2>Data Mapping</h2><p>Source documentation · Where each metric comes from and how it is calculated</p></div>
+    <button class="refresh-btn" onclick="toggleMappingEdit()" id="mappingEditBtn" style="padding:8px 14px;font-size:12px;">✏️ Edit Notes</button>
+  </div>
+
+  <div id="mappingEditBanner" style="display:none;background:#FFF0E8;border:1px solid var(--orange);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px;color:var(--orange);font-weight:600;">
+    Editing mode — notes are saved locally in your browser. Click Save when done.
+    <button onclick="saveMappingNotes()" style="margin-left:12px;background:var(--orange);color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;">Save Notes</button>
+    <button onclick="toggleMappingEdit()" style="margin-left:6px;background:none;border:1px solid var(--orange);color:var(--orange);padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;">Cancel</button>
+  </div>
+
+  <div id="mappingTable"></div>
+</div>
+
 </div><!-- /content -->
 
 <script>
@@ -663,6 +682,7 @@ async function loadAllData() {
 
     setLoading(true, 'Loading Open Requisitions…');
     const ghRaw = await fetchRange('[IMPORT] GH Open Job Detail', 'A4:AN2000');
+    const wdDateRaw = await fetchRange('[IMPORT] Workday Data', 'B1:B1');
     const wdRaw = await fetchRange('[IMPORT] Workday Data', 'A2:AK4500');
 
     setLoading(true, 'Loading Pending Hires & Attrition…');
@@ -678,12 +698,13 @@ async function loadAllData() {
 
     renderAll();
 
-    const ts = tsNow();
+    // "Data as of" date comes from B1 of the Workday import tab
+    const workdayDateRaw = (wdDateRaw[0] && wdDateRaw[0][0]) ? wdDateRaw[0][0] : '';
+    const dataAsOf = workdayDateRaw ? ('Data as of ' + workdayDateRaw) : '';
     ['summaryUpdated','eeUpdated','cwUpdated','reqsUpdated','paUpdated'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.textContent = 'Last refreshed: ' + ts;
+      if (el) el.textContent = dataAsOf;
     });
-    document.getElementById('lastUpdatedHeader').textContent = 'Updated ' + ts;
   } catch(err) {
     showError('Failed to load data: ' + err.message);
     console.error(err);
@@ -1446,9 +1467,126 @@ function switchTab(id, btn) {
 }
 
 // ============================================================
+// DATA MAPPING TAB
+// ============================================================
+// The Headcount Requests spreadsheet — used to check the People tab for security groups.
+// The dashboard service account must have read access to this sheet.
+const REQUESTS_SHEET_ID = '1YDCy3nR1WKukL-y-Xt4xBBhhNdq2amYlA0YYckCnSdM';
+
+async function fetchFromRequestsSheet(sheet, range) {
+  const token = await getToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${REQUESTS_SHEET_ID}/values/${encodeURIComponent("'"+sheet+"'!"+range)}`;
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!r.ok) throw new Error(`${sheet}!${range}: ${r.status}`);
+  return (await r.json()).values || [];
+}
+
+// Returns true if the signed-in user has 'master_admin' in the People sheet
+// of the Headcount Requests app. Falls back to false on any error.
+async function checkIsMasterAdmin() {
+  try {
+    const u = crGetUser();
+    if (!u || !u.email) return false;
+    const rows = await fetchFromRequestsSheet('People', 'A2:F500');
+    const email = u.email.toLowerCase();
+    const match = rows.find(r => r[1] && r[1].toLowerCase() === email);
+    if (!match) return false;
+    const groups = (match[4] || '').split(',').map(s => s.trim().toLowerCase());
+    return groups.includes('master_admin');
+  } catch(e) {
+    console.warn('Could not verify admin status from People sheet:', e.message);
+    return false;
+  }
+}
+
+const MAPPING_ROWS = [
+  { metric:'Total Employees',     source:'[IMPORT] Workday Data',         logic:'Count of active EE workers (worker type = Employee)',                                          tab:'Headcount Summary' },
+  { metric:'Total Contingent Workers', source:'[IMPORT] Workday Data',    logic:'Count of active CW workers (worker type = Contingent)',                                       tab:'Headcount Summary' },
+  { metric:'Hires Since April 1', source:'[IMPORT] Workday Data',         logic:'Workers with hire date ≥ April 1 of current fiscal year',                                     tab:'Headcount Summary' },
+  { metric:'Attrition Since April 1', source:'[IMPORT] Workday Data',     logic:'Workers with termination date ≥ April 1 of current fiscal year',                             tab:'Headcount Summary' },
+  { metric:'Future Attrition',    source:'Pending Hires & Attrition',     logic:'Workers with a future-dated termination (pending departures)',                               tab:'Headcount Summary' },
+  { metric:'Top Line Target',     source:'Headcount Summary by SMT',      logic:'Column K in the Headcount Summary by SMT tab (manually set)',                                 tab:'Headcount Summary' },
+  { metric:'Headroom / Available', source:'Headcount Summary by SMT',     logic:'Top Line − Current HC − Pending Hires',                                                      tab:'Headcount Summary' },
+  { metric:'Open Reqs (GH)',      source:'[IMPORT] GH Open Job Detail',   logic:'All rows in Greenhouse open job detail export (A4:AN)',                                      tab:'Open & Pending Reqs' },
+  { metric:'EE by SMT table',     source:'Headcount Summary by SMT',      logic:'Rows A5:M13 — each row is one SMT, columns are start HC, attrition, hires, current, etc.',  tab:'Employees' },
+  { metric:'CW by SMT table',     source:'Headcount Summary by SMT',      logic:'Rows A20:J28 — same structure as EE section',                                                tab:'Contingent Workers' },
+  { metric:'EE location bars',    source:'Headcount Summary by SMT',      logic:'Rows A38:C65 — col A=location, col B=count',                                                 tab:'Employees' },
+  { metric:'CW location bars',    source:'Headcount Summary by SMT',      logic:'Rows E38:G80 — col E=location, col F=count',                                                 tab:'Contingent Workers' },
+  { metric:'Pending Hires table', source:'Pending Hires & Attrition',     logic:'Rows A5:D20 (by SMT) and F5:I20 (by location)',                                             tab:'Pending Hires & Attrition' },
+  { metric:'Pending Attrition',   source:'Pending Hires & Attrition',     logic:'Rows A28:D45 (by SMT) and F28:I45 (by location)',                                           tab:'Pending Hires & Attrition' },
+  { metric:'Data as of date',     source:'[IMPORT] Workday Data',         logic:'Cell B1 — the export timestamp set when the Workday data was last refreshed',                tab:'All tabs' },
+];
+
+let _mappingEditMode = false;
+
+function renderDataMapping() {
+  const el = document.getElementById('mappingTable');
+  if (!el) return;
+  const savedNotes = JSON.parse(localStorage.getItem('crDashboardMappingNotes')||'{}');
+
+  el.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Metric / KPI</th>
+          <th>Source Tab</th>
+          <th>Logic / Notes</th>
+          <th>Dashboard Tab</th>
+          <th>Custom Notes</th>
+        </tr></thead>
+        <tbody>
+          ${MAPPING_ROWS.map((row, i) => `
+          <tr>
+            <td style="font-weight:600">${row.metric}</td>
+            <td><span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace">${row.source}</span></td>
+            <td style="font-size:12px;color:var(--gray-dark)">${row.logic}</td>
+            <td style="font-size:12px">${row.tab}</td>
+            <td>
+              ${_mappingEditMode
+                ? `<textarea id="mapNote-${i}" style="width:100%;min-height:52px;font-size:12px;border:1px solid var(--gray-mid);border-radius:4px;padding:6px;font-family:inherit;resize:vertical">${savedNotes[i]||''}</textarea>`
+                : `<span style="font-size:12px;color:var(--gray-dark)">${savedNotes[i]||'<em style="color:#bbb">None</em>'}</span>`
+              }
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function toggleMappingEdit() {
+  _mappingEditMode = !_mappingEditMode;
+  document.getElementById('mappingEditBtn').textContent = _mappingEditMode ? '✕ Cancel' : '✏️ Edit Notes';
+  document.getElementById('mappingEditBanner').style.display = _mappingEditMode ? 'block' : 'none';
+  renderDataMapping();
+}
+
+function saveMappingNotes() {
+  const notes = {};
+  MAPPING_ROWS.forEach((_, i) => {
+    const el = document.getElementById('mapNote-'+i);
+    if (el && el.value.trim()) notes[i] = el.value.trim();
+  });
+  localStorage.setItem('crDashboardMappingNotes', JSON.stringify(notes));
+  _mappingEditMode = false;
+  document.getElementById('mappingEditBtn').textContent = '✏️ Edit Notes';
+  document.getElementById('mappingEditBanner').style.display = 'none';
+  renderDataMapping();
+  alert('Notes saved.');
+}
+
+// ============================================================
 // INIT
 // ============================================================
 loadAllData();
+// Show Data Mapping tab if the signed-in user has master_admin in the Requests People sheet
+(async () => {
+  const isAdmin = await checkIsMasterAdmin();
+  if (isAdmin) {
+    const btn = document.getElementById('tabBtnMapping');
+    if (btn) btn.classList.remove('hidden');
+    renderDataMapping();
+  }
+})();
 </script>
 </body>
 </html>
