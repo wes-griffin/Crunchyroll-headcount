@@ -564,16 +564,12 @@ document.addEventListener("DOMContentLoaded", function() {
 ================================================================ -->
 <div id="tab-mapping" class="tab-panel">
   <div class="page-title">
-    <div><h2>Data Mapping</h2><p>Source documentation · Where each metric comes from and how it is calculated</p></div>
-    <button class="refresh-btn" onclick="toggleMappingEdit()" id="mappingEditBtn" style="padding:8px 14px;font-size:12px;">✏️ Edit Mapping</button>
+    <div><h2>Data Mapping</h2><p>Where each metric comes from and how it is calculated</p></div>
+    <div style="display:flex;gap:8px">
+      <button class="refresh-btn" onclick="addMappingRow()" style="padding:8px 16px;font-size:12px">+ Add Row</button>
+      <button class="refresh-btn" onclick="saveMappingAllToSheet()" style="padding:8px 16px;font-size:12px;background:var(--orange)">↑ Save All to Sheet</button>
+    </div>
   </div>
-
-  <div id="mappingEditBanner" style="display:none;background:#FFF0E8;border:1px solid var(--orange);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px;color:var(--orange);font-weight:600;">
-    Editing mode — all fields are editable. Click Save when done.
-    <button onclick="saveMappingNotes()" style="margin-left:12px;background:var(--orange);color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;">Save</button>
-    <button onclick="toggleMappingEdit()" style="margin-left:6px;background:none;border:1px solid var(--orange);color:var(--orange);padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;">Cancel</button>
-  </div>
-
   <div id="mappingTable"></div>
 </div>
 
@@ -634,20 +630,65 @@ const CONFIG_HEADER = ['Metric Key','Display Name','Spreadsheet ID','Sheet Tab',
   'Value Col','Group Col','Series Col','Operation','Dashboard Tab',
   'Column Mapping (JSON)','Notes'];
 
-// Pre-populated defaults — each array matches CONFIG_HEADER columns
+// Pre-populated defaults — 41 rows covering every dashboard metric
+// Columns match CONFIG_HEADER order
 const CONFIG_DEFAULTS = [
-  ['data-as-of',        'Data As Of Date',              HR, '[IMPORT] Workday Data',       'B1:B1',     '','','','', '','','', 'SINGLE_CELL',  'all',        '', 'Export timestamp from B1'],
-  ['hc-ee',             'EE Headcount by SMT',          HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', '','A','', 'LIST',         'employees',  '{"0":"SMT Leader","1":"Start HC","2":"Attrition","3":"Hires","4":"Current HC","5":"Fut Attrition","6":"Fut Hires","7":"Fut HC","8":"Open Reqs","9":"Proj HC","10":"Top Line","11":"Available","12":"Pend Reqs"}', 'EE rows A5:M13; A=name B=startHC C=attr D=hires E=currHC F=futAttr G=futHires H=futHC I=openReqs J=projHC K=topLine L=avail M=pendReqs'],
-  ['hc-cw',             'CW Headcount by SMT',          HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', '','A','', 'LIST',         'contingent', '{"0":"SMT Leader","1":"Start HC","2":"Attrition","3":"Hires","4":"Current HC","5":"Fut Attrition","6":"Fut Hires","7":"Fut HC","8":"Open Reqs","9":"Proj HC"}', 'CW rows A20:J28'],
-  ['hc-comb',           'HC Combined Totals',           HR, 'Headcount Summary by SMT',    'E14:H29',   '','','','', '','','', 'LIST',         'summary',    '', 'E14=EE curr total, H14=EE future, E29=CW curr, H29=CW future'],
-  ['hc-ee-loc',         'EE by Location',               HR, 'Headcount Summary by SMT',    'A38:C65',   '','','','', 'B','A','', 'GROUP_BY_SUM', 'employees',  '', 'A=location B=count'],
-  ['hc-cw-loc',         'CW by Location',               HR, 'Headcount Summary by SMT',    'E38:G80',   '','','','', 'B','A','', 'GROUP_BY_SUM', 'contingent', '', 'E(→A)=location F(→B)=count'],
-  ['gh-reqs',           'Open Reqs (Greenhouse)',        HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '','','', 'LIST',         'reqs',       '', 'Greenhouse open job detail export'],
-  ['wd-main',           'Workday Worker Data',          HR, '[IMPORT] Workday Data',       'A2:AK4500', '','','','', '','','', 'LIST',         'summary',    '', 'Full Workday export — verify column mapping against actual export'],
-  ['pa-hires-smt',      'Pending Hires by SMT',         HR, 'Pending Hires & Attrition',   'A5:D20',    '','','','', '','A','', 'LIST',         'pa',         '{"0":"SMT Leader","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Hires by SMT A5:D20'],
-  ['pa-hires-loc',      'Pending Hires by Location',    HR, 'Pending Hires & Attrition',   'F5:I20',    '','','','', '','A','', 'LIST',         'pa',         '{"0":"Location","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Hires by location F5:I20'],
-  ['pa-attrition-smt',  'Pending Attrition by SMT',     HR, 'Pending Hires & Attrition',   'A28:D45',   '','','','', '','A','', 'LIST',         'pa',         '{"0":"SMT Leader","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Attrition by SMT A28:D45'],
-  ['pa-attrition-loc',  'Pending Attrition by Location',HR, 'Pending Hires & Attrition',   'F28:I45',   '','','','', '','A','', 'LIST',         'pa',         '{"0":"Location","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Attrition by location F28:I45'],
+  // ── UTILITY ──────────────────────────────────────────────────────────────────────────────────────────────────
+  ['data-as-of',             'Data As Of Date',                 HR, '[IMPORT] Workday Data',       'B1:B1',     '','','','', '', '', '', 'SINGLE_CELL',  'all',         '', 'Workday export timestamp from cell B1'],
+
+  // ── EE HEADCOUNT SUMMARY  (A5:M13)  A=SMT B=StartHC C=Attr D=Hires E=CurrHC F=FutAttr G=FutHires H=FutHC I=OpenReqs J=ProjHC K=TopLine L=Avail M=PendReqs ──
+  ['hc-ee',                  'EE Headcount Rows (all SMTs)',    HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', '', 'A', '', 'LIST',         'employees',   '{"0":"SMT Leader","1":"Start HC","2":"Attrition","3":"Hires","4":"Current HC","5":"Fut Attrition","6":"Fut Hires","7":"Fut HC","8":"Open Reqs","9":"Proj HC","10":"Top Line","11":"Available","12":"Pend Reqs"}', 'One row per SMT. Required by parse engine.'],
+  ['summary-ee-current',     'EE Current Headcount',           HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'E', '', '', 'SUM',          'summary,employees', '', 'Sum col E (Current HC) → s-totalEE KPI board'],
+  ['summary-ee-hires',       'EE Hires (YTD)',                 HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'D', '', '', 'SUM',          'summary,employees', '', 'Sum col D (Hires) → s-hiresEE KPI board'],
+  ['summary-ee-attrition',   'EE Attrition (YTD)',             HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'C', '', '', 'SUM',          'summary,employees', '', 'Sum col C (Attrition) → s-attrEE KPI board'],
+  ['summary-ee-future-attr', 'EE Future Attrition',            HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'F', '', '', 'SUM',          'summary,employees', '', 'Sum col F → s-futureAttrEE KPI board'],
+  ['summary-ee-topline',     'EE Top Line Target',             HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'K', '', '', 'SUM',          'summary,employees', '', 'Sum col K (Top Line) → s-tlEE KPI board'],
+  ['summary-ee-headroom',    'EE Headroom / Available',        HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'L', '', '', 'SUM',          'summary,employees', '', 'Sum col L (Available) → s-headroomEE KPI board'],
+  ['summary-ee-open-reqs',   'EE Open Reqs (HC Summary)',      HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'I', '', '', 'SUM',          'employees',         '', 'Sum col I → headroom table'],
+  ['summary-ee-pend-reqs',   'EE Pending Reqs',                HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'M', '', '', 'SUM',          'employees',         '', 'Sum col M → headroom table'],
+
+  // ── CW HEADCOUNT SUMMARY  (A20:J28)  A=SMT B=StartHC C=Attr D=Hires E=CurrHC F=FutAttr G=FutHires H=FutHC I=OpenReqs J=ProjHC ──
+  ['hc-cw',                  'CW Headcount Rows (all SMTs)',   HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', '', 'A', '', 'LIST',         'contingent',  '{"0":"SMT Leader","1":"Start HC","2":"Attrition","3":"Hires","4":"Current HC","5":"Fut Attrition","6":"Fut Hires","7":"Fut HC","8":"Open Reqs","9":"Proj HC"}', 'One row per SMT. Required by parse engine.'],
+  ['summary-cw-current',     'CW Current Headcount',           HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', 'E', '', '', 'SUM',          'summary,contingent', '', 'Sum col E → s-totalCW KPI board'],
+  ['summary-cw-hires',       'CW Hires (YTD)',                 HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', 'D', '', '', 'SUM',          'summary,contingent', '', 'Sum col D → s-hiresCW KPI board'],
+  ['summary-cw-attrition',   'CW Attrition (YTD)',             HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', 'C', '', '', 'SUM',          'summary,contingent', '', 'Sum col C → s-attrCW KPI board'],
+  ['summary-cw-future-attr', 'CW Future Attrition',            HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', 'F', '', '', 'SUM',          'summary,contingent', '', 'Sum col F → s-futureAttrCW KPI board'],
+  ['summary-cw-future-hires','CW Future Hires',                HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', 'G', '', '', 'SUM',          'contingent',         '', 'Sum col G → cw-futureHires KPI board'],
+
+  // ── COMBINED TOTALS  (E14:H29) ──
+  ['hc-comb',                'HC Combined Cells (E14:H29)',    HR, 'Headcount Summary by SMT',    'E14:H29',   '','','','', '', '', '', 'LIST',         'summary',     '', 'E14=EE curr, H14=EE future, E29=CW curr, H29=CW future. Required by parse engine.'],
+  ['combined-ee-current',    'EE Total Current HC (E14)',      HR, 'Headcount Summary by SMT',    'E14:E14',   '','','','', 'A', '', '', 'SINGLE_CELL',  'summary',     '', 'Cell E14 → s-combined board'],
+  ['combined-ee-future',     'EE Total Future HC (H14)',       HR, 'Headcount Summary by SMT',    'H14:H14',   '','','','', 'A', '', '', 'SINGLE_CELL',  'summary',     '', 'Cell H14 → s-futureCombined board'],
+  ['combined-cw-current',    'CW Total Current HC (E29)',      HR, 'Headcount Summary by SMT',    'E29:E29',   '','','','', 'A', '', '', 'SINGLE_CELL',  'summary',     '', 'Cell E29 → s-combined board'],
+  ['combined-cw-future',     'CW Total Future HC (H29)',       HR, 'Headcount Summary by SMT',    'H29:H29',   '','','','', 'A', '', '', 'SINGLE_CELL',  'summary',     '', 'Cell H29 → s-futureCombined board'],
+
+  // ── LOCATION ──
+  ['hc-ee-loc',              'EE by Location',                 HR, 'Headcount Summary by SMT',    'A38:C65',   '','','','', 'B', 'A', '', 'GROUP_BY_SUM', 'employees',   '', 'A=location, B=count. Required by parse engine.'],
+  ['hc-cw-loc',              'CW by Location',                 HR, 'Headcount Summary by SMT',    'E38:G80',   '','','','', 'B', 'A', '', 'GROUP_BY_SUM', 'contingent',  '', 'E→A=location, G→C=count. Required by parse engine.'],
+
+  // ── GREENHOUSE OPEN REQS  (A4:AN2000)  Z=25=type  AB=27=backfill  AD=29=title  AI=34=loc  AJ=35=hireDate  AL=37=SMT  AM=38=PBP ──
+  ['gh-reqs',                'Open Reqs — All Roles (GH)',     HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '', '', '', 'LIST',         'reqs',        '{"title":29,"type":25,"backfill":27,"location":34,"hireDate":35,"smt":37,"pbp":38}', 'Row 1=header skipped; filtered: non-blank title+hireDate, hireDate not in past. Required by parse engine.'],
+  ['gh-total',               'Total Open Reqs Count',          HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '', '', '', 'COUNT_ROWS',   'reqs',        '', 'Active reqs: non-blank title, non-blank future hire date'],
+  ['gh-ee-count',            'Open EE Reqs Count',             HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', 'Z', 'Employee', '','', '', '', '', 'FILTER_COUNT', 'reqs',  '', 'Col Z (idx 25)=type. EE regex: /ee|employee|full.?time|fte/i — filter value is approximate'],
+  ['gh-cw-count',            'Open CW Reqs Count',             HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', 'Z', 'Contingent','','', '', '', '', 'FILTER_COUNT', 'reqs',  '', 'Col Z (idx 25)=type. CW regex: /cw|contingent|contractor|contract/i — approximate'],
+  ['gh-by-smt',              'Open Reqs by SMT Leader',        HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '', 'AL', '', 'GROUP_BY_COUNT','reqs',       '', 'Col AL (idx 37) = SMT Leader name'],
+  ['gh-by-pbp',              'Open Reqs by PBP',               HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '', 'AM', '', 'GROUP_BY_COUNT','reqs',       '', 'Col AM (idx 38) = PBP name'],
+  ['gh-by-location',         'Open Reqs by Location',          HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '', 'AI', '', 'GROUP_BY_COUNT','reqs',       '', 'Col AI (idx 34) = Location'],
+
+  // ── WORKDAY  (A2:AK4500)  B=1=name  C=2=status  D=3=type  F=5=smt  K=10=mgr  L=11=title  N=13=costCtr  Q=16=loc  X=23=hireDate ──
+  ['wd-main',                'All Active Workers (Workday)',   HR, '[IMPORT] Workday Data',       'A2:AK4500', '','','','', '', '', '', 'LIST',         'summary',     '{"name":1,"status":2,"type":3,"smt":5,"manager":10,"title":11,"costCenter":13,"location":16,"hireDate":23}', 'Active: status≠Inactive, hireDate≤today. Required by parse engine.'],
+
+  // ── PENDING HIRES & ATTRITION  A=SMT/Loc  B=EE  C=CW  D=Total ──
+  ['pa-hires-smt',           'Pending Hires by SMT',           HR, 'Pending Hires & Attrition',   'A5:D20',    '','','','', '', 'A', '', 'LIST',         'pa',          '{"0":"SMT Leader","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Required by parse engine.'],
+  ['pa-hires-loc',           'Pending Hires by Location',      HR, 'Pending Hires & Attrition',   'F5:I20',    '','','','', '', 'A', '', 'LIST',         'pa',          '{"0":"Location","1":"Employee","2":"Contingent","3":"Grand Total"}',  'Required by parse engine.'],
+  ['pa-attrition-smt',       'Pending Attrition by SMT',       HR, 'Pending Hires & Attrition',   'A28:D45',   '','','','', '', 'A', '', 'LIST',         'pa',          '{"0":"SMT Leader","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Required by parse engine.'],
+  ['pa-attrition-loc',       'Pending Attrition by Location',  HR, 'Pending Hires & Attrition',   'F28:I45',   '','','','', '', 'A', '', 'LIST',         'pa',          '{"0":"Location","1":"Employee","2":"Contingent","3":"Grand Total"}',  'Required by parse engine.'],
+  ['pa-hires-total',         'Total Pending Hires',            HR, 'Pending Hires & Attrition',   'A5:D20',    '','','','', 'D', '', '', 'SUM',          'pa',          '', 'Sum col D (Grand Total) → pa-hires KPI board'],
+  ['pa-hires-ee',            'Pending EE Hires',               HR, 'Pending Hires & Attrition',   'A5:D20',    '','','','', 'B', '', '', 'SUM',          'pa',          '', 'Sum col B (Employee) → sub-label'],
+  ['pa-hires-cw',            'Pending CW Hires',               HR, 'Pending Hires & Attrition',   'A5:D20',    '','','','', 'C', '', '', 'SUM',          'pa',          '', 'Sum col C (Contingent) → sub-label'],
+  ['pa-attrition-total',     'Total Pending Attrition',        HR, 'Pending Hires & Attrition',   'A28:D45',   '','','','', 'D', '', '', 'SUM',          'pa',          '', 'Sum col D (Grand Total) → pa-attr KPI board'],
+  ['pa-attrition-ee',        'Pending EE Attrition',           HR, 'Pending Hires & Attrition',   'A28:D45',   '','','','', 'B', '', '', 'SUM',          'pa',          '', 'Sum col B (Employee) → sub-label'],
+  ['pa-attrition-cw',        'Pending CW Attrition',           HR, 'Pending Hires & Attrition',   'A28:D45',   '','','','', 'C', '', '', 'SUM',          'pa',          '', 'Sum col C (Contingent) → sub-label'],
 ];
 
 // ── Operation definitions (used in dropdown + tooltips) ──────
@@ -1798,158 +1839,275 @@ async function checkIsMasterAdmin() {
   } catch(e) { return false; }
 }
 
-let _mappingEditMode = false;
+// ── Data Mapping UI ────────────────────────────────────────────────────────
+let _editingRowIdx = null;
+
+const OP_COLORS = {
+  LIST:'#1565C0', COUNT_ROWS:'#2E7D32', SUM:'#E65100', COUNT_DISTINCT:'#2E7D32',
+  GROUP_BY_COUNT:'#6A1B9A', GROUP_BY_SUM:'#6A1B9A', FILTER_COUNT:'#2E7D32',
+  PERCENTAGE:'#AD1457', DELTA:'#AD1457', SINGLE_CELL:'#1B5E20',
+  FIRST_VALUE:'#1B5E20', CROSS_TAB:'#1565C0', MULTI_SERIES:'#1565C0'
+};
+
+const TAB_LABELS = {
+  all:'Utility', summary:'Summary Tab', employees:'Employees Tab',
+  contingent:'Contingent Workers Tab', reqs:'Open Reqs Tab', pa:'Pending Hires & Attrition Tab'
+};
 
 function renderDataMapping() {
-  const el = document.getElementById('mappingTable');
+  var el = document.getElementById('mappingTable');
   if (!el) return;
-  const rows = _configRows;
-  const ops  = Object.keys(OPERATION_DEFS);
-
-  if (_mappingEditMode) {
-    let editRows = '';
-    rows.forEach(function(row, i) {
-      const opOptions = ops.map(function(op) {
-        return '<option value="' + op + '"' + (op === row.operation ? ' selected' : '') + '>' + op + '</option>';
-      }).join('');
-      editRows +=
-        '<tr>' +
-        '<td><input class="map-input" style="width:110px" data-i="' + i + '" data-f="metricKey" value="' + esc(row.metricKey) + '"></td>' +
-        '<td><input class="map-input" style="width:130px" data-i="' + i + '" data-f="displayName" value="' + esc(row.displayName) + '"></td>' +
-        '<td><input class="map-input" style="width:110px;font-size:10px" data-i="' + i + '" data-f="spreadsheetId" value="' + esc(row.spreadsheetId) + '"></td>' +
-        '<td><input class="map-input" style="width:150px" data-i="' + i + '" data-f="sheetTab" value="' + esc(row.sheetTab) + '"></td>' +
-        '<td><input class="map-input" style="width:80px;font-family:monospace" data-i="' + i + '" data-f="range" value="' + esc(row.range) + '"></td>' +
-        '<td><input class="map-input" style="width:44px;text-align:center" data-i="' + i + '" data-f="filterCol" value="' + esc(row.filterCol) + '"></td>' +
-        '<td><input class="map-input" style="width:90px" data-i="' + i + '" data-f="filterValue" value="' + esc(row.filterValue) + '"></td>' +
-        '<td><input class="map-input" style="width:44px;text-align:center" data-i="' + i + '" data-f="filterCol2" value="' + esc(row.filterCol2) + '"></td>' +
-        '<td><input class="map-input" style="width:90px" data-i="' + i + '" data-f="filterValue2" value="' + esc(row.filterValue2) + '"></td>' +
-        '<td><input class="map-input" style="width:44px;text-align:center" data-i="' + i + '" data-f="valueCol" value="' + esc(row.valueCol) + '"></td>' +
-        '<td><input class="map-input" style="width:44px;text-align:center" data-i="' + i + '" data-f="groupCol" value="' + esc(row.groupCol) + '"></td>' +
-        '<td><input class="map-input" style="width:44px;text-align:center" data-i="' + i + '" data-f="seriesCol" value="' + esc(row.seriesCol) + '"></td>' +
-        '<td><select class="map-input" data-i="' + i + '" data-f="operation" title="' + esc(OPERATION_DEFS[row.operation] || '') + '">' + opOptions + '</select></td>' +
-        '<td><input class="map-input" style="width:80px" data-i="' + i + '" data-f="dashboardTab" value="' + esc(row.dashboardTab) + '"></td>' +
-        '<td><textarea class="map-input" data-i="' + i + '" data-f="columnMapping" style="width:130px;min-height:48px;font-size:10px;font-family:monospace;resize:vertical">' + esc(row.columnMapping) + '</textarea></td>' +
-        '<td><textarea class="map-input" data-i="' + i + '" data-f="notes" style="width:120px;min-height:48px;resize:vertical">' + esc(row.notes) + '</textarea></td>' +
-        '<td><button onclick="deleteMappingRow(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:0" title="Delete">&#x2715;</button></td>' +
-        '</tr>';
-    });
-    const opLegend = ops.map(function(op) {
-      return '<span title="' + esc(OPERATION_DEFS[op]) + '" style="display:inline-block;margin:2px 6px 2px 0;cursor:help;text-decoration:underline dotted;color:var(--orange)">' + op + '</span>';
-    }).join('');
-    el.innerHTML =
-      '<div style="overflow-x:auto"><table style="min-width:1400px;font-size:12px">' +
-      '<thead><tr style="font-size:11px">' +
-      '<th>Metric Key</th><th>Display Name</th><th>Spreadsheet ID</th><th>Sheet Tab</th><th>Range</th>' +
-      '<th title="Column letter or 0-based index">Filter Col</th><th>Filter Value</th>' +
-      '<th title="Column letter or 0-based index">Filter Col 2</th><th>Filter Value 2</th>' +
-      '<th title="Column to sum, count, or return">Value Col</th>' +
-      '<th title="Column to group rows by">Group Col</th>' +
-      '<th title="Second grouping dimension">Series Col</th>' +
-      '<th>Operation</th><th>Dashboard Tab</th><th title="JSON column mapping or series definitions">Column Mapping (JSON)</th>' +
-      '<th>Notes</th><th></th>' +
-      '</tr></thead><tbody>' + editRows + '</tbody></table></div>' +
-      '<div style="margin-top:12px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">' +
-      '<button onclick="addMappingRow()" class="btn btn-secondary" style="font-size:12px">+ Add Row</button>' +
-      '<div style="font-size:11px;color:var(--gray-dark);max-width:700px"><strong>Operations:</strong> ' + opLegend + '</div>' +
-      '</div>';
-  } else {
-    let readRows = '';
-    rows.forEach(function(row) {
-      const filterText = row.filterCol
-        ? ('Col ' + row.filterCol + ' = ' + row.filterValue + (row.filterCol2 ? ' &amp; Col ' + row.filterCol2 + '=' + row.filterValue2 : ''))
-        : '';
-      const sheetIdDisplay = row.spreadsheetId === HR
-        ? '<em style="color:#aaa">Headcount Report</em>'
-        : (row.spreadsheetId || '').slice(0, 12) + '&hellip;';
-      readRows +=
-        '<tr>' +
-        '<td style="font-family:monospace;font-size:11px;color:var(--gray-dark)">' + row.metricKey + '</td>' +
-        '<td style="font-weight:600">' + row.displayName + '</td>' +
-        '<td style="font-family:monospace;font-size:10px;color:var(--gray-dark)" title="' + esc(row.spreadsheetId) + '">' + sheetIdDisplay + '</td>' +
-        '<td><span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace">' + row.sheetTab + '</span></td>' +
-        '<td style="font-family:monospace;font-size:11px">' + row.range + '</td>' +
-        '<td><span style="background:#FFF0E8;color:var(--orange);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700" title="' + esc(OPERATION_DEFS[row.operation] || '') + '">' + row.operation + '</span></td>' +
-        '<td style="font-size:11px;color:var(--gray-dark)">' + filterText + '</td>' +
-        '<td style="font-size:11px">' + row.dashboardTab + '</td>' +
-        '<td style="font-size:11px;color:var(--gray-dark)">' + (row.notes || '<em style="color:#ccc">&mdash;</em>') + '</td>' +
-        '</tr>';
-    });
-    el.innerHTML =
-      '<div style="overflow-x:auto"><table style="min-width:800px">' +
-      '<thead><tr>' +
-      '<th>Metric Key</th><th>Display Name</th><th>Spreadsheet ID</th><th>Source Tab</th>' +
-      '<th>Range</th><th>Operation</th><th>Filter</th><th>Dashboard Tab</th><th>Notes</th>' +
-      '</tr></thead><tbody>' + readRows + '</tbody></table></div>';
+  if (!_configRows.length) {
+    el.innerHTML = '<p style="color:var(--gray-dark);padding:20px 0">No rows configured. Click "+ Add Row" above to get started.</p>';
+    return;
   }
+
+  var tabOrder = ['all','summary','employees','contingent','reqs','pa'];
+  var groups = {};
+  _configRows.forEach(function(r, i) {
+    var tab = r.dashboardTab || '(other)';
+    if (!groups[tab]) groups[tab] = [];
+    groups[tab].push(i);
+  });
+  var allTabs = tabOrder.filter(function(t){ return groups[t]; })
+    .concat(Object.keys(groups).filter(function(t){ return tabOrder.indexOf(t)<0; }));
+
+  var html = '<div style="font-size:11px;color:#aaa;margin-bottom:16px">'
+    + _configRows.length + ' rows total · Hover an operation badge for its definition · <strong style="color:var(--orange)">Save All to Sheet</strong> to persist changes</div>';
+
+  allTabs.forEach(function(tab) {
+    if (!groups[tab] || !groups[tab].length) return;
+    html += '<div style="margin-bottom:28px">'
+      + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;'
+      + 'border-bottom:2px solid #eee;padding-bottom:6px;margin-bottom:10px">'+(TAB_LABELS[tab]||tab)+'</div>';
+    groups[tab].forEach(function(idx) {
+      html += _editingRowIdx === idx ? _mappingEditForm(idx) : _mappingRow(idx);
+    });
+    html += '</div>';
+  });
+
+  el.innerHTML = html;
 }
 
+function _mappingRow(idx) {
+  var r = _configRows[idx];
+  var filterDesc = r.filterCol
+    ? ('col&nbsp;<code>'+esc(r.filterCol)+'</code>&nbsp;=&nbsp;"'+esc(r.filterValue)+'"'
+       +(r.filterCol2 ? '&nbsp;&amp;&amp;&nbsp;col&nbsp;<code>'+esc(r.filterCol2)+'</code>&nbsp;=&nbsp;"'+esc(r.filterValue2)+'"' : ''))
+    : '';
+  var cols = [r.valueCol&&'val:<b>'+esc(r.valueCol)+'</b>', r.groupCol&&'grp:<b>'+esc(r.groupCol)+'</b>', r.seriesCol&&'ser:<b>'+esc(r.seriesCol)+'</b>'].filter(Boolean).join(' &middot; ');
+  var opColor = OP_COLORS[r.operation]||'#666';
+  return '<div id="mrow-'+idx+'" style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;'
+    +'border:1px solid #E8E8E8;border-radius:8px;margin-bottom:6px;background:#fff">'
+    +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">'
+        +'<span style="font-weight:700;font-size:13px">'+(esc(r.displayName)||'<em style="color:#ccc">unnamed</em>')+'</span>'
+        +'<code style="font-size:10px;color:#aaa;background:#F5F5F5;padding:1px 6px;border-radius:4px">'+esc(r.metricKey)+'</code>'
+        +'<span style="background:'+opColor+';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;cursor:help" title="'+esc(OPERATION_DEFS[r.operation]||'')+'">'+esc(r.operation)+'</span>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px">'
+        +'<span style="background:#E3F2FD;color:#1565C0;font-family:monospace;font-size:10px;padding:2px 8px;border-radius:4px">'+esc(r.sheetTab)+'</span>'
+        +'<code style="font-size:11px;color:#666">'+esc(r.range)+'</code>'
+        +(filterDesc ? '<span style="color:#888"> &middot; '+filterDesc+'</span>' : '')
+        +(cols       ? '<span style="color:#888;font-family:monospace"> &middot; '+cols+'</span>' : '')
+      +'</div>'
+      +(r.notes ? '<div style="font-size:11px;color:#bbb;margin-top:4px;font-style:italic">'+esc(r.notes)+'</div>' : '')
+    +'</div>'
+    +'<div style="display:flex;gap:4px;flex-shrink:0;padding-top:2px">'
+      +'<button onclick="editMappingRow('+idx+')" style="font-size:11px;padding:4px 12px;background:none;border:1px solid #ddd;border-radius:4px;cursor:pointer;color:#555;white-space:nowrap">Edit</button>'
+      +'<button onclick="deleteMappingRow('+idx+')" style="font-size:11px;padding:4px 9px;background:none;border:1px solid #eee;border-radius:4px;cursor:pointer;color:#ccc" title="Delete">&#x2715;</button>'
+    +'</div>'
+  +'</div>';
+}
+
+function _mappingEditForm(idx) {
+  var r = _configRows[idx];
+  var ops = Object.keys(OPERATION_DEFS);
+  var opOpts = ops.map(function(op){ return '<option value="'+op+'"'+(op===r.operation?' selected':'')+'>'+op+'</option>'; }).join('');
+
+  function inp(label, field, val, extraStyle, ph) {
+    return '<div><label style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:3px">'+label+'</label>'
+      +'<input id="me-'+field+'-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph||'')+'" '
+      +'style="width:100%;box-sizing:border-box;padding:6px 9px;border:1px solid #ddd;border-radius:5px;font-size:12px;'+(extraStyle||'')+'">'
+      +'</div>';
+  }
+
+  return '<div id="mrow-'+idx+'" style="border:2px solid var(--orange);border-radius:10px;padding:20px 22px;margin-bottom:8px;background:#FFFDF9">'
+
+    // ── Header
+    +'<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px">'
+      +'<div style="font-size:13px;font-weight:800;color:var(--orange)">Editing</div>'
+      +'<code style="font-size:11px;color:#aaa">'+esc(r.metricKey||'new row')+'</code>'
+    +'</div>'
+
+    // ── Core
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">'
+      +inp('Display Name *',   'displayName',   r.displayName,   '', '')
+      +inp('Metric Key *',     'metricKey',     r.metricKey,     'font-family:monospace', '')
+    +'</div>'
+
+    // ── Source
+    +'<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f0f0;padding-bottom:5px;margin-bottom:10px">Data Source</div>'
+    +'<div style="margin-bottom:10px">'+inp('Spreadsheet ID', 'spreadsheetId', r.spreadsheetId, 'font-family:monospace;font-size:11px', '')+'</div>'
+    +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:18px">'
+      +inp('Sheet Tab Name', 'sheetTab', r.sheetTab, '', '')
+      +inp('Range',          'range',    r.range,    'font-family:monospace', 'e.g. A5:M13')
+    +'</div>'
+
+    // ── Filter
+    +'<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f0f0;padding-bottom:5px;margin-bottom:10px">'
+      +'Filter <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#ccc">(optional)</span>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:70px 1fr 70px 1fr;gap:8px;margin-bottom:5px">'
+      +inp('Col 1', 'filterCol',   r.filterCol,   'font-family:monospace;text-align:center', 'D')
+      +inp('Value 1','filterValue', r.filterValue, '', 'e.g. Employee')
+      +inp('Col 2', 'filterCol2',  r.filterCol2,  'font-family:monospace;text-align:center', 'E')
+      +inp('Value 2','filterValue2',r.filterValue2,'', '')
+    +'</div>'
+    +'<div style="font-size:10px;color:#ccc;margin-bottom:18px">Operators: exact · >=N · <=N · >N · <N · ~text (contains)</div>'
+
+    // ── Operation
+    +'<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f0f0;padding-bottom:5px;margin-bottom:10px">Operation</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">'
+      +'<div>'
+        +'<label style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:3px">Operation *</label>'
+        +'<select id="me-operation-'+idx+'" onchange="updateOpDesc('+idx+')" style="width:100%;padding:6px 9px;border:1px solid #ddd;border-radius:5px;font-size:12px">'+opOpts+'</select>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
+        +inp('Value Col', 'valueCol',  r.valueCol,  'font-family:monospace;text-align:center', 'E')
+        +inp('Group Col', 'groupCol',  r.groupCol,  'font-family:monospace;text-align:center', 'A')
+        +inp('Series Col','seriesCol', r.seriesCol, 'font-family:monospace;text-align:center', '')
+      +'</div>'
+    +'</div>'
+    +'<div id="me-opDesc-'+idx+'" style="font-size:11px;color:var(--orange);background:#FFF3E0;border-radius:6px;padding:8px 12px;margin-bottom:18px;min-height:28px">'+esc(OPERATION_DEFS[r.operation]||'')+'</div>'
+
+    // ── Dashboard Tab
+    +'<div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-bottom:18px">'
+      +inp('Dashboard Tab', 'dashboardTab', r.dashboardTab, '', 'e.g. summary, employees, reqs, pa, all')
+      +'<div></div>'
+    +'</div>'
+
+    // ── Column Mapping
+    +'<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f0f0;padding-bottom:5px;margin-bottom:10px">'
+      +'Column Mapping JSON <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#ccc">(LIST / CROSS_TAB / MULTI_SERIES)</span>'
+    +'</div>'
+    +'<textarea id="me-columnMapping-'+idx+'" style="width:100%;box-sizing:border-box;min-height:60px;font-family:monospace;font-size:11px;'
+      +'resize:vertical;border:1px solid #ddd;border-radius:5px;padding:7px 9px;margin-bottom:18px">'+esc(r.columnMapping)+'</textarea>'
+
+    // ── Notes
+    +'<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f0f0;padding-bottom:5px;margin-bottom:10px">Notes</div>'
+    +'<textarea id="me-notes-'+idx+'" style="width:100%;box-sizing:border-box;min-height:48px;font-size:12px;'
+      +'resize:vertical;border:1px solid #ddd;border-radius:5px;padding:7px 9px;margin-bottom:18px">'+esc(r.notes)+'</textarea>'
+
+    // ── Buttons
+    +'<div style="display:flex;gap:8px;align-items:center">'
+      +'<button onclick="saveMappingRow('+idx+')" style="background:var(--orange);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✓ Save</button>'
+      +'<button onclick="cancelMappingRow()" style="background:none;border:1px solid #ddd;padding:8px 16px;border-radius:6px;font-size:12px;cursor:pointer;color:#555">Cancel</button>'
+      +'<button onclick="deleteMappingRow('+idx+')" style="margin-left:auto;background:none;border:1px solid #ffcccc;color:var(--red);padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer">Delete Row</button>'
+    +'</div>'
+
+  +'</div>';
+}
+
+function updateOpDesc(idx) {
+  var sel = document.getElementById('me-operation-'+idx);
+  var desc = document.getElementById('me-opDesc-'+idx);
+  if (sel && desc) desc.textContent = OPERATION_DEFS[sel.value] || '';
+}
+
+function editMappingRow(idx) {
+  if (_editingRowIdx !== null && _editingRowIdx !== idx) cancelMappingRow();
+  _editingRowIdx = idx;
+  var el = document.getElementById('mrow-'+idx);
+  if (el) el.outerHTML = _mappingEditForm(idx);
+}
+
+async function saveMappingRow(idx) {
+  function g(f) { var el = document.getElementById('me-'+f+'-'+idx); return el ? el.value : ''; }
+  var opEl = document.getElementById('me-operation-'+idx);
+  _configRows[idx] = {
+    metricKey:     g('metricKey').trim(),
+    displayName:   g('displayName').trim(),
+    spreadsheetId: g('spreadsheetId').trim() || HR,
+    sheetTab:      g('sheetTab').trim(),
+    range:         g('range').trim(),
+    filterCol:     g('filterCol').trim(),
+    filterValue:   g('filterValue').trim(),
+    filterCol2:    g('filterCol2').trim(),
+    filterValue2:  g('filterValue2').trim(),
+    valueCol:      g('valueCol').trim(),
+    groupCol:      g('groupCol').trim(),
+    seriesCol:     g('seriesCol').trim(),
+    operation:     opEl ? opEl.value : 'LIST',
+    dashboardTab:  g('dashboardTab').trim(),
+    columnMapping: g('columnMapping').trim(),
+    notes:         g('notes').trim(),
+  };
+  _editingRowIdx = null;
+  renderDataMapping();
+  try { await saveMappingAllToSheet(); } catch(e) { console.warn('Sheet save failed:', e.message); }
+}
+
+function cancelMappingRow() {
+  // If this was a brand-new unsaved row, remove it
+  if (_editingRowIdx !== null && !_configRows[_editingRowIdx].metricKey && !_configRows[_editingRowIdx].displayName) {
+    _configRows.splice(_editingRowIdx, 1);
+  }
+  _editingRowIdx = null;
+  renderDataMapping();
+}
+
+async function deleteMappingRow(i) {
+  var name = _configRows[i].displayName || _configRows[i].metricKey || 'this row';
+  if (!confirm('Delete "'+name+'"? Cannot be undone.')) return;
+  _configRows.splice(i, 1);
+  _editingRowIdx = null;
+  renderDataMapping();
+  try { await saveMappingAllToSheet(); } catch(e) {}
+}
 
 function addMappingRow() {
+  if (_editingRowIdx !== null) cancelMappingRow();
   _configRows.push({ metricKey:'', displayName:'', spreadsheetId:HR, sheetTab:'', range:'',
     filterCol:'', filterValue:'', filterCol2:'', filterValue2:'',
     valueCol:'', groupCol:'', seriesCol:'', operation:'LIST',
     dashboardTab:'', columnMapping:'', notes:'' });
+  _editingRowIdx = _configRows.length - 1;
   renderDataMapping();
+  setTimeout(function() {
+    var el = document.getElementById('mrow-'+(_configRows.length-1));
+    if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+    var first = document.getElementById('me-displayName-'+(_configRows.length-1));
+    if (first) first.focus();
+  }, 80);
 }
 
-function deleteMappingRow(i) {
-  _configRows.splice(i, 1);
-  renderDataMapping();
-}
-
-function toggleMappingEdit() {
-  if (_mappingEditMode) {
-    // Cancel — reload from _configRows (discards unsaved input)
-    _mappingEditMode = false;
-    document.getElementById('mappingEditBtn').textContent = '✏️ Edit Mapping';
-    document.getElementById('mappingEditBanner').style.display = 'none';
-    renderDataMapping();
-  } else {
-    _mappingEditMode = true;
-    document.getElementById('mappingEditBtn').textContent = '✕ Cancel';
-    document.getElementById('mappingEditBanner').style.display = 'block';
-    renderDataMapping();
-  }
-}
-
-async function saveMappingNotes() {
-  // Collect all edits from form inputs into _configRows
-  document.querySelectorAll('.map-input').forEach(el => {
-    const i = parseInt(el.dataset.i), f = el.dataset.f;
-    if (!isNaN(i) && f && _configRows[i]) _configRows[i] = { ..._configRows[i], [f]: el.value };
+async function saveMappingAllToSheet() {
+  var dataRows = _configRows.map(function(r) {
+    return [r.metricKey, r.displayName, r.spreadsheetId, r.sheetTab, r.range,
+            r.filterCol, r.filterValue, r.filterCol2, r.filterValue2,
+            r.valueCol, r.groupCol, r.seriesCol, r.operation, r.dashboardTab,
+            r.columnMapping, r.notes];
   });
-
-  const dataRows = _configRows.map(r => [
-    r.metricKey, r.displayName, r.spreadsheetId, r.sheetTab, r.range,
-    r.filterCol, r.filterValue, r.filterCol2, r.filterValue2,
-    r.valueCol, r.groupCol, r.seriesCol, r.operation, r.dashboardTab,
-    r.columnMapping, r.notes,
-  ]);
-
-  try {
-    // Write header then data, clearing any old rows first
-    await clearRequestsSheetRange(CONFIG_TAB, 'A1:P500');
-    await writeToRequestsSheet(CONFIG_TAB, 'A1:P1', [CONFIG_HEADER]);
-    await writeToRequestsSheet(CONFIG_TAB, 'A2:P'+(dataRows.length+1), dataRows);
-
-    _mappingEditMode = false;
-    document.getElementById('mappingEditBtn').textContent = '✏️ Edit Mapping';
-    document.getElementById('mappingEditBanner').style.display = 'none';
-    renderDataMapping();
-    // Notify that changes need a refresh to take effect on data
-    const banner = document.getElementById('errorBanner');
-    if (banner) { banner.textContent = '✓ Mapping saved. Click Refresh to reload data from new sources.'; banner.classList.add('visible'); banner.style.background='var(--green)';banner.style.color='white'; setTimeout(()=>{banner.classList.remove('visible');banner.style.background='';banner.style.color='';},5000); }
-  } catch(e) {
-    alert('Error saving mapping: ' + e.message);
+  await clearRequestsSheetRange(CONFIG_TAB, 'A1:P500');
+  await writeToRequestsSheet(CONFIG_TAB, 'A1:P1', [CONFIG_HEADER]);
+  if (dataRows.length) await writeToRequestsSheet(CONFIG_TAB, 'A2:P'+(dataRows.length+1), dataRows);
+  var banner = document.getElementById('errorBanner');
+  if (banner) {
+    banner.textContent = '✓ Mapping saved — click Refresh to reload data from updated sources.';
+    banner.classList.add('visible');
+    banner.style.background = 'var(--green)'; banner.style.color = 'white';
+    setTimeout(function() { banner.classList.remove('visible'); banner.style.background=''; banner.style.color=''; }, 5000);
   }
 }
 
 // ============================================================
 // INIT
 // ============================================================
-loadAllData();
-// Show Data Mapping tab if the signed-in user has master_admin in the Requests People sheet
+// Sequential init: await data load before admin check so _configRows is populated
+// before renderDataMapping() is ever called
 (async () => {
+  await loadAllData();
   const isAdmin = await checkIsMasterAdmin();
   if (isAdmin) {
     const btn = document.getElementById('tabBtnMapping');
