@@ -372,7 +372,7 @@ document.addEventListener("DOMContentLoaded", function() {
           </select>
         </div>
         <div class="form-group">
-          <label>SMT Leader</label>
+          <label>SMT or Delegate</label>
           <input type="text" id="f-smt" readonly placeholder="Auto-filled">
         </div>
         <div class="form-group">
@@ -492,7 +492,7 @@ document.addEventListener("DOMContentLoaded", function() {
   <div class="filter-row">
     <input type="text" id="eeSearch" placeholder="Search…" oninput="renderAdminEE()">
     <select id="eeStatusF" onchange="renderAdminEE()"><option value="">All Statuses</option><option>Pending PBP</option><option>Pending SMT</option><option>Approved</option><option>Rejected</option><option>Cancelled</option></select>
-    <select id="eeSMTF" onchange="renderAdminEE()"><option value="">All SMTs</option></select>
+    <select id="eeSMTF" onchange="renderAdminEE()"><option value="">All SMT or Delegates</option></select>
     <select id="eeRequestorF" onchange="renderAdminEE()"><option value="">All Requestors</option></select>
     <select id="eeLocationF" onchange="renderAdminEE()"><option value="">All Locations</option></select>
     <select id="eeActionF" onchange="renderAdminEE()"><option value="">All Actions</option><option value="">None</option><option value="Recruiting">Recruiting</option><option value="Hired">Hired</option></select>
@@ -501,7 +501,7 @@ document.addEventListener("DOMContentLoaded", function() {
     <div class="table-header"><h3>All Employee Requests</h3></div>
     <table><thead><tr>
       <th>Submitted</th><th>Requestor</th><th>Title</th><th>Category</th>
-      <th>Cost Center</th><th>SMT</th><th>Location</th><th>Status</th><th>Actions</th>
+      <th>Cost Center</th><th>SMT or Delegate</th><th>Location</th><th>Status</th><th>Actions</th>
     </tr></thead>
     <tbody id="adminEETable"><tr><td colspan="9"><div class="empty-state"><div class="icon">👥</div><p>Loading…</p></div></td></tr></tbody></table>
   </div>
@@ -519,7 +519,7 @@ document.addEventListener("DOMContentLoaded", function() {
   <div class="filter-row">
     <input type="text" id="cwSearch" placeholder="Search…" oninput="renderAdminCW()">
     <select id="cwStatusF" onchange="renderAdminCW()"><option value="">All Statuses</option><option>Pending PBP</option><option>Pending SMT</option><option>Approved</option><option>Rejected</option><option>Cancelled</option></select>
-    <select id="cwSMTF" onchange="renderAdminCW()"><option value="">All SMTs</option></select>
+    <select id="cwSMTF" onchange="renderAdminCW()"><option value="">All SMT or Delegates</option></select>
     <select id="cwRequestorF" onchange="renderAdminCW()"><option value="">All Requestors</option></select>
     <select id="cwLocationF" onchange="renderAdminCW()"><option value="">All Locations</option></select>
     <select id="cwActionF" onchange="renderAdminCW()"><option value="">All Actions</option><option value="Recruiting">Recruiting</option><option value="Engaged">Engaged</option></select>
@@ -528,7 +528,7 @@ document.addEventListener("DOMContentLoaded", function() {
     <div class="table-header"><h3>All CW Requests</h3></div>
     <table><thead><tr>
       <th>Submitted</th><th>Requestor</th><th>Title</th><th>Cost Center</th>
-      <th>SMT</th><th>Start</th><th>End</th><th>Status</th><th>Actions</th>
+      <th>SMT or Delegate</th><th>Start</th><th>End</th><th>Status</th><th>Actions</th>
     </tr></thead>
     <tbody id="adminCWTable"><tr><td colspan="9"><div class="empty-state"><div class="icon">🔄</div><p>Loading…</p></div></td></tr></tbody></table>
   </div>
@@ -536,13 +536,13 @@ document.addEventListener("DOMContentLoaded", function() {
 
 <!-- ── APPROVAL MATRIX ── -->
 <div class="view" id="view-matrix">
-  <div class="page-title"><h2>Approval Matrix</h2><p>Cost center → PBP and SMT/Delegate assignments</p></div>
+  <div class="page-title"><h2>Approval Matrix</h2><p>Cost center → PBP and SMT or Delegate assignments</p></div>
   <div class="card">
     <h3 id="matrixFormTitle">Add Cost Center</h3>
     <div class="form-grid">
       <div class="form-group"><label>Cost Center <span class="req">*</span></label><input type="text" id="mx-cc" placeholder="e.g. 30201 Co-Productions A"></div>
       <div class="form-group"><label>PBP Name</label><input type="text" id="mx-pbp" placeholder="e.g. Elena Fata"></div>
-      <div class="form-group"><label>SMT / Delegate</label><input type="text" id="mx-smt" placeholder="e.g. Asa Suehira"></div>
+      <div class="form-group"><label>SMT or Delegate</label><input type="text" id="mx-smt" placeholder="e.g. Asa Suehira"></div>
       <div class="form-group"><label>Notes</label><input type="text" id="mx-notes" placeholder="Optional"></div>
     </div>
     <div class="btn-row">
@@ -556,7 +556,7 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
   <div class="table-wrap">
     <div class="table-header"><h3>Cost Centers (<span id="mxCount">—</span>)</h3></div>
-    <table><thead><tr><th>Cost Center</th><th>PBP</th><th>SMT / Delegate</th><th>Notes</th><th>Actions</th></tr></thead>
+    <table><thead><tr><th>Cost Center</th><th>PBP</th><th>SMT or Delegate</th><th>Notes</th><th>Actions</th></tr></thead>
     <tbody id="matrixTable"><tr><td colspan="5"><div class="empty-state"><div class="icon">📊</div><p>Loading…</p></div></td></tr></tbody></table>
   </div>
 </div>
@@ -585,7 +585,7 @@ document.addEventListener("DOMContentLoaded", function() {
         <select id="pu-ispbp"><option value="N">No</option><option value="Y">Yes</option></select>
       </div>
       <div class="form-group">
-        <label>Is SMT / Delegate?</label>
+        <label>Is SMT or Delegate?</label>
         <select id="pu-issmt"><option value="N">No</option><option value="Y">Yes</option></select>
       </div>
       <div class="form-group full">
@@ -620,7 +620,7 @@ document.addEventListener("DOMContentLoaded", function() {
   <div class="table-wrap">
     <div class="table-header"><h3>All Users (<span id="peopleCount">—</span>)</h3></div>
     <table><thead><tr>
-      <th>Name</th><th>Email</th><th>PBP</th><th>SMT</th>
+      <th>Name</th><th>Email</th><th>PBP</th><th>SMT or Delegate</th>
       <th>Security Groups</th><th>Last Login</th><th>Actions</th>
     </tr></thead>
     <tbody id="peopleTable"><tr><td colspan="7"><div class="empty-state"><div class="icon">👤</div><p>Loading…</p></div></td></tr></tbody></table>
@@ -774,7 +774,7 @@ function renderUserBadges() {
     const b=document.createElement('span'); b.className='role-badge badge-'+g; b.textContent=labelMap[g]||g; badges.appendChild(b);
   });
   if (eu.isPBP) { const b=document.createElement('span'); b.className='role-badge badge-pbp'; b.textContent='PBP'; badges.appendChild(b); }
-  if (eu.isSMT) { const b=document.createElement('span'); b.className='role-badge badge-smt'; b.textContent='SMT'; badges.appendChild(b); }
+  if (eu.isSMT) { const b=document.createElement('span'); b.className='role-badge badge-smt'; b.textContent='SMT or Delegate'; badges.appendChild(b); }
   if (!eu.groups.length && !eu.isPBP && !eu.isSMT) {
     const b=document.createElement('span'); b.className='role-badge badge-user'; b.textContent='User'; badges.appendChild(b);
   }
@@ -979,7 +979,7 @@ function populateSMTFilters() {
   const smts = [...new Set(allRequests.map(r=>r[8]).filter(Boolean))].sort();
   ['eeSMTF','cwSMTF'].forEach(id=>{
     const sel=document.getElementById(id); if(!sel)return;
-    sel.innerHTML='<option value="">All SMTs</option>';
+    sel.innerHTML='<option value="">All SMT or Delegates</option>';
     smts.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});
   });
 
@@ -1101,31 +1101,48 @@ function renderReviewTable() {
   const typeF = document.getElementById('revTypeF')?.value||'';
   const statF = document.getElementById('revStatusF')?.value||'pending';
 
-  const myPBPRow          = peopleData.find(r=>r[1]&&r[1].toLowerCase()===eu.email.toLowerCase()&&r[2]==='Y');
-  const myPBPName         = (myPBPRow ? myPBPRow[0] : null) || (eu.isPBP ? eu.name : null);
-  const myPBPCostCenters  = myPBPName ? matrixData.filter(r=>r[1]===myPBPName).map(r=>r[0]) : [];
-  const mySMTName         = eu.isSMT ? eu.name : null;
-  const isAdmin           = hasGroup('master_admin')||hasGroup('admin_ee')||hasGroup('admin_cw');
+  // Normalise for all comparisons: trim + lowercase
+  const norm = s => (s||'').trim().toLowerCase();
 
-  // Helper: is this request in the user's approver scope?
-  const inMyPBPScope  = r => myPBPCostCenters.includes(r[7]) || r[9]===myPBPName;
-  const inMySMTScope  = r => r[8]===mySMTName || r[8]===eu.name;
-  // Has this user already acted on this request?
-  // Match by who-approved field (case-insensitive) OR by assigned PBP/SMT + action exists
+  const myPBPRow         = peopleData.find(r => r[1] && norm(r[1])===norm(eu.email) && r[2]==='Y');
+  const myPBPName        = (myPBPRow ? myPBPRow[0] : null) || (eu.isPBP ? eu.name : null);
+  const myPBPCostCenters = myPBPName
+    ? matrixData.filter(r => norm(r[1])===norm(myPBPName)).map(r => r[0])
+    : [];
+  const mySMTName  = eu.isSMT ? eu.name : null;
+  const isAdmin    = hasGroup('master_admin')||hasGroup('admin_ee')||hasGroup('admin_cw');
+
+  // Is this request within this user's approver scope?
+  const inMyPBPScope = r =>
+    myPBPCostCenters.some(cc => norm(cc)===norm(r[7])) ||
+    (myPBPName && norm(r[9])===norm(myPBPName));
+
+  const inMySMTScope = r =>
+    (mySMTName && norm(r[8])===norm(mySMTName)) ||
+    norm(r[8])===norm(eu.name);
+
+  // Has this user already taken action on this request?
+  // Matches: acted-by field, assigned PBP/SMT name, or cost-centre ownership.
   const iActedPBP = r => {
-    if (!r[17]) return false;
-    if (r[18] && (r[18].toLowerCase()===(eu.name||'').toLowerCase() ||
-                  (myPBPName && r[18].toLowerCase()===myPBPName.toLowerCase()))) return true;
-    return !!(myPBPName && r[9] && r[9].toLowerCase()===myPBPName.toLowerCase());
+    if (!r[17]) return false; // no PBP decision yet
+    if (norm(r[18])===norm(eu.name)) return true;
+    if (myPBPName && norm(r[18])===norm(myPBPName)) return true;
+    if (myPBPName && norm(r[9])===norm(myPBPName)) return true;
+    if (myPBPCostCenters.some(cc => norm(cc)===norm(r[7]))) return true;
+    return false;
   };
+
   const iActedSMT = r => {
-    if (!r[20]) return false;
-    if (r[21] && (r[21].toLowerCase()===(eu.name||'').toLowerCase() ||
-                  (mySMTName && r[21].toLowerCase()===mySMTName.toLowerCase()))) return true;
-    return !!(r[8] && eu.name && r[8].toLowerCase()===eu.name.toLowerCase());
+    if (!r[20]) return false; // no SMT decision yet
+    if (norm(r[21])===norm(eu.name)) return true;
+    if (mySMTName && norm(r[21])===norm(mySMTName)) return true;
+    if (norm(r[8])===norm(eu.name)) return true;
+    if (mySMTName && norm(r[8])===norm(mySMTName)) return true;
+    return false;
   };
-  // Did the current user submit this?
-  const iSubmitted    = r => r[3] && r[3].toLowerCase()===eu.email.toLowerCase();
+
+  // Did the current user submit this request?
+  const iSubmitted = r => r[3] && norm(r[3])===norm(eu.email);
 
   let queue = allRequests.filter(r => {
     if (typeF && r[4]!==typeF) return false;
@@ -1157,7 +1174,7 @@ function renderReviewTable() {
 
   document.getElementById('reviewTable').innerHTML = queue.length
     ? [...queue].reverse().map(r=>{
-        const stage=(r[16]||'').includes('PBP')?'PBP Review':(r[16]||'').includes('SMT')?'SMT Review':r[16]||'';
+        const stage=(r[16]||'').includes('PBP')?'PBP Review':(r[16]||'').includes('SMT')?'SMT or Delegate Review':r[16]||'';
         return `<tr class="clickable" onclick="openReqModal('${r[0]}',true)">
           <td style="font-size:11px;color:var(--gray-dark)">${fd(r[1])}</td>
           <td style="font-size:11px">${r[2]||'—'}</td>
@@ -1301,7 +1318,7 @@ let _pendingAdminMode   = null; // 'status' | 'approval'
 
 function promptApproval(reqId, decision) {
   const r = allRequests.find(x => x[0] === reqId);
-  const stage = (r && (r[16]||'').includes('PBP')) ? 'PBP' : 'SMT';
+  const stage = (r && (r[16]||'').includes('PBP')) ? 'PBP' : 'SMT or Delegate';
   _pendingAdminReqId  = reqId;
   _pendingAdminStatus = decision;
   _pendingAdminMode   = 'approval';
@@ -1487,7 +1504,7 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
       <div class="detail-item"><div class="label">Type</div><div class="value"><span class="tag tag-${(r[4]||'').toLowerCase()}">${r[4]||'—'}</span></div></div>
       <div class="detail-item"><div class="label">Category</div><div class="value"><span class="tag ${r[6]==='Backfill'?'tag-backfill':'tag-new'}">${r[6]||'—'}</span></div></div>
       <div class="detail-item"><div class="label">Cost Center</div><div class="value">${r[7]||'—'}</div></div>
-      <div class="detail-item"><div class="label">SMT Leader</div><div class="value">${r[8]||'—'}</div></div>
+      <div class="detail-item"><div class="label">SMT or Delegate</div><div class="value">${r[8]||'—'}</div></div>
       <div class="detail-item"><div class="label">PBP</div><div class="value">${r[9]||'—'}</div></div>
       <div class="detail-item"><div class="label">Location</div><div class="value">${r[10]||'—'}</div></div>
       <div class="detail-item"><div class="label">Start Date</div><div class="value">${r[11]||'—'}</div></div>
@@ -1523,7 +1540,7 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
           ${smtDone?(r[20]==='Approved'?'✓':'✕'):'3'}
         </div>
         <div class="step-info">
-          <div class="step-label">SMT Review${r[8]?' · '+r[8]:''}</div>
+          <div class="step-label">SMT or Delegate Review${r[8]?' · '+r[8]:''}</div>
           <div class="step-meta">${smtDone?r[20]+' by '+r[21]+' on '+fd(r[22]):r[25]?'Viewed — Awaiting Response':'Awaiting review'}</div>
           ${isAdmin&&!ro&&status==='Pending SMT'?`
           <div class="action-row" style="margin-top:10px">
