@@ -1099,49 +1099,51 @@ function renderMyRequests() {
 function renderReviewTable() {
   const eu    = effectiveUser();
   const typeF = document.getElementById('revTypeF')?.value||'';
-  const statF = document.getElementById('revStatusF')?.value||'pending';
+  // Use explicit check so value="" (All) is not coerced to 'pending' by ||
+  const statusEl = document.getElementById('revStatusF');
+  const statF    = statusEl ? statusEl.value : 'pending';
 
-  // Normalise for all comparisons: trim + lowercase
-  const norm = s => (s||'').trim().toLowerCase();
+  // Normalise: collapse internal whitespace, trim, lowercase
+  const norm = s => (s||'').replace(/\s+/g,' ').trim().toLowerCase();
 
-  const myPBPRow         = peopleData.find(r => r[1] && norm(r[1])===norm(eu.email) && r[2]==='Y');
-  const myPBPName        = (myPBPRow ? myPBPRow[0] : null) || (eu.isPBP ? eu.name : null);
-  const myPBPCostCenters = myPBPName
-    ? matrixData.filter(r => norm(r[1])===norm(myPBPName)).map(r => r[0])
+  // --- Build this user's known name set ---
+  const myPeopleRow = peopleData.find(r => r[1] && norm(r[1])===norm(eu.email));
+  const myNameSet   = new Set([norm(eu.name)]);
+  if (myPeopleRow?.[0]) myNameSet.add(norm(myPeopleRow[0]));
+
+  // Cost centres where this user appears as PBP (col 1 of matrix)
+  const myPBPCostCenters = eu.isPBP
+    ? matrixData.filter(r => myNameSet.has(norm(r[1]))).map(r => r[0])
     : [];
-  const mySMTName  = eu.isSMT ? eu.name : null;
-  const isAdmin    = hasGroup('master_admin')||hasGroup('admin_ee')||hasGroup('admin_cw');
+  // Enrich name set with how their name actually appears in the matrix
+  // (handles slight spelling differences between the two sheets)
+  if (eu.isPBP)  matrixData.filter(r => myNameSet.has(norm(r[1]))).forEach(r => myNameSet.add(norm(r[1])));
+  if (eu.isSMT)  matrixData.filter(r => myNameSet.has(norm(r[2]))).forEach(r => myNameSet.add(norm(r[2])));
 
-  // Is this request within this user's approver scope?
+  const isAdmin = hasGroup('master_admin')||hasGroup('admin_ee')||hasGroup('admin_cw');
+
+  // --- Scope helpers ---
   const inMyPBPScope = r =>
     myPBPCostCenters.some(cc => norm(cc)===norm(r[7])) ||
-    (myPBPName && norm(r[9])===norm(myPBPName));
+    myNameSet.has(norm(r[9]));
 
-  const inMySMTScope = r =>
-    (mySMTName && norm(r[8])===norm(mySMTName)) ||
-    norm(r[8])===norm(eu.name);
+  const inMySMTScope = r => myNameSet.has(norm(r[8]));
 
-  // Has this user already taken action on this request?
-  // Matches: acted-by field, assigned PBP/SMT name, or cost-centre ownership.
+  // --- Action helpers ---
+  // "I acted" = my name is in the acted-by field, OR I own this request's scope
+  // and a PBP/SMT decision was already recorded (covers admin-proxy approvals)
   const iActedPBP = r => {
-    if (!r[17]) return false; // no PBP decision yet
-    if (norm(r[18])===norm(eu.name)) return true;
-    if (myPBPName && norm(r[18])===norm(myPBPName)) return true;
-    if (myPBPName && norm(r[9])===norm(myPBPName)) return true;
-    if (myPBPCostCenters.some(cc => norm(cc)===norm(r[7]))) return true;
-    return false;
+    if (!r[17]) return false;
+    if (myNameSet.has(norm(r[18]))) return true;
+    return eu.isPBP && inMyPBPScope(r);
   };
 
   const iActedSMT = r => {
-    if (!r[20]) return false; // no SMT decision yet
-    if (norm(r[21])===norm(eu.name)) return true;
-    if (mySMTName && norm(r[21])===norm(mySMTName)) return true;
-    if (norm(r[8])===norm(eu.name)) return true;
-    if (mySMTName && norm(r[8])===norm(mySMTName)) return true;
-    return false;
+    if (!r[20]) return false;
+    if (myNameSet.has(norm(r[21]))) return true;
+    return eu.isSMT && inMySMTScope(r);
   };
 
-  // Did the current user submit this request?
   const iSubmitted = r => r[3] && norm(r[3])===norm(eu.email);
 
   let queue = allRequests.filter(r => {
