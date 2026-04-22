@@ -942,7 +942,7 @@ async function ensureTabs() {
 
 async function ensureHeaders() {
   const checks = [
-    [T.requests+'!A1', [['ID','Submitted','RequestorName','RequestorEmail','Type','Title','Category','CostCenter','SMT','PBP','Location','StartDate','EndDate','Level','Justification','BudgetConfirmed','Status','PBPAction','PBPBy','PBPDate','SMTAction','SMTBy','SMTDate','AdminStatus','PBPViewed','SMTViewed','JobDescLink','CompStatus','RecruitingStatus','CompJobLevel','CompJobCode','CompJobProfile','CompGeo','CompBonusTarget','CompSalaryRange','CompHourlyRange','CompNotes']]],
+    [T.requests+'!A1', [['ID','Submitted','RequestorName','RequestorEmail','Type','Title','Category','CostCenter','SMT','PBP','Location','StartDate','EndDate','Level','Justification','BudgetConfirmed','Status','PBPAction','PBPBy','PBPDate','SMTAction','SMTBy','SMTDate','AdminStatus','PBPViewed','SMTViewed','JobDescLink','CompStatus','RecruitingStatus','CompJobLevel','CompJobCode','CompJobProfile','CompGeo','CompBonusTarget','CompSalaryRange','CompHourlyRange','CompNotes','ReopenedAt','PriorApprovalData']]],
     [T.matrix+'!A1',   [['CostCenter','PBP','SMT_Delegate','Notes']]],
     [T.people+'!A1',   [['Name','Email','IsPBP','IsSMT','SecurityGroups','LastLogin']]],
     [T.comments+'!A1', [['RequestID','Timestamp','Author','AuthorEmail','Stage','Comment']]],
@@ -956,7 +956,7 @@ async function ensureHeaders() {
 // LOAD DATA
 // ============================================================
 async function loadMatrix()   { try { matrixData  = await apiGet(T.matrix+'!A2:D500');  } catch(e){matrixData=[];} }
-async function loadRequests() { try { allRequests  = await apiGet(T.requests+'!A2:AK2000'); } catch(e){allRequests=[];} }
+async function loadRequests() { try { allRequests  = await apiGet(T.requests+'!A2:AM2000'); } catch(e){allRequests=[];} }
 async function loadPeople()   {
   try {
     peopleData = await apiGet(T.people+'!A2:F500');
@@ -1626,12 +1626,7 @@ async function setAdminStatus(reqId, status, comment) {
     }
     toast('Marked as '+status, 'success');
     _refreshAdminActionsRow(reqId, idx);
-    const adminCell = document.getElementById('modalAdminStatusCell-'+reqId);
-    if (adminCell) {
-      const tagMap = {'Hired':'tag-approved','Engaged':'tag-approved'};
-      adminCell.innerHTML = `<div class="label">Admin Status</div><div class="value"><span class="tag ${tagMap[status]||'tag-pending'}">${status}</span></div>`;
-    }
-    renderAdminEE(); renderAdminCW();
+    renderMyRequests(); renderReviewTable(); renderAdminEE(); renderAdminCW();
   } catch(e) { toast('Error: '+e.message, 'error'); }
 }
 
@@ -1640,14 +1635,13 @@ async function setCompStatus(reqId, status) {
   const eu  = effectiveUser();
   const now = new Date().toISOString();
   try {
-    // CompStatus is column AB = index 27, sheet column AB = row offset 27
     await apiUpdate(T.requests+'!AB'+(idx+2), [[status]]);
     allRequests[idx][27] = status;
     const label = status || 'Compensation status cleared';
     if (status) await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Admin', label]]);
     toast(label || 'Comp status cleared', 'success');
     _refreshAdminActionsRow(reqId, idx);
-    renderComp();
+    renderMyRequests(); renderReviewTable(); renderComp(); renderAdminEE(); renderAdminCW();
   } catch(e) { toast('Error: '+e.message, 'error'); }
 }
 
@@ -1656,14 +1650,13 @@ async function setRecruitStatus(reqId, status) {
   const eu  = effectiveUser();
   const now = new Date().toISOString();
   try {
-    // RecruitingStatus is column AC = index 28
     await apiUpdate(T.requests+'!AC'+(idx+2), [[status]]);
     allRequests[idx][28] = status;
     const label = status || 'Recruiting status cleared';
     if (status) await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Admin', label]]);
     toast(label || 'Recruiting status cleared', 'success');
     _refreshAdminActionsRow(reqId, idx);
-    renderAdminEE(); renderAdminCW();
+    renderMyRequests(); renderReviewTable(); renderAdminEE(); renderAdminCW();
   } catch(e) { toast('Error: '+e.message, 'error'); }
 }
 
@@ -1679,7 +1672,6 @@ async function cancelReq(reqId) {
   const idx = allRequests.findIndex(r=>r[0]===reqId); if(idx<0)return;
   const cancelRow = document.getElementById('modalCancelRow-'+reqId);
   if (cancelRow) {
-    // Modal is open — show inline confirmation
     cancelRow.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span style="font-size:12px;color:var(--red);font-weight:600">Confirm cancel? Approval progress is preserved and the req can be reopened later.</span>
@@ -1687,7 +1679,6 @@ async function cancelReq(reqId) {
         <button class="btn btn-secondary btn-sm" onclick="resetCancelRow('${reqId}')">No, Keep It</button>
       </div>`;
   } else {
-    // Row view — use a simple window confirm since modal isn't open
     if (!window.confirm('Cancel this requisition? It can be reopened later with all history preserved.')) return;
     await confirmCancelReq(reqId);
   }
@@ -1704,7 +1695,7 @@ async function confirmCancelReq(reqId) {
     if (statusCell) statusCell.innerHTML = `<div class="label">Status</div><div class="value">${stag('Cancelled')}</div>`;
     const cancelRow = document.getElementById('modalCancelRow-'+reqId);
     if (cancelRow) cancelRow.innerHTML = reopenRowHtml(reqId);
-    renderAdminEE(); renderAdminCW();
+    renderMyRequests(); renderReviewTable(); renderAdminEE(); renderAdminCW();
   } catch(e) { toast('Error: '+e.message,'error'); }
 }
 
@@ -1719,25 +1710,42 @@ function cancelRowHtml(reqId) {
 }
 
 function reopenRowHtml(reqId) {
-  return `<span style="font-size:12px;color:var(--gray-dark)">This requisition was cancelled. Admins can reopen it — all prior approval history is preserved.</span>
+  return `<span style="font-size:12px;color:var(--gray-dark)">This requisition was cancelled. Admins can reopen it — prior approval history is preserved.</span>
     <button class="btn btn-primary btn-sm" onclick="reopenReq('${reqId}')">Reopen / Resubmit</button>`;
 }
 
 async function reopenReq(reqId) {
   const idx = allRequests.findIndex(r=>r[0]===reqId); if(idx<0)return;
   const r = allRequests[idx];
-  // Determine correct restart status based on existing PBP/SMT data
-  const hasPBP = !!(r[9]);  // assigned PBP field
+  const hasPBP = !!(r[9]);
   const status = hasPBP ? 'Pending PBP' : (r[8] ? 'Pending SMT' : 'Pending Admin');
+  const now = new Date().toISOString();
+
+  // Snapshot current approval data before clearing — this becomes "Prior History"
+  const priorData = JSON.stringify({
+    pbpAction: r[17]||'', pbpBy: r[18]||'', pbpDate: r[19]||'',
+    smtAction: r[20]||'', smtBy: r[21]||'', smtDate: r[22]||''
+  });
+
   try {
+    // Write: status, ReopenedAt (col AL=37), PriorApprovalData (col AM=38), clear r[17-22]
     await apiUpdate(T.requests+'!Q'+(idx+2), [[status]]);
+    await apiUpdate(T.requests+'!R'+(idx+2)+':W'+(idx+2), [['','','','','','']]);  // clear prior approval cols
+    await apiUpdate(T.requests+'!AL'+(idx+2), [[now]]);         // ReopenedAt
+    await apiUpdate(T.requests+'!AM'+(idx+2), [[priorData]]);   // PriorApprovalData
+
     allRequests[idx][16] = status;
+    allRequests[idx][17] = ''; allRequests[idx][18] = ''; allRequests[idx][19] = '';
+    allRequests[idx][20] = ''; allRequests[idx][21] = ''; allRequests[idx][22] = '';
+    allRequests[idx][37] = now;
+    allRequests[idx][38] = priorData;
+
     toast('Requisition reopened — status set to '+status,'success');
     const statusCell = document.getElementById('modalStatusCell-'+reqId);
     if (statusCell) statusCell.innerHTML = `<div class="label">Status</div><div class="value">${stag(status)}</div>`;
     const cancelRow = document.getElementById('modalCancelRow-'+reqId);
     if (cancelRow) cancelRow.innerHTML = cancelRowHtml(reqId);
-    renderAdminEE(); renderAdminCW();
+    renderMyRequests(); renderReviewTable(); renderAdminEE(); renderAdminCW();
   } catch(e) { toast('Error: '+e.message,'error'); }
 }
 
@@ -1843,10 +1851,12 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
   const smtDone=!!(r[20]&&r[20]!=='');
   const ro=isReadOnly();
   const isFinished = r[23]==='Hired' || r[23]==='Engaged';
-  // isReopened: a prior PBP decision exists (row was previously approved through PBP)
-  // BUT status has been reset back to 'Pending PBP' — meaning it was cancelled and restarted.
-  // This is intentionally strict: normal post-PBP-approval flow (status='Pending SMT') does NOT trigger this.
-  const isReopened = pbpDone && status === 'Pending PBP';
+  // isReopened: set by reopenReq() which writes a timestamp to col AL (index 37)
+  // and prior approval data JSON to col AM (index 38)
+  const isReopened = !!(r[37]);
+  const priorApproval = (() => {
+    try { return r[38] ? JSON.parse(r[38]) : null; } catch(e) { return null; }
+  })();
 
   // Determine if this user can act
   const normM = s => (s||'').replace(/\s+/g,' ').trim().toLowerCase();
@@ -1891,22 +1901,22 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
             <div class="step-info"><div class="step-label">Submitted</div><div class="step-meta">${r[2]} · ${fd(r[1])}</div></div>
           </div>
           <div class="timeline-step">
-            <div class="step-dot ${pbpDone?(r[17]==='Approved'?'done':'rejected'):'pending'}">${pbpDone?(r[17]==='Approved'?'✓':'✕'):'2'}</div>
+            <div class="step-dot ${priorApproval?.pbpAction==='Approved'?'done':priorApproval?.pbpAction==='Rejected'?'rejected':'pending'}">${priorApproval?.pbpAction==='Approved'?'✓':priorApproval?.pbpAction==='Rejected'?'✕':'2'}</div>
             <div class="step-info">
               <div class="step-label">PBP Review${r[9]?' · '+r[9]:''}</div>
-              <div class="step-meta">${pbpDone?r[17]+' by '+r[18]+' on '+fd(r[19]):'—'}</div>
+              <div class="step-meta">${priorApproval?.pbpAction?(priorApproval.pbpAction+' by '+priorApproval.pbpBy+' on '+fd(priorApproval.pbpDate)):'—'}</div>
             </div>
           </div>
           <div class="timeline-step">
-            <div class="step-dot ${smtDone?(r[20]==='Approved'?'done':'rejected'):'pending'}">${smtDone?(r[20]==='Approved'?'✓':'✕'):'3'}</div>
+            <div class="step-dot ${priorApproval?.smtAction==='Approved'?'done':priorApproval?.smtAction==='Rejected'?'rejected':'pending'}">${priorApproval?.smtAction==='Approved'?'✓':priorApproval?.smtAction==='Rejected'?'✕':'3'}</div>
             <div class="step-info">
               <div class="step-label">SMT or Delegate Review${r[8]?' · '+r[8]:''}</div>
-              <div class="step-meta">${smtDone?r[20]+' by '+r[21]+' on '+fd(r[22]):'—'}</div>
+              <div class="step-meta">${priorApproval?.smtAction?(priorApproval.smtAction+' by '+priorApproval.smtBy+' on '+fd(priorApproval.smtDate)):'—'}</div>
             </div>
           </div>
           <div class="timeline-step">
             <div class="step-dot rejected">✕</div>
-            <div class="step-info"><div class="step-label">Cancelled &amp; Reopened</div></div>
+            <div class="step-info"><div class="step-label">Cancelled &amp; Reopened</div><div class="step-meta">${fd(r[37])}</div></div>
           </div>
         </div>
       </div>

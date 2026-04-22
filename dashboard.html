@@ -179,12 +179,12 @@
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   const user = crGetUser();
-  if (!user || !crTokenValid()) {
+  if (!user) {
     window.location.href = "index.html";
     return;
   }
-  // Dashboard uses service account for all Sheets API calls.
-  // Suppress user OAuth token requests entirely to avoid popup blocker issues.
+  // Dashboard uses service account for all Sheets API calls — no user OAuth token needed.
+  // Suppress any attempt by nav.js to request one, which would trigger a blocked popup.
   window.crGetAccessToken = function() { return Promise.resolve(null); };
   crInjectNav("dashboard");
   crUpdateHeaderUser(user);
