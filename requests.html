@@ -1202,19 +1202,13 @@ function renderAdminEE() {
         const status   = r[16]||'';
         const adminSt  = r[23]||'';
         let actionBtns = '';
-        if (!ro) {
-          if (status==='Pending PBP'||status==='Pending SMT') {
-            actionBtns = `
-              <button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptApproval('${r[0]}','Approved')">✓ Approve</button>
-              <button class="btn btn-sm btn-danger"  onclick="event.stopPropagation();promptApproval('${r[0]}','Rejected')">✕ Reject</button>`;
-          } else if (status==='Approved') {
-            if (!adminSt || adminSt==='') {
-              actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Recruiting','Send to Recruiting')">Send to Recruiting</button>`;
-            } else if (adminSt==='Recruiting') {
-              actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Hired','Mark as Hired')">Mark as Hired</button>`;
-            } else if (adminSt==='Hired') {
-              actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Hired</span>`;
-            }
+        if (!ro && status==='Approved') {
+          if (!adminSt || adminSt==='') {
+            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Recruiting')">Send to Recruiting</button>`;
+          } else if (adminSt==='Recruiting') {
+            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Hired')">Mark as Hired</button>`;
+          } else if (adminSt==='Hired') {
+            actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Hired</span>`;
           }
         }
         return `<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
@@ -1263,19 +1257,13 @@ function renderAdminCW() {
         const status   = r[16]||'';
         const adminSt  = r[23]||'';
         let actionBtns = '';
-        if (!ro) {
-          if (status==='Pending PBP'||status==='Pending SMT') {
-            actionBtns = `
-              <button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptApproval('${r[0]}','Approved')">✓ Approve</button>
-              <button class="btn btn-sm btn-danger"  onclick="event.stopPropagation();promptApproval('${r[0]}','Rejected')">✕ Reject</button>`;
-          } else if (status==='Approved') {
-            if (!adminSt || adminSt==='') {
-              actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Recruiting','Send to Recruiting')">Send to Recruiting</button>`;
-            } else if (adminSt==='Recruiting') {
-              actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Engaged','Mark as Engaged')">Mark as Engaged</button>`;
-            } else if (adminSt==='Engaged') {
-              actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Engaged</span>`;
-            }
+        if (!ro && status==='Approved') {
+          if (!adminSt || adminSt==='') {
+            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Recruiting')">Send to Recruiting</button>`;
+          } else if (adminSt==='Recruiting') {
+            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Engaged')">Mark as Engaged</button>`;
+          } else if (adminSt==='Engaged') {
+            actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Engaged</span>`;
           }
         }
         return `<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
@@ -1444,7 +1432,7 @@ function adminActionSteps(reqId, isCW, adminSt) {
     } else if (isNext) {
       dotStyle   = `background:var(--orange);color:white`;
       labelStyle = `color:var(--orange);font-weight:700`;
-      btn = `<button class="btn btn-sm btn-primary" style="margin-top:6px" onclick="promptAdminStatus('${reqId}','${step.key}','${step.label}')">${step.label}</button>`;
+      btn = `<button class="btn btn-sm btn-primary" style="margin-top:6px" onclick="setAdminStatus('${reqId}','${step.key}')">${step.label}</button>`;
     } else {
       dotStyle   = `background:var(--gray-mid);color:var(--gray-dark)`;
       labelStyle = `color:var(--gray-dark)`;
@@ -1524,6 +1512,11 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
         <div class="step-info">
           <div class="step-label">PBP Review${r[9]?' · '+r[9]:''}</div>
           <div class="step-meta">${pbpDone?r[17]+' by '+r[18]+' on '+fd(r[19]):'Awaiting review'}</div>
+          ${isAdmin&&!ro&&status==='Pending PBP'?`
+          <div class="action-row" style="margin-top:10px">
+            <button class="btn btn-success btn-sm" onclick="promptApproval('${reqId}','Approved')">✓ Approve</button>
+            <button class="btn btn-danger btn-sm"  onclick="promptApproval('${reqId}','Rejected')">✕ Reject</button>
+          </div>`:''}
         </div>
       </div>
       <div class="timeline-step">
@@ -1533,6 +1526,11 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
         <div class="step-info">
           <div class="step-label">SMT Review${r[8]?' · '+r[8]:''}</div>
           <div class="step-meta">${smtDone?r[20]+' by '+r[21]+' on '+fd(r[22]):'Awaiting review'}</div>
+          ${isAdmin&&!ro&&status==='Pending SMT'?`
+          <div class="action-row" style="margin-top:10px">
+            <button class="btn btn-success btn-sm" onclick="promptApproval('${reqId}','Approved')">✓ Approve</button>
+            <button class="btn btn-danger btn-sm"  onclick="promptApproval('${reqId}','Rejected')">✕ Reject</button>
+          </div>`:''}
         </div>
       </div>
       <div class="timeline-step">
