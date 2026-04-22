@@ -1,4 +1,31 @@
 // ============================================================
+// IFRAME GUARD
+// OAuth popups are blocked when the app runs inside a Google
+// Sites (or any) iframe. Detect this early and show a simple
+// "Open app" screen so the user can launch it at the top level.
+// ============================================================
+(function () {
+  if (window === window.top) return; // not embedded — carry on
+  document.addEventListener('DOMContentLoaded', function () {
+    document.body.innerHTML = '';
+    document.body.style.cssText = 'margin:0;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#F2EDE6;display:flex;align-items:center;justify-content:center;min-height:100vh;';
+    const url = window.location.href;
+    document.body.innerHTML = `
+      <div style="background:#fff;border-radius:16px;padding:48px 40px;text-align:center;border:1px solid #E0E0E0;max-width:400px;width:90%;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+        <div style="width:52px;height:52px;background:#FF5E00;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:#fff;margin:0 auto 20px">C</div>
+        <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#1A1A1A">Crunchyroll Headcount</h2>
+        <p style="margin:0 0 28px;font-size:13px;color:#666;line-height:1.6">
+          Sign-in requires opening this app directly.<br>Click below to open it in a new tab.
+        </p>
+        <a href="${url}" target="_blank" rel="noopener"
+           style="display:inline-block;background:#FF5E00;color:#fff;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
+          Open App ↗
+        </a>
+      </div>`;
+  });
+})();
+
+// ============================================================
 // CRUNCHYROLL SHARED NAV + AUTH
 // nav.js — included by all pages
 // ============================================================
@@ -66,7 +93,7 @@ function crInjectNav(currentPage, extraNavHTML = '') {
   </style>
   <div class="cr-header">
     <div class="cr-header-left">
-      <img class="cr-logo-img" src="https://www.crunchyroll.com/build/assets/img/favicons/android-chrome-192x192.png" alt="Crunchyroll" onerror="this.style.display='none'">
+      <img class="cr-logo-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%23FF5E00'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='18' font-family='Arial' font-weight='bold' fill='white'%3EC%3C/text%3E%3C/svg%3E" alt="CR">
       <a href="index.html" class="cr-logo-text"><span>Crunchyroll</span> | Headcount</a>
     </div>
     <div class="cr-header-right" id="crHeaderRight">
