@@ -1144,23 +1144,23 @@ function renderReviewTable() {
     return eu.isSMT && inMySMTScope(r);
   };
 
-  const iSubmitted = r => r[3] && norm(r[3])===norm(eu.email);
+  const iSubmitted = r => r[3] && norm(r[3])===norm(eu.email); // used by KPIs only
 
   let queue = allRequests.filter(r => {
     if (typeF && r[4]!==typeF) return false;
     const s = r[16]||'';
 
-    // Only show requests pending for this user, acted on by them, or submitted by them
+    // Approvals tab: only requests where this user has a PBP/SMT role
+    // (pending for them to act on, or already acted on by them).
+    // Requests the user merely submitted appear in My Requests, not here.
     const isPendingForMe =
       (eu.isPBP && s==='Pending PBP' && inMyPBPScope(r)) ||
       (eu.isSMT && s==='Pending SMT' && inMySMTScope(r));
     const iActedOnIt = iActedPBP(r) || iActedSMT(r);
-    const iMineRequest = iSubmitted(r);
 
     if (statF==='pending') return isPendingForMe;
-    if (statF) return (isPendingForMe || iActedOnIt || iMineRequest) && s===statF;
-    // "All" — pending for me + acted on + submitted
-    return isPendingForMe || iActedOnIt || iMineRequest;
+    if (statF) return (isPendingForMe || iActedOnIt) && s===statF;
+    return isPendingForMe || iActedOnIt;
   });
 
   // KPIs — awaiting MY action specifically
@@ -1495,8 +1495,15 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
   const ro=isReadOnly();
 
   // Determine if this user can act
-  const canActPBP = canApprove && status==='Pending PBP' && eu.isPBP;
-  const canActSMT = canApprove && status==='Pending SMT' && (eu.isSMT || r[8]===eu.name);
+  const normM = s => (s||'').replace(/\s+/g,' ').trim().toLowerCase();
+  // canActPBP: user must be a PBP *and* be the assigned PBP for this request
+  // (either their name is in the PBP field, or their name appears as PBP for this cost centre in the matrix)
+  const isAssignedPBP = eu.isPBP && (
+    normM(r[9])===normM(eu.name) ||
+    matrixData.some(m => normM(m[0])===normM(r[7]) && normM(m[1])===normM(eu.name))
+  );
+  const canActPBP = canApprove && status==='Pending PBP' && isAssignedPBP;
+  const canActSMT = canApprove && status==='Pending SMT' && (eu.isSMT && (normM(r[8])===normM(eu.name) || matrixData.some(m => normM(m[0])===normM(r[7]) && normM(m[2])===normM(eu.name))));
 
   document.getElementById('modalTitle').textContent=r[5]||'Request Detail';
   document.getElementById('modalSub').textContent=`${r[0]} · ${r[2]} · ${fd(r[1])}`;
