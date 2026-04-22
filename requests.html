@@ -1012,48 +1012,56 @@ function renderReviewTable() {
   const typeF = document.getElementById('revTypeF')?.value||'';
   const statF = document.getElementById('revStatusF')?.value||'pending';
 
-  // Resolve PBP/SMT names for this user from people data
-  const myPBPRow = peopleData.find(r=>r[1]&&r[1].toLowerCase()===eu.email.toLowerCase()&&r[2]==='Y');
-  const myName   = eu.name;
+  const myPBPRow          = peopleData.find(r=>r[1]&&r[1].toLowerCase()===eu.email.toLowerCase()&&r[2]==='Y');
+  const myPBPName         = myPBPRow ? myPBPRow[0] : null;
+  const myPBPCostCenters  = myPBPName ? matrixData.filter(r=>r[1]===myPBPName).map(r=>r[0]) : [];
+  const mySMTName         = eu.isSMT ? eu.name : null;
+  const isAdmin           = hasGroup('master_admin')||hasGroup('admin_ee')||hasGroup('admin_cw');
 
-  // Which cost centers is this user the PBP/SMT for?
-  const myPBPCCs  = matrixData.filter(r=>r[1]&&peopleData.some(p=>p[1]&&p[1].toLowerCase()===eu.email.toLowerCase()&&p[2]==='Y'&&p[0]===r[1])).map(r=>r[0]);
-  const myPBPName = myPBPRow ? myPBPRow[0] : null;
-  const myPBPCostCenters = myPBPName ? matrixData.filter(r=>r[1]===myPBPName).map(r=>r[0]) : [];
-  const mySMTName = eu.isSMT ? myName : null;
+  // Helper: is this request in the user's approver scope?
+  const inMyPBPScope  = r => myPBPCostCenters.includes(r[7]) || r[9]===myPBPName;
+  const inMySMTScope  = r => r[8]===mySMTName || r[8]===eu.name;
+  // Has this user already acted on this request?
+  const iActedPBP     = r => r[18] && (r[18]===eu.name || r[18]===myPBPName);
+  const iActedSMT     = r => r[21] && (r[21]===eu.name || r[21]===mySMTName);
+  // Did the current user submit this?
+  const iSubmitted    = r => r[3] && r[3].toLowerCase()===eu.email.toLowerCase();
 
-  const isAdmin = hasGroup('master_admin')||hasGroup('admin_ee');
-
-  let queue = allRequests.filter(r=>{
+  let queue = allRequests.filter(r => {
     if (typeF && r[4]!==typeF) return false;
-    const s=r[16]||'';
-    if (statF==='pending') {
-      if (isAdmin) return s.includes('Pending');
-      if (eu.isPBP && s==='Pending PBP') return myPBPCostCenters.includes(r[7])||r[9]===myPBPName;
-      if (eu.isSMT && s==='Pending SMT') return r[8]===mySMTName||r[8]===eu.name;
-      return false;
+    const s = r[16]||'';
+
+    // Admins see everything, filtered by status selector
+    if (isAdmin) {
+      if (statF==='pending') return s.includes('Pending');
+      if (statF) return s===statF;
+      return true;
     }
-    if (statF) return s===statF;
-    // "All" — show what they've acted on + pending
-    if (isAdmin) return true;
-    const actedPBP = r[18]===eu.name||r[18]===myPBPName;
-    const actedSMT = r[21]===eu.name||r[21]===mySMTName;
-    const pendPBP  = eu.isPBP && s==='Pending PBP' && (myPBPCostCenters.includes(r[7])||r[9]===myPBPName);
-    const pendSMT  = eu.isSMT && s==='Pending SMT' && (r[8]===mySMTName||r[8]===eu.name);
-    return actedPBP||actedSMT||pendPBP||pendSMT;
+
+    // Non-admins: only see requests they submitted OR acted on OR currently pending for them
+    const isPendingForMe =
+      (eu.isPBP && s==='Pending PBP' && inMyPBPScope(r)) ||
+      (eu.isSMT && s==='Pending SMT' && inMySMTScope(r));
+    const iActedOnIt = iActedPBP(r) || iActedSMT(r);
+    const iMineRequest = iSubmitted(r);
+
+    if (statF==='pending') return isPendingForMe;
+    if (statF) return (isPendingForMe || iActedOnIt || iMineRequest) && s===statF;
+    // "All" — pending for me + acted on + submitted
+    return isPendingForMe || iActedOnIt || iMineRequest;
   });
 
-  // KPIs
+  // KPIs — awaiting MY action specifically
   const awaitingCount = allRequests.filter(r=>{
     const s=r[16]||'';
     if (isAdmin) return s.includes('Pending');
-    if (eu.isPBP&&s==='Pending PBP') return myPBPCostCenters.includes(r[7])||r[9]===myPBPName;
-    if (eu.isSMT&&s==='Pending SMT') return r[8]===mySMTName||r[8]===eu.name;
+    if (eu.isPBP&&s==='Pending PBP') return inMyPBPScope(r);
+    if (eu.isSMT&&s==='Pending SMT') return inMySMTScope(r);
     return false;
   }).length;
   set('rev-pending',  awaitingCount);
-  set('rev-approved', allRequests.filter(r=>(r[18]===eu.name||r[21]===eu.name)&&(r[17]==='Approved'||r[20]==='Approved')).length);
-  set('rev-rejected', allRequests.filter(r=>(r[18]===eu.name||r[21]===eu.name)&&(r[17]==='Rejected'||r[20]==='Rejected')).length);
+  set('rev-approved', allRequests.filter(r=>iActedPBP(r)&&r[17]==='Approved'||iActedSMT(r)&&r[20]==='Approved').length);
+  set('rev-rejected', allRequests.filter(r=>iActedPBP(r)&&r[17]==='Rejected'||iActedSMT(r)&&r[20]==='Rejected').length);
 
   document.getElementById('reviewTable').innerHTML = queue.length
     ? [...queue].reverse().map(r=>{
@@ -1091,21 +1099,40 @@ function renderAdminEE() {
   set('adm-ee-approved', rows.filter(r=>r[16]==='Approved').length);
   set('adm-ee-rejected', rows.filter(r=>r[16]==='Rejected').length);
   const ro = isReadOnly();
+  const adminStatusTag = s => {
+    const m = {'Recruiting':'tag-pbp','Hired':'tag-approved','Engaged':'tag-approved','Sourcing':'tag-pending'};
+    return s ? `<span class="tag ${m[s]||'tag-pending'}">${s}</span>` : '';
+  };
+
   document.getElementById('adminEETable').innerHTML = rows.length
-    ? [...rows].reverse().map(r=>`<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
-        <td style="font-size:11px;color:var(--gray-dark)">${fd(r[1])}</td>
-        <td style="font-size:11px">${r[2]||'—'}</td>
-        <td><strong>${r[5]||'—'}</strong></td>
-        <td><span class="tag ${r[6]==='Backfill'?'tag-backfill':'tag-new'}">${r[6]||'—'}</span></td>
-        <td style="font-size:11px">${r[7]||'—'}</td>
-        <td style="font-size:11px;font-weight:600">${r[8]||'—'}</td>
-        <td style="font-size:11px">${r[10]||'—'}</td>
-        <td>${stag(r[16])}</td>
-        <td><div class="row-actions">
-          <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
-          ${!ro&&r[16]==='Approved'?`<button class="btn btn-sm btn-success" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Recruited')">Recruited</button>`:''}
-        </div></td>
-      </tr>`).join('')
+    ? [...rows].reverse().map(r=>{
+        const approved = r[16]==='Approved';
+        const adminSt  = r[23]||'';
+        let actionBtns = '';
+        if (!ro && approved) {
+          if (!adminSt || adminSt==='') {
+            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Recruiting')">Send to Recruiting</button>`;
+          } else if (adminSt==='Recruiting') {
+            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Hired')">Mark as Hired</button>`;
+          } else if (adminSt==='Hired') {
+            actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Hired</span>`;
+          }
+        }
+        return `<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
+          <td style="font-size:11px;color:var(--gray-dark)">${fd(r[1])}</td>
+          <td style="font-size:11px">${r[2]||'—'}</td>
+          <td><strong>${r[5]||'—'}</strong></td>
+          <td><span class="tag ${r[6]==='Backfill'?'tag-backfill':'tag-new'}">${r[6]||'—'}</span></td>
+          <td style="font-size:11px">${r[7]||'—'}</td>
+          <td style="font-size:11px;font-weight:600">${r[8]||'—'}</td>
+          <td style="font-size:11px">${r[10]||'—'}</td>
+          <td>${stag(r[16])}${adminSt?' '+adminStatusTag(adminSt):''}</td>
+          <td><div class="row-actions">
+            <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
+            ${actionBtns}
+          </div></td>
+        </tr>`;
+      }).join('')
     : `<tr><td colspan="9"><div class="empty-state"><div class="icon">👥</div><p>No employee requests found.</p></div></td></tr>`;
 }
 
@@ -1126,20 +1153,34 @@ function renderAdminCW() {
   set('adm-cw-rejected', rows.filter(r=>r[16]==='Rejected').length);
   const ro=isReadOnly();
   document.getElementById('adminCWTable').innerHTML = rows.length
-    ? [...rows].reverse().map(r=>`<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
-        <td style="font-size:11px;color:var(--gray-dark)">${fd(r[1])}</td>
-        <td style="font-size:11px">${r[2]||'—'}</td>
-        <td><strong>${r[5]||'—'}</strong></td>
-        <td style="font-size:11px">${r[7]||'—'}</td>
-        <td style="font-size:11px;font-weight:600">${r[8]||'—'}</td>
-        <td style="font-size:11px">${r[11]||'—'}</td>
-        <td style="font-size:11px">${r[12]||'—'}</td>
-        <td>${stag(r[16])}</td>
-        <td><div class="row-actions">
-          <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
-          ${!ro&&r[16]==='Approved'?`<button class="btn btn-sm btn-success" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Engaged')">Engaged</button>`:''}
-        </div></td>
-      </tr>`).join('')
+    ? [...rows].reverse().map(r=>{
+        const approved = r[16]==='Approved';
+        const adminSt  = r[23]||'';
+        let actionBtns = '';
+        if (!ro && approved) {
+          if (!adminSt || adminSt==='') {
+            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Recruiting')">Send to Recruiting</button>`;
+          } else if (adminSt==='Recruiting') {
+            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();setAdminStatus('${r[0]}','Engaged')">Mark as Engaged</button>`;
+          } else if (adminSt==='Engaged') {
+            actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Engaged</span>`;
+          }
+        }
+        return `<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
+          <td style="font-size:11px;color:var(--gray-dark)">${fd(r[1])}</td>
+          <td style="font-size:11px">${r[2]||'—'}</td>
+          <td><strong>${r[5]||'—'}</strong></td>
+          <td style="font-size:11px">${r[7]||'—'}</td>
+          <td style="font-size:11px;font-weight:600">${r[8]||'—'}</td>
+          <td style="font-size:11px">${r[11]||'—'}</td>
+          <td style="font-size:11px">${r[12]||'—'}</td>
+          <td>${stag(r[16])}${adminSt?' '+adminStatusTag(adminSt):''}</td>
+          <td><div class="row-actions">
+            <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
+            ${actionBtns}
+          </div></td>
+        </tr>`;
+      }).join('')
     : `<tr><td colspan="9"><div class="empty-state"><div class="icon">🔄</div><p>No CW requests found.</p></div></td></tr>`;
 }
 
@@ -1239,10 +1280,10 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
       </div>
     </div>`:''}
     ${isAdmin&&!ro&&status==='Approved'?`
-    <div style="margin-top:12px">
-      <button class="btn btn-success btn-sm" onclick="setAdminStatus('${reqId}','${isCW?'Engaged':'Recruited'}');closeModal()">
-        Mark as ${isCW?'Engaged':'Recruited'}
-      </button>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      ${!r[23]||r[23]===''?`<button class="btn btn-primary btn-sm" onclick="setAdminStatus('${reqId}','Recruiting');closeModal()">Send to Recruiting</button>`:''}
+      ${r[23]==='Recruiting'?`<button class="btn btn-success btn-sm" onclick="setAdminStatus('${reqId}','${isCW?'Engaged':'Hired'}');closeModal()">Mark as ${isCW?'Engaged':'Hired'}</button>`:''}
+      ${r[23]==='Hired'||r[23]==='Engaged'?`<span style="font-size:12px;color:var(--green);font-weight:600">✓ ${r[23]}</span>`:''}
     </div>`:''}
   `;
   document.getElementById('modalOverlay').classList.add('open');
@@ -1457,7 +1498,7 @@ function clearPeopleForm(){
 // HELPERS
 // ============================================================
 function stag(s){
-  const m={'Pending PBP':'tag-pbp','Pending SMT':'tag-smt','Pending Admin':'tag-pending','Approved':'tag-approved','Rejected':'tag-rejected','Recruited':'tag-recruited','Engaged':'tag-recruited'};
+  const m={'Pending PBP':'tag-pbp','Pending SMT':'tag-smt','Pending Admin':'tag-pending','Approved':'tag-approved','Rejected':'tag-rejected','Recruited':'tag-recruited','Engaged':'tag-recruited','Recruiting':'tag-pbp','Hired':'tag-approved'};
   return `<span class="tag ${m[s]||'tag-pending'}">${s||'Pending'}</span>`;
 }
 function fd(iso){
