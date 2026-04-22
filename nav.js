@@ -43,10 +43,21 @@ function crInjectNav(currentPage, extraNavHTML = '') {
   <style>
     .cr-header { background:#000; height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 40px; position:sticky; top:0; z-index:200; }
     .cr-header-left { display:flex; align-items:center; gap:14px; }
-    .cr-logo-img { width:34px; height:34px; border-radius:50%; object-fit:cover; animation:crLogoPulse 3.5s ease-in-out infinite; cursor:pointer; }
+    .cr-logo-img { width:34px; height:34px; border-radius:50%; object-fit:cover; animation:crLogoWinkBounce 5s ease-in-out infinite; cursor:pointer; }
     .cr-logo-img:hover { animation:crLogoSpin 0.7s linear forwards; }
-    @keyframes crLogoPulse { 0%,100%{transform:scale(1) rotate(0deg)} 50%{transform:scale(1.1) rotate(6deg)} }
-    @keyframes crLogoSpin  { from{transform:rotate(0deg) scale(1.1)} to{transform:rotate(360deg) scale(1.1)} }
+    @keyframes crLogoWinkBounce {
+      0%,100% { transform:scale(1) translateY(0); }
+      8%      { transform:scaleX(1.15) scaleY(0.05) translateY(2px); }
+      18%     { transform:scale(1.08) translateY(0); }
+      32%     { transform:scale(1) translateY(-7px); }
+      44%     { transform:scale(1) translateY(0); }
+      52%     { transform:scale(1) translateY(-3px); }
+      60%     { transform:scale(1) translateY(0); }
+    }
+    @keyframes crLogoSpin { from{transform:rotate(0deg) scale(1.1)} to{transform:rotate(360deg) scale(1.1)} }
+    .cr-logo-text { transition:letter-spacing 0.3s ease, opacity 0.3s; }
+    .cr-logo-text:hover { letter-spacing:1.5px; opacity:0.85; }
+    .cr-logo-text:hover span { text-shadow:0 0 10px rgba(255,94,0,0.6); }
     .cr-logo-text { color:#fff; font-size:18px; font-weight:700; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; text-decoration:none; }
     .cr-logo-text span { color:#FF5E00; }
     .cr-header-right { display:flex; align-items:center; gap:12px; }

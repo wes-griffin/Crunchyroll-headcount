@@ -808,7 +808,7 @@ function activateProxy() {
     isSMT:  r[3]==='Y',
   };
   document.getElementById('proxyBanner').classList.add('visible');
-  document.getElementById('proxyBannerText').textContent = `🎭 Testing as: ${proxyUser.name} (${proxyUser.email}) — This is a simulation only`;
+  document.getElementById('proxyBannerText').textContent = `Acting as: ${proxyUser.name} — You are acting as ${proxyUser.name} - this is not a sandbox`;
   renderUserBadges();
   // Re-run nav visibility
   ['nav-review','nav-admin-ee','nav-admin-cw','nav-matrix','nav-people'].forEach(hide);
@@ -892,7 +892,7 @@ async function ensureTabs() {
 
 async function ensureHeaders() {
   const checks = [
-    [T.requests+'!A1', [['ID','Submitted','RequestorName','RequestorEmail','Type','Title','Category','CostCenter','SMT','PBP','Location','StartDate','EndDate','Level','Justification','BudgetConfirmed','Status','PBPAction','PBPBy','PBPDate','SMTAction','SMTBy','SMTDate','AdminStatus']]],
+    [T.requests+'!A1', [['ID','Submitted','RequestorName','RequestorEmail','Type','Title','Category','CostCenter','SMT','PBP','Location','StartDate','EndDate','Level','Justification','BudgetConfirmed','Status','PBPAction','PBPBy','PBPDate','SMTAction','SMTBy','SMTDate','AdminStatus','PBPViewed','SMTViewed']]],
     [T.matrix+'!A1',   [['CostCenter','PBP','SMT_Delegate','Notes']]],
     [T.people+'!A1',   [['Name','Email','IsPBP','IsSMT','SecurityGroups','LastLogin']]],
     [T.comments+'!A1', [['RequestID','Timestamp','Author','AuthorEmail','Stage','Comment']]],
@@ -906,7 +906,7 @@ async function ensureHeaders() {
 // LOAD DATA
 // ============================================================
 async function loadMatrix()   { try { matrixData  = await apiGet(T.matrix+'!A2:D500');  } catch(e){matrixData=[];} }
-async function loadRequests() { try { allRequests  = await apiGet(T.requests+'!A2:X2000'); } catch(e){allRequests=[];} }
+async function loadRequests() { try { allRequests  = await apiGet(T.requests+'!A2:Z2000'); } catch(e){allRequests=[];} }
 async function loadPeople()   {
   try {
     peopleData = await apiGet(T.people+'!A2:F500');
@@ -1111,8 +1111,19 @@ function renderReviewTable() {
   const inMyPBPScope  = r => myPBPCostCenters.includes(r[7]) || r[9]===myPBPName;
   const inMySMTScope  = r => r[8]===mySMTName || r[8]===eu.name;
   // Has this user already acted on this request?
-  const iActedPBP     = r => r[18] && (r[18]===eu.name || r[18]===myPBPName);
-  const iActedSMT     = r => r[21] && (r[21]===eu.name || r[21]===mySMTName);
+  // Match by who-approved field (case-insensitive) OR by assigned PBP/SMT + action exists
+  const iActedPBP = r => {
+    if (!r[17]) return false;
+    if (r[18] && (r[18].toLowerCase()===(eu.name||'').toLowerCase() ||
+                  (myPBPName && r[18].toLowerCase()===myPBPName.toLowerCase()))) return true;
+    return !!(myPBPName && r[9] && r[9].toLowerCase()===myPBPName.toLowerCase());
+  };
+  const iActedSMT = r => {
+    if (!r[20]) return false;
+    if (r[21] && (r[21].toLowerCase()===(eu.name||'').toLowerCase() ||
+                  (mySMTName && r[21].toLowerCase()===mySMTName.toLowerCase()))) return true;
+    return !!(r[8] && eu.name && r[8].toLowerCase()===eu.name.toLowerCase());
+  };
   // Did the current user submit this?
   const iSubmitted    = r => r[3] && r[3].toLowerCase()===eu.email.toLowerCase();
 
@@ -1499,7 +1510,7 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
         </div>
         <div class="step-info">
           <div class="step-label">PBP Review${r[9]?' · '+r[9]:''}</div>
-          <div class="step-meta">${pbpDone?r[17]+' by '+r[18]+' on '+fd(r[19]):'Awaiting review'}</div>
+          <div class="step-meta">${pbpDone?r[17]+' by '+r[18]+' on '+fd(r[19]):r[24]?'Viewed — Awaiting Response':'Awaiting review'}</div>
           ${isAdmin&&!ro&&status==='Pending PBP'?`
           <div class="action-row" style="margin-top:10px">
             <button class="btn btn-success btn-sm" onclick="promptApproval('${reqId}','Approved')">✓ Approve</button>
@@ -1513,7 +1524,7 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
         </div>
         <div class="step-info">
           <div class="step-label">SMT Review${r[8]?' · '+r[8]:''}</div>
-          <div class="step-meta">${smtDone?r[20]+' by '+r[21]+' on '+fd(r[22]):'Awaiting review'}</div>
+          <div class="step-meta">${smtDone?r[20]+' by '+r[21]+' on '+fd(r[22]):r[25]?'Viewed — Awaiting Response':'Awaiting review'}</div>
           ${isAdmin&&!ro&&status==='Pending SMT'?`
           <div class="action-row" style="margin-top:10px">
             <button class="btn btn-success btn-sm" onclick="promptApproval('${reqId}','Approved')">✓ Approve</button>
@@ -1553,6 +1564,19 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
       <button class="btn btn-danger btn-sm" onclick="cancelReq('${reqId}')">Cancel Requisition</button>
     </div>`:''}
   `;
+  // Silently record that the PBP/SMT has viewed this request
+  const viewIdx = allRequests.findIndex(x=>x[0]===reqId);
+  if (viewIdx >= 0) {
+    const viewNow = new Date().toISOString();
+    if (canActPBP && !allRequests[viewIdx][24]) {
+      allRequests[viewIdx][24] = viewNow;
+      apiUpdate(T.requests+'!Y'+(viewIdx+2), [[viewNow]]).catch(()=>{});
+    }
+    if (canActSMT && !allRequests[viewIdx][25]) {
+      allRequests[viewIdx][25] = viewNow;
+      apiUpdate(T.requests+'!Z'+(viewIdx+2), [[viewNow]]).catch(()=>{});
+    }
+  }
   document.getElementById('modalOverlay').classList.add('open');
 }
 
