@@ -1,31 +1,4 @@
 // ============================================================
-// IFRAME GUARD
-// OAuth popups are blocked when the app runs inside a Google
-// Sites (or any) iframe. Detect this early and show a simple
-// "Open app" screen so the user can launch it at the top level.
-// ============================================================
-(function () {
-  if (window === window.top) return; // not embedded — carry on
-  document.addEventListener('DOMContentLoaded', function () {
-    document.body.innerHTML = '';
-    document.body.style.cssText = 'margin:0;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#F2EDE6;display:flex;align-items:center;justify-content:center;min-height:100vh;';
-    const url = window.location.href;
-    document.body.innerHTML = `
-      <div style="background:#fff;border-radius:16px;padding:48px 40px;text-align:center;border:1px solid #E0E0E0;max-width:400px;width:90%;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-        <div style="width:52px;height:52px;background:#FF5E00;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:#fff;margin:0 auto 20px">C</div>
-        <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#1A1A1A">Crunchyroll Headcount</h2>
-        <p style="margin:0 0 28px;font-size:13px;color:#666;line-height:1.6">
-          Sign-in requires opening this app directly.<br>Click below to open it in a new tab.
-        </p>
-        <a href="${url}" target="_blank" rel="noopener"
-           style="display:inline-block;background:#FF5E00;color:#fff;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
-          Open App ↗
-        </a>
-      </div>`;
-  });
-})();
-
-// ============================================================
 // CRUNCHYROLL SHARED NAV + AUTH
 // nav.js — included by all pages
 // ============================================================
