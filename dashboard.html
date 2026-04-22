@@ -191,7 +191,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const extra = document.createElement('div');
     extra.style.cssText = 'display:flex;align-items:center;gap:12px;';
     extra.innerHTML =
-      '<div style="color:#888;font-size:11px;text-align:right"><strong style="color:#FF5E00;display:block;font-size:13px;">Global Headcount Report</strong></div>' +
       '<button class="cr-refresh-btn" id="refreshBtn" onclick="loadAllData()"><span class="cr-refresh-icon">↻</span> Refresh</button>';
     hdrRight.prepend(extra);
   }
@@ -563,12 +562,12 @@ document.addEventListener("DOMContentLoaded", function() {
 <div id="tab-mapping" class="tab-panel">
   <div class="page-title">
     <div><h2>Data Mapping</h2><p>Source documentation · Where each metric comes from and how it is calculated</p></div>
-    <button class="refresh-btn" onclick="toggleMappingEdit()" id="mappingEditBtn" style="padding:8px 14px;font-size:12px;">✏️ Edit Notes</button>
+    <button class="refresh-btn" onclick="toggleMappingEdit()" id="mappingEditBtn" style="padding:8px 14px;font-size:12px;">✏️ Edit Mapping</button>
   </div>
 
   <div id="mappingEditBanner" style="display:none;background:#FFF0E8;border:1px solid var(--orange);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px;color:var(--orange);font-weight:600;">
-    Editing mode — notes are saved locally in your browser. Click Save when done.
-    <button onclick="saveMappingNotes()" style="margin-left:12px;background:var(--orange);color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;">Save Notes</button>
+    Editing mode — all fields are editable. Click Save when done.
+    <button onclick="saveMappingNotes()" style="margin-left:12px;background:var(--orange);color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;">Save</button>
     <button onclick="toggleMappingEdit()" style="margin-left:6px;background:none;border:1px solid var(--orange);color:var(--orange);padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;">Cancel</button>
   </div>
 
@@ -1499,79 +1498,123 @@ async function checkIsMasterAdmin() {
   }
 }
 
-const MAPPING_ROWS = [
-  { metric:'Total Employees',     source:'[IMPORT] Workday Data',         logic:'Count of active EE workers (worker type = Employee)',                                          tab:'Headcount Summary' },
-  { metric:'Total Contingent Workers', source:'[IMPORT] Workday Data',    logic:'Count of active CW workers (worker type = Contingent)',                                       tab:'Headcount Summary' },
-  { metric:'Hires Since April 1', source:'[IMPORT] Workday Data',         logic:'Workers with hire date ≥ April 1 of current fiscal year',                                     tab:'Headcount Summary' },
-  { metric:'Attrition Since April 1', source:'[IMPORT] Workday Data',     logic:'Workers with termination date ≥ April 1 of current fiscal year',                             tab:'Headcount Summary' },
-  { metric:'Future Attrition',    source:'Pending Hires & Attrition',     logic:'Workers with a future-dated termination (pending departures)',                               tab:'Headcount Summary' },
-  { metric:'Top Line Target',     source:'Headcount Summary by SMT',      logic:'Column K in the Headcount Summary by SMT tab (manually set)',                                 tab:'Headcount Summary' },
-  { metric:'Headroom / Available', source:'Headcount Summary by SMT',     logic:'Top Line − Current HC − Pending Hires',                                                      tab:'Headcount Summary' },
-  { metric:'Open Reqs (GH)',      source:'[IMPORT] GH Open Job Detail',   logic:'All rows in Greenhouse open job detail export (A4:AN)',                                      tab:'Open & Pending Reqs' },
-  { metric:'EE by SMT table',     source:'Headcount Summary by SMT',      logic:'Rows A5:M13 — each row is one SMT, columns are start HC, attrition, hires, current, etc.',  tab:'Employees' },
-  { metric:'CW by SMT table',     source:'Headcount Summary by SMT',      logic:'Rows A20:J28 — same structure as EE section',                                                tab:'Contingent Workers' },
-  { metric:'EE location bars',    source:'Headcount Summary by SMT',      logic:'Rows A38:C65 — col A=location, col B=count',                                                 tab:'Employees' },
-  { metric:'CW location bars',    source:'Headcount Summary by SMT',      logic:'Rows E38:G80 — col E=location, col F=count',                                                 tab:'Contingent Workers' },
-  { metric:'Pending Hires table', source:'Pending Hires & Attrition',     logic:'Rows A5:D20 (by SMT) and F5:I20 (by location)',                                             tab:'Pending Hires & Attrition' },
-  { metric:'Pending Attrition',   source:'Pending Hires & Attrition',     logic:'Rows A28:D45 (by SMT) and F28:I45 (by location)',                                           tab:'Pending Hires & Attrition' },
-  { metric:'Data as of date',     source:'[IMPORT] Workday Data',         logic:'Cell B1 — the export timestamp set when the Workday data was last refreshed',                tab:'All tabs' },
+const MAPPING_DEFAULTS = [
+  { metric:'Total Employees',          source:'[IMPORT] Workday Data',         logic:'Count of active EE workers (worker type = Employee)',                                         tab:'Headcount Summary' },
+  { metric:'Total Contingent Workers', source:'[IMPORT] Workday Data',         logic:'Count of active CW workers (worker type = Contingent)',                                      tab:'Headcount Summary' },
+  { metric:'Hires Since April 1',      source:'[IMPORT] Workday Data',         logic:'Workers with hire date ≥ April 1 of current fiscal year',                                    tab:'Headcount Summary' },
+  { metric:'Attrition Since April 1',  source:'[IMPORT] Workday Data',         logic:'Workers with termination date ≥ April 1 of current fiscal year',                            tab:'Headcount Summary' },
+  { metric:'Future Attrition',         source:'Pending Hires & Attrition',     logic:'Workers with a future-dated termination (pending departures)',                              tab:'Headcount Summary' },
+  { metric:'Top Line Target',          source:'Headcount Summary by SMT',      logic:'Column K in the Headcount Summary by SMT tab (manually set)',                                tab:'Headcount Summary' },
+  { metric:'Headroom / Available',     source:'Headcount Summary by SMT',      logic:'Top Line − Current HC − Pending Hires',                                                     tab:'Headcount Summary' },
+  { metric:'Open Reqs (GH)',           source:'[IMPORT] GH Open Job Detail',   logic:'All rows in Greenhouse open job detail export (A4:AN)',                                     tab:'Open & Pending Reqs' },
+  { metric:'EE by SMT table',          source:'Headcount Summary by SMT',      logic:'Rows A5:M13 — each row is one SMT, columns are start HC, attrition, hires, current, etc.', tab:'Employees' },
+  { metric:'CW by SMT table',          source:'Headcount Summary by SMT',      logic:'Rows A20:J28 — same structure as EE section',                                               tab:'Contingent Workers' },
+  { metric:'EE location bars',         source:'Headcount Summary by SMT',      logic:'Rows A38:C65 — col A=location, col B=count',                                                tab:'Employees' },
+  { metric:'CW location bars',         source:'Headcount Summary by SMT',      logic:'Rows E38:G80 — col E=location, col F=count',                                                tab:'Contingent Workers' },
+  { metric:'Pending Hires table',      source:'Pending Hires & Attrition',     logic:'Rows A5:D20 (by SMT) and F5:I20 (by location)',                                            tab:'Pending Hires & Attrition' },
+  { metric:'Pending Attrition',        source:'Pending Hires & Attrition',     logic:'Rows A28:D45 (by SMT) and F28:I45 (by location)',                                          tab:'Pending Hires & Attrition' },
+  { metric:'Data as of date',          source:'[IMPORT] Workday Data',         logic:'Cell B1 — the export timestamp set when the Workday data was last refreshed',               tab:'All tabs' },
 ];
+
+function getMappingRows() {
+  try { return JSON.parse(localStorage.getItem('crDashboardMappingRows') || 'null') || MAPPING_DEFAULTS.map(r=>({...r, notes:''})); }
+  catch(e) { return MAPPING_DEFAULTS.map(r=>({...r, notes:''})); }
+}
 
 let _mappingEditMode = false;
 
 function renderDataMapping() {
   const el = document.getElementById('mappingTable');
   if (!el) return;
-  const savedNotes = JSON.parse(localStorage.getItem('crDashboardMappingNotes')||'{}');
+  const rows = getMappingRows();
 
-  el.innerHTML = `
-    <div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th>Metric / KPI</th>
-          <th>Source Tab</th>
-          <th>Logic / Notes</th>
-          <th>Dashboard Tab</th>
-          <th>Custom Notes</th>
-        </tr></thead>
-        <tbody>
-          ${MAPPING_ROWS.map((row, i) => `
-          <tr>
-            <td style="font-weight:600">${row.metric}</td>
-            <td><span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace">${row.source}</span></td>
-            <td style="font-size:12px;color:var(--gray-dark)">${row.logic}</td>
-            <td style="font-size:12px">${row.tab}</td>
-            <td>
-              ${_mappingEditMode
-                ? `<textarea id="mapNote-${i}" style="width:100%;min-height:52px;font-size:12px;border:1px solid var(--gray-mid);border-radius:4px;padding:6px;font-family:inherit;resize:vertical">${savedNotes[i]||''}</textarea>`
-                : `<span style="font-size:12px;color:var(--gray-dark)">${savedNotes[i]||'<em style="color:#bbb">None</em>'}</span>`
-              }
-            </td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
+  if (_mappingEditMode) {
+    el.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Metric / KPI</th><th>Source Tab</th><th>Logic / Calculation</th><th>Dashboard Tab</th><th>Notes</th><th style="width:40px"></th>
+          </tr></thead>
+          <tbody id="mappingTbody">
+            ${rows.map((row, i) => `<tr id="mrow-${i}">
+              <td><input class="map-input" data-i="${i}" data-f="metric" value="${row.metric||''}"></td>
+              <td><input class="map-input" data-i="${i}" data-f="source" value="${row.source||''}"></td>
+              <td><textarea class="map-input" data-i="${i}" data-f="logic" style="min-height:48px;resize:vertical">${row.logic||''}</textarea></td>
+              <td><input class="map-input" data-i="${i}" data-f="tab" value="${row.tab||''}"></td>
+              <td><textarea class="map-input" data-i="${i}" data-f="notes" style="min-height:48px;resize:vertical">${row.notes||''}</textarea></td>
+              <td><button onclick="deleteMappingRow(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px" title="Delete row">✕</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <button onclick="addMappingRow()" class="btn btn-secondary" style="margin-top:10px;font-size:12px">+ Add Row</button>`;
+    document.querySelectorAll('.map-input').forEach(el => el.addEventListener('input', () => {}));
+  } else {
+    el.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Metric / KPI</th><th>Source Tab</th><th>Logic / Calculation</th><th>Dashboard Tab</th><th>Notes</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(row => `<tr>
+              <td style="font-weight:600">${row.metric||''}</td>
+              <td><span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace">${row.source||''}</span></td>
+              <td style="font-size:12px;color:var(--gray-dark)">${row.logic||''}</td>
+              <td style="font-size:12px">${row.tab||''}</td>
+              <td style="font-size:12px;color:var(--gray-dark)">${row.notes||'<em style="color:#bbb">—</em>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+}
+
+function addMappingRow() {
+  const rows = getMappingRows();
+  rows.push({ metric:'', source:'', logic:'', tab:'', notes:'' });
+  localStorage.setItem('crDashboardMappingRows', JSON.stringify(rows));
+  renderDataMapping();
+}
+
+function deleteMappingRow(i) {
+  const rows = getMappingRows();
+  rows.splice(i, 1);
+  localStorage.setItem('crDashboardMappingRows', JSON.stringify(rows));
+  renderDataMapping();
+}
+
+function collectMappingEdits() {
+  const rows = getMappingRows();
+  document.querySelectorAll('.map-input').forEach(el => {
+    const i = parseInt(el.dataset.i), f = el.dataset.f;
+    if (!isNaN(i) && f && rows[i]) rows[i][f] = el.value;
+  });
+  return rows;
 }
 
 function toggleMappingEdit() {
-  _mappingEditMode = !_mappingEditMode;
-  document.getElementById('mappingEditBtn').textContent = _mappingEditMode ? '✕ Cancel' : '✏️ Edit Notes';
-  document.getElementById('mappingEditBanner').style.display = _mappingEditMode ? 'block' : 'none';
-  renderDataMapping();
+  if (_mappingEditMode) {
+    // Cancel — discard unsaved edits
+    _mappingEditMode = false;
+    document.getElementById('mappingEditBtn').textContent = '✏️ Edit Mapping';
+    document.getElementById('mappingEditBanner').style.display = 'none';
+    renderDataMapping();
+  } else {
+    _mappingEditMode = true;
+    document.getElementById('mappingEditBtn').textContent = '✕ Cancel';
+    document.getElementById('mappingEditBanner').style.display = 'block';
+    renderDataMapping();
+  }
 }
 
 function saveMappingNotes() {
-  const notes = {};
-  MAPPING_ROWS.forEach((_, i) => {
-    const el = document.getElementById('mapNote-'+i);
-    if (el && el.value.trim()) notes[i] = el.value.trim();
-  });
-  localStorage.setItem('crDashboardMappingNotes', JSON.stringify(notes));
+  const rows = collectMappingEdits();
+  localStorage.setItem('crDashboardMappingRows', JSON.stringify(rows));
   _mappingEditMode = false;
-  document.getElementById('mappingEditBtn').textContent = '✏️ Edit Notes';
+  document.getElementById('mappingEditBtn').textContent = '✏️ Edit Mapping';
   document.getElementById('mappingEditBanner').style.display = 'none';
   renderDataMapping();
-  alert('Notes saved.');
 }
 
 // ============================================================
