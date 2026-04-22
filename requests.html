@@ -1477,9 +1477,9 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
   })();
   const myPBPCCs = myPBPName?matrixData.filter(x=>x[1]===myPBPName).map(x=>x[0]):[];
   const canActPBP = canApprove && !ro && status==='Pending PBP' &&
-    (myPBPCCs.includes(r[7])||r[9]===myPBPName||hasGroup('master_admin'));
+    (myPBPCCs.includes(r[7]) || r[9]===myPBPName || (eu.isPBP && r[9]===eu.name));
   const canActSMT = canApprove && !ro && status==='Pending SMT' &&
-    (r[8]===eu.name||hasGroup('master_admin')||hasGroup('admin_ee'));
+    r[8]===eu.name;
 
   document.getElementById('modalTitle').textContent=r[5]||'Request Detail';
   document.getElementById('modalSub').textContent=`${r[0]} · ${r[2]} · ${fd(r[1])}`;
