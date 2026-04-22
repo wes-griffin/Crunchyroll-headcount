@@ -1843,9 +1843,10 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
   const smtDone=!!(r[20]&&r[20]!=='');
   const ro=isReadOnly();
   const isFinished = r[23]==='Hired' || r[23]==='Engaged';
-  // A req is "reopened" when it has prior approval decisions (r[17] or r[20]) but
-  // is currently back to a Pending status — meaning it was cancelled and restarted.
-  const isReopened = (pbpDone || smtDone) && status.includes('Pending');
+  // isReopened: a prior PBP decision exists (row was previously approved through PBP)
+  // BUT status has been reset back to 'Pending PBP' — meaning it was cancelled and restarted.
+  // This is intentionally strict: normal post-PBP-approval flow (status='Pending SMT') does NOT trigger this.
+  const isReopened = pbpDone && status === 'Pending PBP';
 
   // Determine if this user can act
   const normM = s => (s||'').replace(/\s+/g,' ').trim().toLowerCase();
