@@ -294,7 +294,7 @@ document.addEventListener("DOMContentLoaded", function() {
         <span id="adminCommentErr" style="font-size:11px;color:var(--red);display:none">A comment is required to proceed.</span>
       </div>
       <div class="btn-row" style="margin-top:16px">
-        <button class="btn btn-primary" id="adminCommentConfirmBtn" onclick="confirmAdminStatus()">Confirm</button>
+        <button class="btn btn-primary" id="adminCommentConfirmBtn" onclick="confirmAdminAction()">Confirm</button>
         <button class="btn btn-secondary" onclick="closeAdminComment()">Cancel</button>
       </div>
     </div>
@@ -1199,16 +1199,22 @@ function renderAdminEE() {
 
   document.getElementById('adminEETable').innerHTML = rows.length
     ? [...rows].reverse().map(r=>{
-        const approved = r[16]==='Approved';
+        const status   = r[16]||'';
         const adminSt  = r[23]||'';
         let actionBtns = '';
-        if (!ro && approved) {
-          if (!adminSt || adminSt==='') {
-            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Recruiting','Send to Recruiting')">Send to Recruiting</button>`;
-          } else if (adminSt==='Recruiting') {
-            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Hired','Mark as Hired')">Mark as Hired</button>`;
-          } else if (adminSt==='Hired') {
-            actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Hired</span>`;
+        if (!ro) {
+          if (status==='Pending PBP'||status==='Pending SMT') {
+            actionBtns = `
+              <button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptApproval('${r[0]}','Approved')">✓ Approve</button>
+              <button class="btn btn-sm btn-danger"  onclick="event.stopPropagation();promptApproval('${r[0]}','Rejected')">✕ Reject</button>`;
+          } else if (status==='Approved') {
+            if (!adminSt || adminSt==='') {
+              actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Recruiting','Send to Recruiting')">Send to Recruiting</button>`;
+            } else if (adminSt==='Recruiting') {
+              actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Hired','Mark as Hired')">Mark as Hired</button>`;
+            } else if (adminSt==='Hired') {
+              actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Hired</span>`;
+            }
           }
         }
         return `<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
@@ -1223,7 +1229,7 @@ function renderAdminEE() {
           <td><div class="row-actions">
             <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
             ${actionBtns}
-            ${!ro&&r[16]!=='Cancelled'&&r[16]!=='Hired'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
+            ${!ro&&r[16]!=='Cancelled'&&r[23]!=='Hired'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
           </div></td>
         </tr>`;
       }).join('')
@@ -1254,16 +1260,22 @@ function renderAdminCW() {
   const ro=isReadOnly();
   document.getElementById('adminCWTable').innerHTML = rows.length
     ? [...rows].reverse().map(r=>{
-        const approved = r[16]==='Approved';
+        const status   = r[16]||'';
         const adminSt  = r[23]||'';
         let actionBtns = '';
-        if (!ro && approved) {
-          if (!adminSt || adminSt==='') {
-            actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Recruiting','Send to Recruiting')">Send to Recruiting</button>`;
-          } else if (adminSt==='Recruiting') {
-            actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Engaged','Mark as Engaged')">Mark as Engaged</button>`;
-          } else if (adminSt==='Engaged') {
-            actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Engaged</span>`;
+        if (!ro) {
+          if (status==='Pending PBP'||status==='Pending SMT') {
+            actionBtns = `
+              <button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptApproval('${r[0]}','Approved')">✓ Approve</button>
+              <button class="btn btn-sm btn-danger"  onclick="event.stopPropagation();promptApproval('${r[0]}','Rejected')">✕ Reject</button>`;
+          } else if (status==='Approved') {
+            if (!adminSt || adminSt==='') {
+              actionBtns = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Recruiting','Send to Recruiting')">Send to Recruiting</button>`;
+            } else if (adminSt==='Recruiting') {
+              actionBtns = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation();promptAdminStatus('${r[0]}','Engaged','Mark as Engaged')">Mark as Engaged</button>`;
+            } else if (adminSt==='Engaged') {
+              actionBtns = `<span style="font-size:11px;color:var(--green);font-weight:600">✓ Engaged</span>`;
+            }
           }
         }
         return `<tr class="clickable" onclick="openReqModal('${r[0]}',false,true)">
@@ -1278,7 +1290,7 @@ function renderAdminCW() {
           <td><div class="row-actions">
             <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}',false,true)">View</button>
             ${actionBtns}
-            ${!ro&&r[16]!=='Cancelled'&&r[16]!=='Engaged'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
+            ${!ro&&r[16]!=='Cancelled'&&r[23]!=='Engaged'?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();cancelReq('${r[0]}')">Cancel</button>`:''}
           </div></td>
         </tr>`;
       }).join('')
@@ -1291,11 +1303,29 @@ function renderAdminCW() {
 let _pendingAdminReqId  = null;
 let _pendingAdminStatus = null;
 let _pendingAdminLabel  = null;
+let _pendingAdminMode   = null; // 'status' | 'approval'
+
+function promptApproval(reqId, decision) {
+  const r = allRequests.find(x => x[0] === reqId);
+  const stage = (r && (r[16]||'').includes('PBP')) ? 'PBP' : 'SMT';
+  _pendingAdminReqId  = reqId;
+  _pendingAdminStatus = decision;
+  _pendingAdminMode   = 'approval';
+
+  document.getElementById('adminCommentTitle').textContent =
+    decision === 'Approved' ? `Approve — ${stage} Stage` : `Reject — ${stage} Stage`;
+  document.getElementById('adminCommentSub').textContent = r ? (r[5]||reqId) : reqId;
+  document.getElementById('adminCommentText').value        = '';
+  document.getElementById('adminCommentErr').style.display = 'none';
+  document.getElementById('adminCommentOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('adminCommentText').focus(), 120);
+}
 
 function promptAdminStatus(reqId, status, label) {
   _pendingAdminReqId  = reqId;
   _pendingAdminStatus = status;
   _pendingAdminLabel  = label;
+  _pendingAdminMode   = 'status';
 
   const r = allRequests.find(x => x[0] === reqId);
   document.getElementById('adminCommentTitle').textContent = label;
@@ -1308,14 +1338,14 @@ function promptAdminStatus(reqId, status, label) {
 
 function closeAdminComment() {
   document.getElementById('adminCommentOverlay').classList.remove('open');
-  _pendingAdminReqId = _pendingAdminStatus = _pendingAdminLabel = null;
+  _pendingAdminReqId = _pendingAdminStatus = _pendingAdminLabel = _pendingAdminMode = null;
 }
 
 function adminCommentOutside(e) {
   if (e.target === document.getElementById('adminCommentOverlay')) closeAdminComment();
 }
 
-async function confirmAdminStatus() {
+async function confirmAdminAction() {
   const comment = document.getElementById('adminCommentText').value.trim();
   if (!comment) {
     document.getElementById('adminCommentErr').style.display = 'block';
@@ -1324,8 +1354,13 @@ async function confirmAdminStatus() {
   }
   const reqId  = _pendingAdminReqId;
   const status = _pendingAdminStatus;
+  const mode   = _pendingAdminMode;
   closeAdminComment();
-  await setAdminStatus(reqId, status, comment);
+  if (mode === 'approval') {
+    await submitApproval(reqId, status, comment);
+  } else {
+    await setAdminStatus(reqId, status, comment);
+  }
 }
 
 async function setAdminStatus(reqId, status, comment) {
@@ -1526,7 +1561,7 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
         ${adminActionSteps(reqId, isCW, r[23]||'')}
       </div>
     </div>`:''}
-    ${isAdmin&&!ro&&status!=='Cancelled'&&status!=='Hired'&&status!=='Engaged'?`
+    ${isAdmin&&!ro&&status!=='Cancelled'&&r[23]!=='Hired'&&r[23]!=='Engaged'?`
     <div style="margin-top:12px;border-top:1px solid var(--gray-mid);padding-top:12px;display:flex;align-items:center;justify-content:space-between;">
       <span style="font-size:12px;color:var(--gray-dark)">Cancel this request? This cannot be undone.</span>
       <button class="btn btn-danger btn-sm" onclick="cancelReq('${reqId}')">Cancel Requisition</button>
@@ -1535,9 +1570,9 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
   document.getElementById('modalOverlay').classList.add('open');
 }
 
-async function submitApproval(reqId, decision) {
+async function submitApproval(reqId, decision, commentOverride) {
   const r=allRequests.find(x=>x[0]===reqId); if(!r)return;
-  const comment=document.getElementById('approvalComment')?.value||'';
+  const comment = commentOverride !== undefined ? commentOverride : (document.getElementById('approvalComment')?.value||'');
   const now=new Date().toISOString();
   const idx=allRequests.findIndex(x=>x[0]===reqId);
   const sheetRow=idx+2;
