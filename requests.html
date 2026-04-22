@@ -1028,7 +1028,9 @@ function setReqType(t) {
 // ============================================================
 async function submitRequest(e) {
   e.preventDefault();
-  if (isReadOnly()) { toast('View-only access — cannot submit','error'); return; }
+  const eu = effectiveUser();
+  const canSubmit = hasGroup('normal') || hasGroup('master_admin') || eu.isPBP || eu.isSMT;
+  if (!canSubmit) { toast('View-only access — cannot submit','error'); return; }
   const btn=document.getElementById('submitBtn');
   btn.disabled=true; btn.textContent='Submitting…';
   try {
