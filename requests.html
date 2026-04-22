@@ -1234,63 +1234,73 @@ async function setAdminStatus(reqId, status) {
     await apiUpdate(T.requests+'!X'+(idx+2),[[status]]);
     allRequests[idx][23]=status;
     toast('Marked as '+status,'success');
-    // Refresh action steps in modal in-place if modal is open
+    // Refresh action steps pipeline in-place
     const actionsRow = document.getElementById('adminActionsRow-'+reqId);
     if (actionsRow) {
       const isCW = allRequests[idx][4]==='CW';
       actionsRow.innerHTML = adminActionSteps(reqId, isCW, status);
+    }
+    // Refresh admin status detail cell in-place
+    const adminCell = document.getElementById('modalAdminStatusCell-'+reqId);
+    if (adminCell) {
+      const tagMap = {'Recruiting':'tag-pbp','Hired':'tag-approved','Engaged':'tag-approved'};
+      adminCell.innerHTML = `<div class="label">Admin Status</div><div class="value"><span class="tag ${tagMap[status]||'tag-pending'}">${status}</span></div>`;
     }
     renderAdminEE(); renderAdminCW();
   } catch(e){toast('Error: '+e.message,'error');}
 }
 
 function adminActionSteps(reqId, isCW, adminSt) {
+  // Define steps: key = the adminSt value set when this step is completed
   const steps = isCW
-    ? [{key:'',     label:'Approved',           done: true,                          final: false},
-       {key:'Recruiting', label:'Send to Recruiting', done: adminSt==='Recruiting'||adminSt==='Engaged', final: false},
-       {key:'Engaged',    label:'Mark as Engaged',    done: adminSt==='Engaged',               final: true}]
-    : [{key:'',     label:'Approved',           done: true,                          final: false},
-       {key:'Recruiting', label:'Send to Recruiting', done: adminSt==='Recruiting'||adminSt==='Hired', final: false},
-       {key:'Hired',      label:'Mark as Hired',      done: adminSt==='Hired',                 final: true}];
+    ? [
+        { key: '',           label: 'Approved',          completedLabel: 'Approved'    },
+        { key: 'Recruiting', label: 'Send to Recruiting', completedLabel: 'Recruiting'  },
+        { key: 'Engaged',    label: 'Mark as Engaged',    completedLabel: 'Engaged'     },
+      ]
+    : [
+        { key: '',           label: 'Approved',          completedLabel: 'Approved'    },
+        { key: 'Recruiting', label: 'Send to Recruiting', completedLabel: 'Recruiting'  },
+        { key: 'Hired',      label: 'Mark as Hired',      completedLabel: 'Hired'       },
+      ];
 
-  // Current step = first step whose key matches adminSt, or step 0 if blank
-  const currentIdx = adminSt==='' ? 0 : steps.findIndex(s=>s.key===adminSt);
+  // Which step index has been reached?
+  // '' = only step 0 done, 'Recruiting' = steps 0+1 done, 'Hired'/'Engaged' = all done
+  const completedUpTo = adminSt === ''           ? 0
+                      : adminSt === 'Recruiting'  ? 1
+                      : 2; // Hired or Engaged
 
   return steps.map((step, i) => {
-    const isCompleted = step.done;
-    const isCurrent   = i === currentIdx;
-    const isNext      = i === currentIdx + 1;
-    const isLocked    = i > currentIdx + 1;
+    const isCompleted = i <= completedUpTo;
+    const isNext      = i === completedUpTo + 1;
+    const isLocked    = i > completedUpTo + 1;
 
-    let dotStyle, labelStyle, btn='';
-    if (i===0) {
-      // Always "Approved" — always done
-      dotStyle = `background:var(--green);color:white`;
-      labelStyle = `color:var(--green);font-weight:700`;
-    } else if (isCompleted && !isCurrent) {
-      dotStyle = `background:var(--green);color:white`;
+    let dotStyle, labelStyle, btn = '';
+
+    if (isCompleted) {
+      dotStyle   = `background:var(--green);color:white`;
       labelStyle = `color:var(--green);font-weight:700`;
     } else if (isNext) {
-      dotStyle = `background:var(--orange);color:white`;
+      dotStyle   = `background:var(--orange);color:white`;
       labelStyle = `color:var(--orange);font-weight:700`;
       btn = `<button class="btn btn-sm btn-primary" style="margin-top:6px" onclick="setAdminStatus('${reqId}','${step.key}')">${step.label}</button>`;
-    } else if (isLocked) {
-      dotStyle = `background:var(--gray-mid);color:var(--gray-dark)`;
-      labelStyle = `color:var(--gray-dark)`;
     } else {
-      dotStyle = `background:var(--gray-mid);color:var(--gray-dark)`;
+      dotStyle   = `background:var(--gray-mid);color:var(--gray-dark)`;
       labelStyle = `color:var(--gray-dark)`;
     }
 
-    const connector = i < steps.length-1
-      ? `<div style="height:2px;width:32px;background:${isCompleted&&!isCurrent?'var(--green)':'var(--gray-mid)'};margin:0 4px;flex-shrink:0;align-self:flex-start;margin-top:16px;"></div>`
+    const connectorColor = isCompleted && i < steps.length - 1 && i < completedUpTo
+      ? 'var(--green)' : 'var(--gray-mid)';
+    const connector = i < steps.length - 1
+      ? `<div style="height:2px;width:32px;background:${connectorColor};margin:0 4px;flex-shrink:0;align-self:flex-start;margin-top:16px;"></div>`
       : '';
 
+    const dotContent = isCompleted ? '✓' : (i + 1).toString();
+    const displayLabel = isCompleted ? step.completedLabel : step.label;
+
     return `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;min-width:90px;">
-      <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;${dotStyle}">
-        ${isCompleted&&i!==currentIdx?'✓':i+1}
-      </div>
-      <div style="font-size:11px;margin-top:6px;max-width:90px;line-height:1.3;${labelStyle}">${step.label.replace('Mark as ','')}</div>
+      <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;${dotStyle}">${dotContent}</div>
+      <div style="font-size:11px;margin-top:6px;max-width:90px;line-height:1.3;${labelStyle}">${displayLabel}</div>
       ${btn}
     </div>${connector}`;
   }).join('');
@@ -1336,8 +1346,8 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
       ${isCW?`<div class="detail-item"><div class="label">End Date</div><div class="value">${r[12]||'—'}</div></div>`:''}
       ${r[13]?`<div class="detail-item"><div class="label">Level</div><div class="value">${r[13]}</div></div>`:''}
       <div class="detail-item"><div class="label">Budget Confirmed</div><div class="value" style="color:var(--green)">✓ Yes</div></div>
-      <div class="detail-item"><div class="label">Status</div><div class="value">${stag(status)}</div></div>
-      ${r[23]?`<div class="detail-item"><div class="label">Admin Status</div><div class="value">${r[23]}</div></div>`:''}
+      <div class="detail-item" id="modalStatusCell-${reqId}"><div class="label">Status</div><div class="value">${stag(status)}</div></div>
+      <div class="detail-item" id="modalAdminStatusCell-${reqId}"><div class="label">Admin Status</div><div class="value">${r[23]?`<span class="tag tag-pbp">${r[23]}</span>`:'<span style="color:var(--gray-dark);font-style:italic;font-size:12px">None</span>'}</div></div>
       <div class="detail-item full"><div class="label">Justification</div><div class="value" style="font-weight:400;line-height:1.5">${r[14]||'—'}</div></div>
     </div>
     <div style="font-size:13px;font-weight:700;margin-bottom:12px">Approval Progress</div>
