@@ -66,7 +66,7 @@ function crInjectNav(currentPage, extraNavHTML = '') {
   </style>
   <div class="cr-header">
     <div class="cr-header-left">
-      <img class="cr-logo-img" src="LOGO_SRC" alt="Crunchyroll">
+      <img class="cr-logo-img" src="https://www.crunchyroll.com/build/assets/img/favicons/android-chrome-192x192.png" alt="Crunchyroll" onerror="this.style.display='none'">
       <a href="index.html" class="cr-logo-text"><span>Crunchyroll</span> | Headcount</a>
     </div>
     <div class="cr-header-right" id="crHeaderRight">
