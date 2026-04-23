@@ -567,7 +567,7 @@ document.addEventListener("DOMContentLoaded", function() {
     <div><h2>Data Mapping</h2><p>Where each metric comes from and how it is calculated</p></div>
     <div style="display:flex;gap:8px">
       <button class="refresh-btn" onclick="addMappingRow()" style="padding:8px 16px;font-size:12px">+ Add Row</button>
-      <button class="refresh-btn" onclick="saveMappingAllToSheet()" style="padding:8px 16px;font-size:12px;background:var(--orange)">↑ Save All to Sheet</button>
+      <button class="refresh-btn" onclick="dmSaveAll()" style="padding:8px 16px;font-size:12px;background:var(--orange)">↑ Save All to Sheet</button>
     </div>
   </div>
   <div id="mappingTable"></div>
@@ -1898,8 +1898,7 @@ async function checkIsMasterAdmin() {
   } catch(e) { return false; }
 }
 
-// ── Data Mapping UI ────────────────────────────────────────────────────────
-let _editingRowIdx = null;
+// ── Data Mapping UI (spreadsheet-style inline editor) ─────────────────────
 
 const OP_COLORS = {
   LIST:'#1565C0', COUNT_ROWS:'#2E7D32', SUM:'#E65100', COUNT_DISTINCT:'#2E7D32',
@@ -1913,159 +1912,74 @@ const TAB_LABELS = {
   contingent:'Contingent Workers Tab', reqs:'Open Reqs Tab', pa:'Pending Hires & Attrition Tab'
 };
 
-function renderDataMapping() {
-  var el = document.getElementById('mappingTable');
-  if (!el) return;
-  if (!_configRows.length) {
-    el.innerHTML = '<p style="color:var(--gray-dark);padding:20px 0">No rows configured. Click "+ Add Row" above to get started.</p>';
-    return;
+// Map dashboardTab → switchTab id
+const TAB_NAV_MAP = {
+  summary:   'summary',
+  employees: 'ee',
+  contingent:'cw',
+  reqs:      'reqs',
+  pa:        'pa',
+};
+
+// Navigate to the tab for a given dashboardTab value and briefly highlight
+// any element whose text content contains the display name.
+function navToTabForRow(dashboardTab, displayName) {
+  var navId = null;
+  if (dashboardTab) {
+    // dashboardTab can be comma-separated (e.g. "summary,employees")
+    var parts = dashboardTab.split(',').map(function(s){ return s.trim(); });
+    for (var i = 0; i < parts.length; i++) {
+      var mapped = TAB_NAV_MAP[parts[i]];
+      if (mapped) { navId = mapped; break; }
+    }
   }
+  if (!navId || navId === 'mapping') return; // nowhere useful to go
 
-  var tabOrder = ['all','summary','employees','contingent','reqs','pa'];
-  var groups = {};
-  _configRows.forEach(function(r, i) {
-    var tab = r.dashboardTab || '(other)';
-    if (!groups[tab]) groups[tab] = [];
-    groups[tab].push(i);
+  // Switch to the target tab
+  var targetPanel = document.getElementById('tab-' + navId);
+  var tabBtns = document.querySelectorAll('.tab-btn');
+  if (!targetPanel) return;
+  document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+  tabBtns.forEach(function(b){ b.classList.remove('active'); });
+  targetPanel.classList.add('active');
+  // Find and activate the right tab button
+  tabBtns.forEach(function(b){
+    if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf("'"+navId+"'") !== -1) {
+      b.classList.add('active');
+    }
   });
-  var allTabs = tabOrder.filter(function(t){ return groups[t]; })
-    .concat(Object.keys(groups).filter(function(t){ return tabOrder.indexOf(t)<0; }));
 
-  var html = '<div style="font-size:11px;color:#aaa;margin-bottom:16px">'
-    + _configRows.length + ' rows total · Hover an operation badge for its definition · <strong style="color:var(--orange)">Save All to Sheet</strong> to persist changes</div>';
-
-  allTabs.forEach(function(tab) {
-    if (!groups[tab] || !groups[tab].length) return;
-    html += '<div style="margin-bottom:28px">'
-      + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;'
-      + 'border-bottom:2px solid #eee;padding-bottom:6px;margin-bottom:10px">'+(TAB_LABELS[tab]||tab)+'</div>';
-    groups[tab].forEach(function(idx) {
-      html += _editingRowIdx === idx ? _mappingEditForm(idx) : _mappingRow(idx);
+  // Highlight: look for an element whose visible text matches the display name
+  if (!displayName) return;
+  var needle = displayName.trim().toLowerCase();
+  // Search all text nodes — check headings, labels, th, td, h2, h3, etc.
+  var candidates = targetPanel.querySelectorAll('h1,h2,h3,h4,th,td,label,span,div,p');
+  var found = null;
+  candidates.forEach(function(el) {
+    if (found) return;
+    // Only check leaf-ish nodes (text content without deep nesting matching better)
+    var txt = el.textContent.trim().toLowerCase();
+    if (txt === needle || txt.startsWith(needle)) found = el;
+  });
+  if (!found) {
+    // Looser match: contains
+    candidates.forEach(function(el) {
+      if (found) return;
+      if (el.textContent.trim().toLowerCase().indexOf(needle) !== -1 &&
+          el.textContent.trim().length < needle.length * 3) found = el;
     });
-    html += '</div>';
-  });
-
-  el.innerHTML = html;
-}
-
-function _mappingRow(idx) {
-  var r = _configRows[idx];
-  var filterDesc = r.filterCol
-    ? ('col&nbsp;<code>'+esc(r.filterCol)+'</code>&nbsp;=&nbsp;"'+esc(r.filterValue)+'"'
-       +(r.filterCol2 ? '&nbsp;&amp;&amp;&nbsp;col&nbsp;<code>'+esc(r.filterCol2)+'</code>&nbsp;=&nbsp;"'+esc(r.filterValue2)+'"' : ''))
-    : '';
-  var cols = [r.valueCol&&'val:<b>'+esc(r.valueCol)+'</b>', r.groupCol&&'grp:<b>'+esc(r.groupCol)+'</b>', r.seriesCol&&'ser:<b>'+esc(r.seriesCol)+'</b>'].filter(Boolean).join(' &middot; ');
-  var opColor = OP_COLORS[r.operation]||'#666';
-  return '<div id="mrow-'+idx+'" style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;'
-    +'border:1px solid #E8E8E8;border-radius:8px;margin-bottom:6px;background:#fff">'
-    +'<div style="flex:1;min-width:0">'
-      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">'
-        +'<span style="font-weight:700;font-size:13px">'+(esc(r.displayName)||'<em style="color:#ccc">unnamed</em>')+'</span>'
-        +'<code style="font-size:10px;color:#aaa;background:#F5F5F5;padding:1px 6px;border-radius:4px">'+esc(r.metricKey)+'</code>'
-        +'<span style="background:'+opColor+';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;cursor:help" title="'+esc(OPERATION_DEFS[r.operation]||'')+'">'+esc(r.operation)+'</span>'
-      +'</div>'
-      +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px">'
-        +'<span style="background:#E3F2FD;color:#1565C0;font-family:monospace;font-size:10px;padding:2px 8px;border-radius:4px">'+esc(r.sheetTab)+'</span>'
-        +'<code style="font-size:11px;color:#666">'+esc(r.range)+'</code>'
-        +(filterDesc ? '<span style="color:#888"> &middot; '+filterDesc+'</span>' : '')
-        +(cols       ? '<span style="color:#888;font-family:monospace"> &middot; '+cols+'</span>' : '')
-      +'</div>'
-      +(r.notes ? '<div style="font-size:11px;color:#bbb;margin-top:4px;font-style:italic">'+esc(r.notes)+'</div>' : '')
-    +'</div>'
-    +'<div style="display:flex;gap:4px;flex-shrink:0;padding-top:2px">'
-      +'<button onclick="editMappingRow('+idx+')" style="font-size:11px;padding:4px 12px;background:none;border:1px solid #ddd;border-radius:4px;cursor:pointer;color:#555;white-space:nowrap">Edit</button>'
-      +'<button onclick="deleteMappingRow('+idx+')" style="font-size:11px;padding:4px 9px;background:none;border:1px solid #eee;border-radius:4px;cursor:pointer;color:#ccc" title="Delete">&#x2715;</button>'
-    +'</div>'
-  +'</div>';
-}
-
-function _mappingEditForm(idx) {
-  var r = _configRows[idx];
-  var ops = Object.keys(OPERATION_DEFS);
-  var opOpts = ops.map(function(op){ return '<option value="'+op+'"'+(op===r.operation?' selected':'')+'>'+op+'</option>'; }).join('');
-
-  function inp(label, field, val, extraStyle, ph) {
-    return '<div><label style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:3px">'+label+'</label>'
-      +'<input id="me-'+field+'-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph||'')+'" '
-      +'style="width:100%;box-sizing:border-box;padding:6px 9px;border:1px solid #ddd;border-radius:5px;font-size:12px;'+(extraStyle||'')+'">'
-      +'</div>';
   }
-
-  return '<div id="mrow-'+idx+'" style="border:2px solid var(--orange);border-radius:10px;padding:20px 22px;margin-bottom:8px;background:#FFFDF9">'
-
-    // ── Header
-    +'<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px">'
-      +'<div style="font-size:13px;font-weight:800;color:var(--orange)">Editing</div>'
-      +'<code style="font-size:11px;color:#aaa">'+esc(r.metricKey||'new row')+'</code>'
-    +'</div>'
-
-    // ── Core
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">'
-      +inp('Display Name *',   'displayName',   r.displayName,   '', '')
-      +inp('Metric Key *',     'metricKey',     r.metricKey,     'font-family:monospace', '')
-    +'</div>'
-
-    // ── Source
-    +'<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f0f0;padding-bottom:5px;margin-bottom:10px">Data Source</div>'
-    +'<div style="margin-bottom:10px">'+inp('Spreadsheet ID', 'spreadsheetId', r.spreadsheetId, 'font-family:monospace;font-size:11px', '')+'</div>'
-    +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:18px">'
-      +inp('Sheet Tab Name', 'sheetTab', r.sheetTab, '', '')
-      +inp('Range',          'range',    r.range,    'font-family:monospace', 'e.g. A5:M13')
-    +'</div>'
-
-    // ── Filter
-    +'<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f0f0;padding-bottom:5px;margin-bottom:10px">'
-      +'Filter <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#ccc">(optional)</span>'
-    +'</div>'
-    +'<div style="display:grid;grid-template-columns:70px 1fr 70px 1fr;gap:8px;margin-bottom:5px">'
-      +inp('Col 1', 'filterCol',   r.filterCol,   'font-family:monospace;text-align:center', 'D')
-      +inp('Value 1','filterValue', r.filterValue, '', 'e.g. Employee')
-      +inp('Col 2', 'filterCol2',  r.filterCol2,  'font-family:monospace;text-align:center', 'E')
-      +inp('Value 2','filterValue2',r.filterValue2,'', '')
-    +'</div>'
-    +'<div style="font-size:10px;color:#ccc;margin-bottom:18px">Operators: exact · >=N · <=N · >N · <N · ~text (contains)</div>'
-
-    // ── Operation
-    +'<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f0f0;padding-bottom:5px;margin-bottom:10px">Operation</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">'
-      +'<div>'
-        +'<label style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:3px">Operation *</label>'
-        +'<select id="me-operation-'+idx+'" onchange="updateOpDesc('+idx+')" style="width:100%;padding:6px 9px;border:1px solid #ddd;border-radius:5px;font-size:12px">'+opOpts+'</select>'
-      +'</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
-        +inp('Value Col', 'valueCol',  r.valueCol,  'font-family:monospace;text-align:center', 'E')
-        +inp('Group Col', 'groupCol',  r.groupCol,  'font-family:monospace;text-align:center', 'A')
-        +inp('Series Col','seriesCol', r.seriesCol, 'font-family:monospace;text-align:center', '')
-      +'</div>'
-    +'</div>'
-    +'<div id="me-opDesc-'+idx+'" style="font-size:11px;color:var(--orange);background:#FFF3E0;border-radius:6px;padding:8px 12px;margin-bottom:18px;min-height:28px">'+esc(OPERATION_DEFS[r.operation]||'')+'</div>'
-
-    // ── Dashboard Tab
-    +'<div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-bottom:18px">'
-      +inp('Dashboard Tab', 'dashboardTab', r.dashboardTab, '', 'e.g. summary, employees, reqs, pa, all')
-      +'<div></div>'
-    +'</div>'
-
-    // ── Column Mapping
-    +'<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f0f0;padding-bottom:5px;margin-bottom:10px">'
-      +'Column Mapping JSON <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#ccc">(LIST / CROSS_TAB / MULTI_SERIES)</span>'
-    +'</div>'
-    +'<textarea id="me-columnMapping-'+idx+'" style="width:100%;box-sizing:border-box;min-height:60px;font-family:monospace;font-size:11px;'
-      +'resize:vertical;border:1px solid #ddd;border-radius:5px;padding:7px 9px;margin-bottom:18px">'+esc(r.columnMapping)+'</textarea>'
-
-    // ── Notes
-    +'<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f0f0;padding-bottom:5px;margin-bottom:10px">Notes</div>'
-    +'<textarea id="me-notes-'+idx+'" style="width:100%;box-sizing:border-box;min-height:48px;font-size:12px;'
-      +'resize:vertical;border:1px solid #ddd;border-radius:5px;padding:7px 9px;margin-bottom:18px">'+esc(r.notes)+'</textarea>'
-
-    // ── Buttons
-    +'<div style="display:flex;gap:8px;align-items:center">'
-      +'<button onclick="saveMappingRow('+idx+')" style="background:var(--orange);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✓ Save</button>'
-      +'<button onclick="cancelMappingRow()" style="background:none;border:1px solid #ddd;padding:8px 16px;border-radius:6px;font-size:12px;cursor:pointer;color:#555">Cancel</button>'
-      +'<button onclick="deleteMappingRow('+idx+')" style="margin-left:auto;background:none;border:1px solid #ffcccc;color:var(--red);padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer">Delete Row</button>'
-    +'</div>'
-
-  +'</div>';
+  if (found) {
+    found.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    found.style.transition = 'background 0.2s';
+    found.style.background = '#FFF3E0';
+    found.style.outline = '2px solid var(--orange)';
+    found.style.borderRadius = '4px';
+    setTimeout(function() {
+      found.style.background = '';
+      found.style.outline = '';
+    }, 2500);
+  }
 }
 
 function updateOpDesc(idx) {
@@ -2074,20 +1988,248 @@ function updateOpDesc(idx) {
   if (sel && desc) desc.textContent = OPERATION_DEFS[sel.value] || '';
 }
 
-function editMappingRow(idx) {
-  if (_editingRowIdx !== null && _editingRowIdx !== idx) cancelMappingRow();
-  _editingRowIdx = idx;
-  var el = document.getElementById('mrow-'+idx);
-  if (el) el.outerHTML = _mappingEditForm(idx);
+// ── Render the full spreadsheet-style mapping table ────────────────────────
+function renderDataMapping() {
+  var el = document.getElementById('mappingTable');
+  if (!el) return;
+  if (!_configRows.length) {
+    el.innerHTML = '<p style="color:var(--gray-dark);padding:20px 0">No rows configured. Click "+ Add Row" to get started.</p>';
+    return;
+  }
+
+  var tabOrder = ['all','summary','employees','contingent','reqs','pa'];
+  var groups = {};
+  _configRows.forEach(function(r, i) {
+    var tab = r.dashboardTab ? r.dashboardTab.split(',')[0].trim() : '(other)';
+    if (!groups[tab]) groups[tab] = [];
+    groups[tab].push(i);
+  });
+  var allTabs = tabOrder.filter(function(t){ return groups[t]; })
+    .concat(Object.keys(groups).filter(function(t){ return tabOrder.indexOf(t)<0; }));
+
+  // Column definitions: [key, label, width, monospace, placeholder, isTextarea, tooltip]
+  var COLS = [
+    ['displayName',   'Name',           '160px', false, '',                       false,
+      'Human-readable label shown in the UI. Click ↗ to jump to that metric on its dashboard tab. Double-click to edit.'],
+    ['metricKey',     'Metric Key',     '140px', true,  '',                       false,
+      'Unique identifier used in code (e.g. "hc-ee", "gh-reqs"). Used as the D[key] lookup — must be stable and unique across all rows.'],
+    ['operation',     'Operation',      '140px', false, '',                       false,
+      'How the fetched rows are reduced to a value. LIST → array of rows. SUM → numeric total of Value Col. COUNT_ROWS → row count. GROUP_BY_COUNT / GROUP_BY_SUM → object keyed by Group Col. SINGLE_CELL → raw value of first cell. Hover each option in the dropdown for its full definition.'],
+    ['sheetTab',      'Sheet Tab',      '180px', false, '',                       false,
+      'Exact name of the Google Sheets tab to read from (case-sensitive). Must match the tab name in the spreadsheet exactly, including spaces and brackets, e.g. "[IMPORT] Workday Data".'],
+    ['range',         'Range',          '90px',  true,  'A5:M13',                false,
+      'A1-notation cell range to fetch, e.g. A5:M13. Rows outside this range are never read. For large datasets use a generous lower bound like A2:AK4500 — empty rows are filtered automatically.'],
+    ['filterCol',     'F.Col',          '52px',  true,  'A',                     false,
+      'Column letter or 0-based index for the primary filter. Rows where this column fails the Filter Value test are dropped before any operation runs. Leave blank for no filter.'],
+    ['filterValue',   'F.Val',          '110px', false, '!',                     false,
+      'Operator + value applied to Filter Col. Operators: ! (not blank)  !value (not equals)  !~text (not contains)  ~text (contains)  ~/regex/flags (regex match)  !~/regex/flags (regex not match)  >=today  <=today  >=N  <=N  >N  <N  value (exact match, case-insensitive).'],
+    ['filterCol2',    'F.Col2',         '52px',  true,  '',                      false,
+      'Column letter or 0-based index for a second AND filter. Both Filter Col and Filter Col 2 must pass for a row to be included. Leave blank if only one filter condition is needed.'],
+    ['filterValue2',  'F.Val2',         '90px',  false, '',                      false,
+      'Operator + value for the second filter (Filter Col 2). Supports the same operators as Filter Value: !, !value, !~text, >=today, <=today, >=N, etc.'],
+    ['valueCol',      'Val',            '45px',  true,  'E',                     false,
+      'Column letter or 0-based index whose values are summed (SUM), counted distinctly (COUNT_DISTINCT), or returned (FIRST_VALUE). Also used as "numeratorKey/denominatorKey" for PERCENTAGE and comma-separated metric keys for DELTA. Not used by LIST or GROUP_BY_COUNT.'],
+    ['groupCol',      'Grp',            '45px',  true,  'A',                     false,
+      'Column letter or 0-based index to group by in GROUP_BY_COUNT and GROUP_BY_SUM operations. Each unique value in this column becomes a key in the returned object. Also used by CROSS_TAB and MULTI_SERIES.'],
+    ['seriesCol',     'Ser',            '45px',  true,  '',                      false,
+      'Column letter or 0-based index for the secondary grouping dimension in CROSS_TAB operations. Each unique value becomes a series (sub-key) within each group.'],
+    ['dashboardTab',  'Tab',            '110px', false, 'summary',               false,
+      'Which dashboard tab this metric belongs to. Controls grouping in this editor and enables the ↗ navigation link on the Name column. Values: all  summary  employees  contingent  reqs  pa. Comma-separate for metrics used by multiple tabs, e.g. "summary,employees".'],
+    ['filtersJSON',   'Filters JSON',   '190px', true,  '[{"col":"A","op":"!"}]',false,
+      'Additional AND filter rules as a JSON array, applied after Filter Col/Val. Each rule: {"col":"A","op":"!~","val":"total"}. Ops: "!" (not blank)  "=" "!=" "~" "!~" "regex" "!~regex" ">=today" "<=today" ">=" "<=" ">" "<". Use this for more than 2 conditions or multiple conditions on the same column.'],
+    ['options',       'Options JSON',   '130px', true,  '{"skipRows":1}',        false,
+      'Misc row-level options as a JSON object. skipRows: N — skip the first N rows of the fetched range (use 1 to drop a header row, e.g. GH data). _projectCols: [0,2] — for LIST rows, project each raw row to only these column indices, producing [[col0,col2],...] pairs (used for location rows).'],
+    ['columnMapping', 'Column Mapping', '240px', true,  '',                      true,
+      'JSON that defines how raw row arrays are shaped into named objects (LIST operation). Simple: {"name":1,"status":2} maps col index → field name. Numeric conversion: {"ee":{"col":1,"number":true}}. Derived boolean: {"$isEE":{"col":3,"exact":"Employee"}} or {"$isEE":{"col":25,"regex":"^(ee|employee)$","flags":"i"}}. If absent or empty, raw arrays are returned unchanged (required for hc-ee, hc-cw). Also used by CROSS_TAB and MULTI_SERIES — see OPERATION_DEFS for their format.'],
+    ['notes',         'Notes',          '180px', false, '',                      false,
+      'Free-text annotation for your own reference. Shown nowhere else — use it to document why this row exists, what downstream code reads it, or any gotchas about the source data range.'],
+  ];
+
+  var ops = Object.keys(OPERATION_DEFS);
+
+  var css = '<style>'
+    + '#dm-grid { border-collapse:collapse; width:100%; font-size:12px; }'
+    + '#dm-grid th { position:sticky;top:0;z-index:2;background:#F7F7F7;border:1px solid #E0E0E0;'
+    +   'padding:5px 7px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;'
+    +   'color:#888;white-space:nowrap;text-align:left; }'
+    + '#dm-grid td { border:1px solid #EBEBEB;padding:0;vertical-align:top; }'
+    + '#dm-grid tr.dm-group-hdr td { background:#F9F9F9;padding:6px 10px 4px;'
+    +   'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;'
+    +   'border-left:none;border-right:none;border-top:2px solid #E8E8E8; }'
+    + '.dm-cell { width:100%;box-sizing:border-box;border:none;outline:none;background:transparent;'
+    +   'font-size:12px;font-family:inherit;padding:5px 7px;resize:none; }'
+    + '.dm-cell:focus { background:#FFFDE7;outline:2px solid #FB8C00;outline-offset:-2px;z-index:1;position:relative; }'
+    + '.dm-cell-mono { font-family:monospace; }'
+    + '.dm-cell-op { width:100%;box-sizing:border-box;border:none;outline:none;background:transparent;'
+    +   'font-size:11px;font-family:inherit;padding:5px 7px;cursor:pointer; }'
+    + '.dm-cell-op:focus { background:#FFFDE7; }'
+    + '.dm-name-link { font-weight:600;color:var(--orange);cursor:pointer;text-decoration:none;'
+    +   'background:none;border:none;padding:5px 7px;font-size:12px;font-family:inherit;'
+    +   'text-align:left;width:100%;display:block; }'
+    + '.dm-name-link:hover { text-decoration:underline; }'
+    + '.dm-del { background:none;border:none;color:#ccc;cursor:pointer;padding:4px 6px;font-size:13px; }'
+    + '.dm-del:hover { color:#e53935; }'
+    + '#dm-dirty-banner { display:none;position:sticky;bottom:0;background:#E65100;color:#fff;'
+    +   'padding:10px 16px;font-size:12px;font-weight:700;border-radius:8px 8px 0 0;'
+    +   'display:flex;align-items:center;gap:12px;margin-top:8px; }'
+    + '</style>';
+
+  // Build header — c[6] is the tooltip description
+  var thead = '<thead><tr><th style="width:28px"></th>';
+  COLS.forEach(function(c) {
+    var tip = c[6] ? ' title="'+c[6].replace(/"/g,"&quot;")+'" style="cursor:help;min-width:'+c[2]+';max-width:'+c[2]+'"' : ' style="min-width:'+c[2]+';max-width:'+c[2]+'"';
+    thead += '<th'+tip+'>'+c[1]+(c[6] ? ' <span style="font-size:9px;opacity:0.5">?</span>' : '')+'</th>';
+  });
+  thead += '</tr></thead>';
+
+  // Build body
+  var tbody = '<tbody>';
+  allTabs.forEach(function(tab) {
+    if (!groups[tab] || !groups[tab].length) return;
+    // Group header
+    tbody += '<tr class="dm-group-hdr"><td colspan="'+(COLS.length+1)+'">'+(TAB_LABELS[tab]||tab)+'</td></tr>';
+    groups[tab].forEach(function(idx) {
+      var r = _configRows[idx];
+      var opColor = OP_COLORS[r.operation] || '#666';
+      tbody += '<tr id="dm-row-'+idx+'">';
+      // Delete button
+      tbody += '<td style="text-align:center;vertical-align:middle;width:28px">'
+        + '<button class="dm-del" onclick="deleteMappingRow('+idx+')" title="Delete">×</button>'
+        + '</td>';
+      COLS.forEach(function(c) {
+        var field = c[0], w = c[2], mono = c[3], ph = c[4], isTA = c[5], tip = c[6]||'';
+        var tipAttr = tip ? ' title="'+tip.replace(/"/g,"&quot;")+'"' : '';
+        var val = (r[field] || '').toString();
+        var style = 'min-width:'+w+';max-width:'+w+';';
+
+        if (field === 'displayName') {
+          // Clickable link to navigate to tab
+          var hasNav = r.dashboardTab && r.dashboardTab.split(',').some(function(t){ return TAB_NAV_MAP[t.trim()]; });
+          if (hasNav) {
+            tbody += '<td style="'+style+'">'
+              + '<button class="dm-name-link" '
+              + 'onclick="navToTabForRow(\''+esc(r.dashboardTab)+'\',\''+esc(r.displayName)+'\')" '
+              + 'title="Navigate to '+esc(TAB_LABELS[r.dashboardTab.split(',')[0].trim()]||r.dashboardTab)+'">'
+              + esc(val||'—')
+              + '</button>'
+              + '<input type="hidden" id="me-displayName-'+idx+'" value="'+esc(val)+'">'
+              + '</td>';
+            // Update the hidden input when we read it during save — we'll use a visible input instead
+            // Actually replace with an input that overlays on click:
+            tbody = tbody.slice(0, tbody.lastIndexOf('<td style="'+style+'">'));
+            tbody += '<td style="'+style+';position:relative">'
+              + '<button class="dm-name-link" '
+              + 'onclick="navToTabForRow(\''+esc(r.dashboardTab)+'\',\''+esc(r.displayName)+'\')" '
+              + 'title="Go to '+esc(TAB_LABELS[r.dashboardTab.split(',')[0].trim()]||r.dashboardTab)+'">'
+              + esc(val||'—') + ' ↗'
+              + '</button>'
+              + '<input id="me-displayName-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'" '
+              + 'class="dm-cell'+(mono?' dm-cell-mono':'')+'" '
+              + 'style="position:absolute;inset:0;opacity:0;pointer-events:none" '
+              + 'oninput="dmMarkDirty()" onchange="dmSyncNameBtn('+idx+')">'
+              + '</td>';
+            return;
+          } else {
+            // No nav — just an editable input
+            tbody += '<td style="'+style+'">'
+              + '<input id="me-displayName-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'" '
+              + 'class="dm-cell'+(mono?' dm-cell-mono':'')+'" oninput="dmMarkDirty()">'
+              + '</td>';
+            return;
+          }
+        }
+
+        if (field === 'operation') {
+          var opOpts = ops.map(function(op){
+            return '<option value="'+op+'"'+(op===r.operation?' selected':'')+' style="color:'+OP_COLORS[op]+'">'
+              +op+'</option>';
+          }).join('');
+          tbody += '<td style="'+style+'">'
+            + '<select id="me-operation-'+idx+'" class="dm-cell-op" oninput="dmMarkDirty()" '
+            + 'title="'+(tip||esc(OPERATION_DEFS[r.operation]||''))+'">'
+            + opOpts+'</select>'
+            + '</td>';
+          return;
+        }
+
+        if (isTA) {
+          tbody += '<td style="'+style+'">'
+            + '<textarea id="me-'+field+'-'+idx+'" class="dm-cell dm-cell-mono" rows="2" '
+            + 'placeholder="'+esc(ph)+'"'+tipAttr+' oninput="dmMarkDirty()">'+esc(val)+'</textarea>'
+            + '</td>';
+          return;
+        }
+
+        tbody += '<td style="'+style+'">'
+          + '<input id="me-'+field+'-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'" '
+          + 'class="dm-cell'+(mono?' dm-cell-mono':'')+'"'+tipAttr+' oninput="dmMarkDirty()">'
+          + '</td>';
+      });
+      tbody += '</tr>';
+    });
+  });
+  tbody += '</tbody>';
+
+  // Dirty banner
+  var banner = '<div id="dm-dirty-banner" style="display:none">'
+    + '<span>⚠ Unsaved changes</span>'
+    + '<button onclick="dmSaveAll()" style="background:#fff;color:#E65100;border:none;padding:6px 16px;'
+    + 'border-radius:5px;font-weight:700;cursor:pointer;font-size:12px">Save All to Sheet</button>'
+    + '<button onclick="dmDiscard()" style="background:none;border:1px solid rgba(255,255,255,0.5);'
+    + 'color:#fff;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px">Discard</button>'
+    + '</div>';
+
+  el.innerHTML = css
+    + '<div style="font-size:11px;color:#aaa;margin-bottom:12px">'
+    + _configRows.length + ' rows · Click a <strong style="color:var(--orange)">Name ↗</strong> to navigate to that metric on its tab · Edit any cell directly · Save when done</div>'
+    + '<div style="overflow-x:auto"><table id="dm-grid">' + thead + tbody + '</table></div>'
+    + banner;
+
+  // Make display name buttons show editable input on double-click
+  _configRows.forEach(function(r, idx) {
+    var btn = document.querySelector('#dm-row-'+idx+' .dm-name-link');
+    var inp = document.getElementById('me-displayName-'+idx);
+    if (btn && inp && inp.style.position === 'absolute') {
+      btn.addEventListener('dblclick', function(e) {
+        e.stopPropagation();
+        btn.style.display = 'none';
+        inp.style.position = '';
+        inp.style.opacity = '';
+        inp.style.pointerEvents = '';
+        inp.focus();
+        inp.addEventListener('blur', function() {
+          btn.textContent = (inp.value || '—') + ' ↗';
+          btn.style.display = '';
+          inp.style.position = 'absolute';
+          inp.style.opacity = '0';
+          inp.style.pointerEvents = 'none';
+        }, { once: true });
+      });
+    }
+  });
 }
 
-async function saveMappingRow(idx) {
+var _dmDirty = false;
+
+function dmMarkDirty() {
+  _dmDirty = true;
+  var b = document.getElementById('dm-dirty-banner');
+  if (b) b.style.display = 'flex';
+}
+
+function dmSyncNameBtn(idx) {
+  var inp = document.getElementById('me-displayName-'+idx);
+  var btn = document.querySelector('#dm-row-'+idx+' .dm-name-link');
+  if (inp && btn) btn.textContent = (inp.value || '—') + ' ↗';
+}
+
+function _dmReadRow(idx) {
   function g(f) { var el = document.getElementById('me-'+f+'-'+idx); return el ? el.value : ''; }
   var opEl = document.getElementById('me-operation-'+idx);
-  _configRows[idx] = {
+  return {
     metricKey:     g('metricKey').trim(),
     displayName:   g('displayName').trim(),
-    spreadsheetId: g('spreadsheetId').trim() || HR,
+    spreadsheetId: (g('spreadsheetId') || HR).trim(),
     sheetTab:      g('sheetTab').trim(),
     range:         g('range').trim(),
     filterCol:     g('filterCol').trim(),
@@ -2097,51 +2239,63 @@ async function saveMappingRow(idx) {
     valueCol:      g('valueCol').trim(),
     groupCol:      g('groupCol').trim(),
     seriesCol:     g('seriesCol').trim(),
-    operation:     opEl ? opEl.value : 'LIST',
+    operation:     opEl ? opEl.value : (g('operation')||'LIST'),
     dashboardTab:  g('dashboardTab').trim(),
     columnMapping: g('columnMapping').trim(),
     notes:         g('notes').trim(),
     filtersJSON:   g('filtersJSON').trim(),
     options:       g('options').trim(),
   };
-  _editingRowIdx = null;
-  renderDataMapping();
-  try { await saveMappingAllToSheet(); } catch(e) { console.warn('Sheet save failed:', e.message); }
 }
 
-function cancelMappingRow() {
-  // If this was a brand-new unsaved row, remove it
-  if (_editingRowIdx !== null && !_configRows[_editingRowIdx].metricKey && !_configRows[_editingRowIdx].displayName) {
-    _configRows.splice(_editingRowIdx, 1);
+async function dmSaveAll() {
+  // Read all rows from the live DOM into _configRows
+  _configRows.forEach(function(_, idx) { _configRows[idx] = _dmReadRow(idx); });
+  _dmDirty = false;
+  var b = document.getElementById('dm-dirty-banner');
+  if (b) b.style.display = 'none';
+  try {
+    await saveMappingAllToSheet();
+  } catch(e) {
+    console.warn('Sheet save failed:', e.message);
   }
-  _editingRowIdx = null;
+}
+
+function dmDiscard() {
+  _dmDirty = false;
   renderDataMapping();
+}
+
+function addMappingRow() {
+  // Flush any unsaved edits first
+  _configRows.forEach(function(_, idx) {
+    var r = _dmReadRow(idx);
+    if (r.metricKey || r.displayName) _configRows[idx] = r;
+  });
+  _configRows.push({ metricKey:'', displayName:'', spreadsheetId:HR, sheetTab:'', range:'',
+    filterCol:'', filterValue:'', filterCol2:'', filterValue2:'',
+    valueCol:'', groupCol:'', seriesCol:'', operation:'LIST',
+    dashboardTab:'', columnMapping:'', notes:'', filtersJSON:'', options:'' });
+  renderDataMapping();
+  setTimeout(function() {
+    var lastIdx = _configRows.length - 1;
+    var row = document.getElementById('dm-row-'+lastIdx);
+    if (row) {
+      row.scrollIntoView({ behavior:'smooth', block:'center' });
+      var first = document.getElementById('me-displayName-'+lastIdx);
+      if (first) first.focus();
+    }
+  }, 80);
 }
 
 async function deleteMappingRow(i) {
   var name = _configRows[i].displayName || _configRows[i].metricKey || 'this row';
   if (!confirm('Delete "'+name+'"? Cannot be undone.')) return;
   _configRows.splice(i, 1);
-  _editingRowIdx = null;
   renderDataMapping();
   try { await saveMappingAllToSheet(); } catch(e) {}
 }
 
-function addMappingRow() {
-  if (_editingRowIdx !== null) cancelMappingRow();
-  _configRows.push({ metricKey:'', displayName:'', spreadsheetId:HR, sheetTab:'', range:'',
-    filterCol:'', filterValue:'', filterCol2:'', filterValue2:'',
-    valueCol:'', groupCol:'', seriesCol:'', operation:'LIST',
-    dashboardTab:'', columnMapping:'', notes:'', filtersJSON:'', options:'' });
-  _editingRowIdx = _configRows.length - 1;
-  renderDataMapping();
-  setTimeout(function() {
-    var el = document.getElementById('mrow-'+(_configRows.length-1));
-    if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
-    var first = document.getElementById('me-displayName-'+(_configRows.length-1));
-    if (first) first.focus();
-  }, 80);
-}
 
 async function saveMappingAllToSheet() {
   var dataRows = _configRows.map(function(r) {
