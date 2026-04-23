@@ -670,16 +670,16 @@ const CONFIG_TAB = '[Config] Dashboard Mapping';
 const ISSUES_SHEET_ID = '1YDCy3nR1WKukL-y-Xt4xBBhhNdq2amYlA0YYckCnSdM';
 
 async function dashApiAppend(sheetId, range, values) {
-  // crGetAccessToken returns a Promise — must await it
-  const token = typeof crGetAccessToken === 'function' ? await crGetAccessToken() : null;
-  if (!token) throw new Error('Not signed in — please reload and sign in again.');
+  // Use the service account token — dashboard does not rely on user OAuth
+  const token = await getToken();
+  if (!token) throw new Error('Service account token unavailable — please try again.');
   const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + encodeURIComponent(range) + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS';
   const res = await fetch(url, { method:'POST', headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'}, body: JSON.stringify({ values }) });
   if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || res.statusText); }
 }
 
 async function dashApiEnsureIssuesSheet(sheetId) {
-  const token = typeof crGetAccessToken === 'function' ? await crGetAccessToken() : null;
+  const token = await getToken();
   if (!token) return;
   try {
     const meta = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId,

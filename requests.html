@@ -762,8 +762,8 @@ document.addEventListener("DOMContentLoaded", function() {
 <!-- Report Issue Modal -->
 <div class="modal-overlay" id="issueModalOverlay" onclick="if(event.target===this)closeIssueModal()">
   <div class="modal" style="max-width:520px">
-    <div class="modal-header">
-      <div><h2 class="modal-title">Report an Issue</h2><div class="modal-sub">Your feedback goes to the Master Admin for review</div></div>
+    <div class="modal-hdr">
+      <div><h3>Report an Issue</h3><div class="sub">Your feedback goes to the Master Admin for review</div></div>
       <button class="modal-close" onclick="closeIssueModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -2522,11 +2522,12 @@ function closeIssueModal() {
   document.getElementById('issueModalOverlay').classList.remove('open');
 }
 async function ensureIssuesSheet() {
-  // Try to create the Issues tab — silently ignore if it already exists
+  // Use the already-authenticated userToken — do NOT call getAccessToken() as it re-triggers OAuth
+  if (!userToken) return;
   try {
     const meta = await fetch(
       'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID,
-      { headers: { 'Authorization': 'Bearer ' + getAccessToken() } }
+      { headers: { 'Authorization': 'Bearer ' + userToken } }
     ).then(r => r.json());
     const exists = meta.sheets && meta.sheets.some(s => s.properties.title === T.issues);
     if (!exists) {
@@ -2534,7 +2535,7 @@ async function ensureIssuesSheet() {
         'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + ':batchUpdate',
         {
           method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + getAccessToken(), 'Content-Type': 'application/json' },
+          headers: { 'Authorization': 'Bearer ' + userToken, 'Content-Type': 'application/json' },
           body: JSON.stringify({ requests: [{ addSheet: { properties: { title: T.issues } } }] })
         }
       );
@@ -2589,14 +2590,14 @@ function renderIssuesTable() {
         const idx = issuesData.lastIndexOf(r);
         const status = r[7] || 'Open';
         const statusColors = { Open:'var(--amber)', 'In Progress':'var(--blue)', Resolved:'var(--green)' };
-        return `<tr>
+        return `<tr class="clickable" onclick="openIssueReviewModal(${idx})" title="Click to view details">
           <td style="font-size:11px;color:var(--gray-dark);white-space:nowrap">${fd(r[1])}</td>
           <td style="font-size:12px">${r[2]||'—'}<br><span style="font-size:10px;color:var(--gray-dark)">${r[3]||''}</span></td>
           <td style="font-size:11px">${r[4]||'—'}</td>
           <td style="font-weight:600">${r[5]||'—'}</td>
           <td style="font-size:12px;max-width:300px;word-break:break-word">${r[6]||'—'}</td>
           <td><span class="tag" style="background:${statusColors[status]||'var(--gray-mid)'};color:white">${status}</span></td>
-          <td><div class="row-actions">
+          <td><div class="row-actions" onclick="event.stopPropagation()">
             <select onchange="updateIssueStatus(${idx}, this.value)" style="font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid var(--gray-mid)">
               <option value="Open" ${status==='Open'?'selected':''}>Open</option>
               <option value="In Progress" ${status==='In Progress'?'selected':''}>In Progress</option>
@@ -2606,6 +2607,57 @@ function renderIssuesTable() {
         </tr>`;
       }).join('')
     : `<tr><td colspan="7"><div class="empty-state"><div class="icon">🐛</div><p>No issues match this filter.</p></div></td></tr>`;
+}
+
+function openIssueReviewModal(idx) {
+  const r = issuesData[idx];
+  if (!r) return;
+  const status = r[7] || 'Open';
+  const statusColors = { Open:'var(--amber)', 'In Progress':'var(--blue)', Resolved:'var(--green)' };
+  const body = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+      <div style="background:var(--gray);border-radius:8px;padding:12px 16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--gray-dark);margin-bottom:4px">Reporter</div>
+        <div style="font-size:13px;font-weight:600">${r[2]||'—'}</div>
+        <div style="font-size:11px;color:var(--gray-dark)">${r[3]||''}</div>
+      </div>
+      <div style="background:var(--gray);border-radius:8px;padding:12px 16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--gray-dark);margin-bottom:4px">Submitted</div>
+        <div style="font-size:13px;font-weight:600">${fd(r[1])}</div>
+        <div style="font-size:11px;color:var(--gray-dark)">${r[4]||'—'}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--gray-dark);margin-bottom:6px">Description</div>
+      <div style="background:#F8F8F8;border-radius:8px;padding:14px 16px;font-size:13px;line-height:1.6;border:1px solid var(--gray-mid)">${(r[6]||'No details provided.').replace(/\n/g,'<br>')}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;padding-top:14px;border-top:1px solid var(--gray-mid)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;font-weight:600;color:var(--gray-dark)">Status:</span>
+        <span class="tag" style="background:${statusColors[status]||'var(--gray-mid)'};color:white">${status}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;font-weight:600;color:var(--gray-dark)">Update:</span>
+        <select id="reviewIssueStatus" style="font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--gray-mid);font-family:inherit">
+          <option value="Open" ${status==='Open'?'selected':''}>Open</option>
+          <option value="In Progress" ${status==='In Progress'?'selected':''}>In Progress</option>
+          <option value="Resolved" ${status==='Resolved'?'selected':''}>Resolved</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="applyIssueReviewStatus(${idx})">Save</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal()">Close</button>
+      </div>
+    </div>`;
+  document.getElementById('modalTitle').textContent = '🐛 ' + (r[5]||'Issue');
+  document.getElementById('modalSub').textContent   = 'ID: ' + (r[0]||'—') + ' · ' + (r[4]||'');
+  document.getElementById('modalBody').innerHTML    = body;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function applyIssueReviewStatus(idx) {
+  const sel = document.getElementById('reviewIssueStatus');
+  if (!sel) return;
+  updateIssueStatus(idx, sel.value);
+  closeModal();
 }
 
 async function updateIssueStatus(idx, newStatus) {
