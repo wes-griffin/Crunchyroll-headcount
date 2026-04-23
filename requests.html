@@ -127,6 +127,28 @@ td { padding:10px 14px; vertical-align:middle; }
 .tag-backfill{background:#F3E5F5;color:var(--purple)} .tag-recruited{background:#E8F5EE;color:var(--green)}
 
 /* MODAL */
+.modal-tabs { display:flex; gap:0; border-bottom:2px solid var(--gray-mid); margin-bottom:18px; }
+.modal-tab-btn { padding:10px 18px; background:none; border:none; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-dark); border-bottom:3px solid transparent; margin-bottom:-2px; font-family:inherit; transition:color 0.15s; }
+.modal-tab-btn:hover { color:var(--text); }
+.modal-tab-btn.active { color:var(--orange); border-bottom-color:var(--orange); }
+.modal-tab-panel { display:none; }
+.modal-tab-panel.active { display:block; }
+.comment-item { display:flex; gap:12px; margin-bottom:16px; }
+.comment-avatar { width:32px; height:32px; border-radius:50%; background:var(--orange); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+.comment-bubble { background:var(--gray); border-radius:8px; padding:10px 14px; flex:1; }
+.comment-meta { font-size:11px; color:var(--gray-dark); margin-bottom:4px; }
+.comment-meta strong { color:var(--text); }
+.comment-text { font-size:13px; line-height:1.5; }
+.comment-stage { display:inline-block; font-size:10px; font-weight:700; padding:1px 6px; border-radius:3px; background:#E3F2FD; color:var(--blue); margin-left:6px; }
+.audit-item { display:flex; gap:14px; margin-bottom:0; position:relative; }
+.audit-item::before { content:''; position:absolute; left:15px; top:32px; bottom:-4px; width:2px; background:var(--gray-mid); }
+.audit-item:last-child::before { display:none; }
+.audit-dot { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+.audit-body { padding-bottom:16px; flex:1; }
+.audit-label { font-size:13px; font-weight:600; }
+.audit-meta { font-size:11px; color:var(--gray-dark); margin-top:2px; }
+.audit-note { font-size:12px; background:var(--gray); border-radius:6px; padding:6px 10px; margin-top:6px; color:var(--text); }
+
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity 0.2s; }
 .modal-overlay.open { opacity:1; pointer-events:all; }
 .modal { background:white; border-radius:16px; width:100%; max-width:700px; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; transform:translateY(20px); transition:transform 0.2s; }
@@ -425,8 +447,8 @@ document.addEventListener("DOMContentLoaded", function() {
           <textarea id="f-justification" required placeholder="Describe why this role is needed and the impact of not filling it…"></textarea>
         </div>
         <div class="form-group full">
-          <label>Job Description Link</label>
-          <input type="text" id="f-jdlink">
+          <label>Job Description Link <span class="req">*</span></label>
+          <input type="text" id="f-jdlink" required placeholder="Paste a link to the job description…">
         </div>
         <div class="budget-check">
           <input type="checkbox" id="f-budget" required>
@@ -476,12 +498,17 @@ document.addEventListener("DOMContentLoaded", function() {
   <div class="page-title"><h2>Approvals Queue</h2><p>Requests awaiting your review</p></div>
   <div class="kpi-row kpi-row-3">
     <div class="kpi amber" style="cursor:pointer" onclick="filterReview('pending')"><div class="kpi-label">Awaiting Action</div><div class="kpi-value" id="rev-pending">—</div></div>
-    <div class="kpi green" style="cursor:pointer" onclick="filterReview('Approved')"><div class="kpi-label">Approved by You</div><div class="kpi-value" id="rev-approved">—</div></div>
-    <div class="kpi red" style="cursor:pointer" onclick="filterReview('Rejected')"><div class="kpi-label">Rejected by You</div><div class="kpi-value" id="rev-rejected">—</div></div>
+    <div class="kpi green" style="cursor:pointer" onclick="filterReview('my-approved')"><div class="kpi-label">Approved by You</div><div class="kpi-value" id="rev-approved">—</div></div>
+    <div class="kpi red" style="cursor:pointer" onclick="filterReview('my-rejected')"><div class="kpi-label">Rejected by You</div><div class="kpi-value" id="rev-rejected">—</div></div>
   </div>
   <div class="filter-row">
     <select id="revTypeF" onchange="renderReviewTable()"><option value="">All Types</option><option value="EE">Employee</option><option value="CW">Contingent</option></select>
-    <select id="revStatusF" onchange="renderReviewTable()"><option value="pending">Awaiting Action</option><option value="">All</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option></select>
+    <select id="revStatusF" onchange="renderReviewTable()">
+      <option value="pending">Awaiting Action</option>
+      <option value="">All in My Queue</option>
+      <option value="my-approved">My Stage Approved</option>
+      <option value="my-rejected">My Stage Rejected</option>
+    </select>
     <button class="btn btn-secondary btn-sm" onclick="filterReview('')">Clear</button>
   </div>
   <div class="table-wrap">
@@ -527,11 +554,12 @@ document.addEventListener("DOMContentLoaded", function() {
 <!-- ── ADMIN: EMPLOYEES ── -->
 <div class="view" id="view-adminEE">
   <div class="page-title"><h2>Admin: Employee Requests</h2><p>All employee headcount requests</p></div>
-  <div class="kpi-row kpi-row-4">
+  <div class="kpi-row" style="grid-template-columns:repeat(5,1fr)">
     <div class="kpi" style="cursor:pointer" onclick="filterAdminEE('')"><div class="kpi-label">Total</div><div class="kpi-value" id="adm-ee-total">—</div></div>
-    <div class="kpi amber" style="cursor:pointer" onclick="filterAdminEE('pending')"><div class="kpi-label">In Review</div><div class="kpi-value" id="adm-ee-review">—</div></div>
+    <div class="kpi amber" style="cursor:pointer" onclick="filterAdminEE('pending')"><div class="kpi-label">Pending</div><div class="kpi-value" id="adm-ee-review">—</div></div>
     <div class="kpi green" style="cursor:pointer" onclick="filterAdminEE('Approved')"><div class="kpi-label">Approved</div><div class="kpi-value" id="adm-ee-approved">—</div></div>
     <div class="kpi red" style="cursor:pointer" onclick="filterAdminEE('Rejected')"><div class="kpi-label">Rejected</div><div class="kpi-value" id="adm-ee-rejected">—</div></div>
+    <div class="kpi" style="cursor:pointer;border-top:3px solid #666" onclick="filterAdminEE('Cancelled')"><div class="kpi-label">Cancelled</div><div class="kpi-value" id="adm-ee-cancelled">—</div></div>
   </div>
   <div class="filter-row">
     <input type="text" id="eeSearch" placeholder="Search…" oninput="renderAdminEE()">
@@ -554,11 +582,12 @@ document.addEventListener("DOMContentLoaded", function() {
 <!-- ── ADMIN: CW ── -->
 <div class="view" id="view-adminCW">
   <div class="page-title"><h2>Admin: Contingent Worker Requests</h2><p>All contingent worker requests</p></div>
-  <div class="kpi-row kpi-row-4">
+  <div class="kpi-row" style="grid-template-columns:repeat(5,1fr)">
     <div class="kpi" style="cursor:pointer" onclick="filterAdminCW('')"><div class="kpi-label">Total</div><div class="kpi-value" id="adm-cw-total">—</div></div>
-    <div class="kpi amber" style="cursor:pointer" onclick="filterAdminCW('pending')"><div class="kpi-label">In Review</div><div class="kpi-value" id="adm-cw-review">—</div></div>
+    <div class="kpi amber" style="cursor:pointer" onclick="filterAdminCW('pending')"><div class="kpi-label">Pending</div><div class="kpi-value" id="adm-cw-review">—</div></div>
     <div class="kpi green" style="cursor:pointer" onclick="filterAdminCW('Approved')"><div class="kpi-label">Approved</div><div class="kpi-value" id="adm-cw-approved">—</div></div>
     <div class="kpi red" style="cursor:pointer" onclick="filterAdminCW('Rejected')"><div class="kpi-label">Rejected</div><div class="kpi-value" id="adm-cw-rejected">—</div></div>
+    <div class="kpi" style="cursor:pointer;border-top:3px solid #666" onclick="filterAdminCW('Cancelled')"><div class="kpi-label">Cancelled</div><div class="kpi-value" id="adm-cw-cancelled">—</div></div>
   </div>
   <div class="filter-row">
     <input type="text" id="cwSearch" placeholder="Search…" oninput="renderAdminCW()">
@@ -1234,15 +1263,16 @@ function resetForm() {
 // ============================================================
 function filterReview(val) {
   const sel = document.getElementById('revStatusF');
-  if (sel) sel.value = val === 'pending' ? 'pending' : val;
+  if (sel) sel.value = val;
   renderReviewTable();
 }
 
 function filterAdminEE(val) {
   const sel = document.getElementById('eeStatusF');
   if (!sel) return;
-  // 'pending' isn't a single option — map it to empty (All) and let renderAdminEE filter with _eeKPIFilter
   _eeKPIFilter = val;
+  // Clear dropdown so KPI filter takes effect
+  sel.value = '';
   sel.value = '';
   renderAdminEE();
 }
@@ -1374,8 +1404,12 @@ function renderReviewTable() {
       (eu.isSMT && s==='Pending SMT' && inMySMTScope(r));
     const iActedOnIt = iActedPBP(r) || iActedSMT(r);
 
-    if (statF==='pending') return isPendingForMe;
-    if (statF) return (isPendingForMe || iActedOnIt) && s===statF;
+    if (statF==='pending')     return isPendingForMe;
+    // 'my-approved'/'my-rejected' = check MY stage action, not overall status
+    if (statF==='my-approved') return (iActedPBP(r)&&r[17]==='Approved') || (iActedSMT(r)&&r[20]==='Approved');
+    if (statF==='my-rejected') return (iActedPBP(r)&&r[17]==='Rejected') || (iActedSMT(r)&&r[20]==='Rejected');
+    if (statF)                 return (isPendingForMe || iActedOnIt) && s===statF;
+    // Default: all in my queue — pending for me OR I (or admin on my behalf) acted
     return isPendingForMe || iActedOnIt;
   });
 
@@ -1387,8 +1421,11 @@ function renderReviewTable() {
     return false;
   }).length;
   set('rev-pending',  awaitingCount);
-  set('rev-approved', allRequests.filter(r=>iActedPBP(r)&&r[17]==='Approved'||iActedSMT(r)&&r[20]==='Approved').length);
-  set('rev-rejected', allRequests.filter(r=>iActedPBP(r)&&r[17]==='Rejected'||iActedSMT(r)&&r[20]==='Rejected').length);
+  // Count by MY stage action (not overall status) — includes admin-proxied approvals in scope
+  set('rev-approved', allRequests.filter(r=>
+    (iActedPBP(r)&&r[17]==='Approved') || (iActedSMT(r)&&r[20]==='Approved')).length);
+  set('rev-rejected', allRequests.filter(r=>
+    (iActedPBP(r)&&r[17]==='Rejected') || (iActedSMT(r)&&r[20]==='Rejected')).length);
 
   document.getElementById('reviewTable').innerHTML = queue.length
     ? [...queue].reverse().map(r=>{
@@ -1427,9 +1464,10 @@ function renderAdminEE() {
   const rows = allRequests.filter(r=>{
     if (r[4]!=='EE') return false;
     const status = r[16]||'';
-    if (_eeKPIFilter === 'pending'   && !status.includes('Pending')) return false;
-    if (_eeKPIFilter === 'Approved'  && status !== 'Approved')        return false;
-    if (_eeKPIFilter === 'Rejected'  && status !== 'Rejected')        return false;
+    if (_eeKPIFilter === 'pending'    && !status.includes('Pending')) return false;
+    if (_eeKPIFilter === 'Approved'   && status !== 'Approved')        return false;
+    if (_eeKPIFilter === 'Rejected'   && status !== 'Rejected')        return false;
+    if (_eeKPIFilter === 'Cancelled'  && status !== 'Cancelled')       return false;
     if (!_eeKPIFilter && sf && r[16]!==sf) return false;
     if (smtf   && r[8]!==smtf)  return false;
     if (reqf   && r[2]!==reqf)  return false;
@@ -1440,10 +1478,11 @@ function renderAdminEE() {
   });
   // KPIs always show totals across ALL EE reqs (unfiltered)
   const allEE = allRequests.filter(r=>r[4]==='EE');
-  set('adm-ee-total',    allEE.length);
-  set('adm-ee-review',   allEE.filter(r=>(r[16]||'').includes('Pending')).length);
-  set('adm-ee-approved', allEE.filter(r=>r[16]==='Approved').length);
-  set('adm-ee-rejected', allEE.filter(r=>r[16]==='Rejected').length);
+  set('adm-ee-total',     allEE.length);
+  set('adm-ee-review',    allEE.filter(r=>(r[16]||'').includes('Pending')).length);
+  set('adm-ee-approved',  allEE.filter(r=>r[16]==='Approved').length);
+  set('adm-ee-rejected',  allEE.filter(r=>r[16]==='Rejected').length);
+  set('adm-ee-cancelled', allEE.filter(r=>r[16]==='Cancelled').length);
   const ro = isReadOnly();
 
   document.getElementById('adminEETable').innerHTML = rows.length
@@ -1487,9 +1526,10 @@ function renderAdminCW() {
   const rows=allRequests.filter(r=>{
     if(r[4]!=='CW')return false;
     const status = r[16]||'';
-    if (_cwKPIFilter === 'pending'   && !status.includes('Pending')) return false;
-    if (_cwKPIFilter === 'Approved'  && status !== 'Approved')        return false;
-    if (_cwKPIFilter === 'Rejected'  && status !== 'Rejected')        return false;
+    if (_cwKPIFilter === 'pending'    && !status.includes('Pending')) return false;
+    if (_cwKPIFilter === 'Approved'   && status !== 'Approved')        return false;
+    if (_cwKPIFilter === 'Rejected'   && status !== 'Rejected')        return false;
+    if (_cwKPIFilter === 'Cancelled'  && status !== 'Cancelled')       return false;
     if (!_cwKPIFilter && sf && r[16]!==sf) return false;
     if(smtf   && r[8]!==smtf)  return false;
     if(reqf   && r[2]!==reqf)  return false;
@@ -1499,10 +1539,11 @@ function renderAdminCW() {
     return true;
   });
   const allCW = allRequests.filter(r=>r[4]==='CW');
-  set('adm-cw-total',    allCW.length);
-  set('adm-cw-review',   allCW.filter(r=>(r[16]||'').includes('Pending')).length);
-  set('adm-cw-approved', allCW.filter(r=>r[16]==='Approved').length);
-  set('adm-cw-rejected', allCW.filter(r=>r[16]==='Rejected').length);
+  set('adm-cw-total',     allCW.length);
+  set('adm-cw-review',    allCW.filter(r=>(r[16]||'').includes('Pending')).length);
+  set('adm-cw-approved',  allCW.filter(r=>r[16]==='Approved').length);
+  set('adm-cw-rejected',  allCW.filter(r=>r[16]==='Rejected').length);
+  set('adm-cw-cancelled', allCW.filter(r=>r[16]==='Cancelled').length);
   const ro=isReadOnly();
   document.getElementById('adminCWTable').innerHTML = rows.length
     ? [...rows].reverse().map(r=>{
@@ -1551,6 +1592,23 @@ function renderAdminCW() {
 // ============================================================
 // ADMIN STATUS — comment-gated advancement
 // ============================================================
+// Comments cache: reqId -> array of comment rows
+const _commentsCache = {};
+
+async function loadCommentsForReq(reqId) {
+  if (_commentsCache[reqId]) return _commentsCache[reqId];
+  try {
+    const all = await apiGet(T.comments+'!A2:F5000');
+    // Group by reqId
+    for (const row of all) {
+      const id = row[0];
+      if (!_commentsCache[id]) _commentsCache[id] = [];
+      _commentsCache[id].push(row);
+    }
+    return _commentsCache[reqId] || [];
+  } catch(e) { return []; }
+}
+
 let _pendingAdminReqId  = null;
 let _pendingAdminStatus = null;
 let _pendingAdminLabel  = null;
@@ -1609,9 +1667,14 @@ async function confirmAdminAction() {
   closeAdminComment();
   if (mode === 'approval') {
     await submitApproval(reqId, status, comment);
+  } else if (mode === 'cancel') {
+    await confirmCancelReqWithComment(reqId, comment);
   } else {
     await setAdminStatus(reqId, status, comment);
   }
+  // Reset confirm button label
+  const btn = document.getElementById('adminCommentConfirmBtn');
+  if (btn) btn.textContent = 'Confirm';
 }
 
 async function setAdminStatus(reqId, status, comment) {
@@ -1623,6 +1686,7 @@ async function setAdminStatus(reqId, status, comment) {
     allRequests[idx][23] = status;
     if (comment) {
       await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Admin', comment]]);
+      delete _commentsCache[reqId];
     }
     toast('Marked as '+status, 'success');
     _refreshAdminActionsRow(reqId, idx);
@@ -1668,28 +1732,35 @@ function _refreshAdminActionsRow(reqId, idx) {
   }
 }
 
-async function cancelReq(reqId) {
-  const idx = allRequests.findIndex(r=>r[0]===reqId); if(idx<0)return;
-  const cancelRow = document.getElementById('modalCancelRow-'+reqId);
-  if (cancelRow) {
-    cancelRow.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:12px;color:var(--red);font-weight:600">Confirm cancel? Approval progress is preserved and the req can be reopened later.</span>
-        <button class="btn btn-danger btn-sm" onclick="confirmCancelReq('${reqId}')">Yes, Cancel</button>
-        <button class="btn btn-secondary btn-sm" onclick="resetCancelRow('${reqId}')">No, Keep It</button>
-      </div>`;
-  } else {
-    if (!window.confirm('Cancel this requisition? It can be reopened later with all history preserved.')) return;
-    await confirmCancelReq(reqId);
-  }
+function cancelReq(reqId) {
+  // Require a comment before cancelling — reuse the admin comment modal
+  const r = allRequests.find(x => x[0] === reqId);
+  _pendingAdminReqId  = reqId;
+  _pendingAdminStatus = 'Cancelled';
+  _pendingAdminLabel  = 'Cancel Requisition';
+  _pendingAdminMode   = 'cancel';
+
+  document.getElementById('adminCommentTitle').textContent = 'Cancel Requisition';
+  document.getElementById('adminCommentSub').textContent   = r ? (r[5] || reqId) : reqId;
+  document.getElementById('adminCommentText').value        = '';
+  document.getElementById('adminCommentErr').style.display = 'none';
+  // Update button label
+  const btn = document.getElementById('adminCommentConfirmBtn');
+  if (btn) btn.textContent = 'Confirm Cancellation';
+  document.getElementById('adminCommentOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('adminCommentText').focus(), 120);
 }
 
-async function confirmCancelReq(reqId) {
+async function confirmCancelReqWithComment(reqId, comment) {
   const idx = allRequests.findIndex(r=>r[0]===reqId); if(idx<0)return;
   const sheetRow = idx + 2;
+  const eu = effectiveUser();
+  const now = new Date().toISOString();
   try {
     await apiUpdate(T.requests+'!Q'+sheetRow, [['Cancelled']]);
     allRequests[idx][16] = 'Cancelled';
+    await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Cancelled', comment]]);
+    delete _commentsCache[reqId];
     toast('Requisition cancelled','success');
     const statusCell = document.getElementById('modalStatusCell-'+reqId);
     if (statusCell) statusCell.innerHTML = `<div class="label">Status</div><div class="value">${stag('Cancelled')}</div>`;
@@ -1698,6 +1769,8 @@ async function confirmCancelReq(reqId) {
     renderMyRequests(); renderReviewTable(); renderAdminEE(); renderAdminCW();
   } catch(e) { toast('Error: '+e.message,'error'); }
 }
+// Legacy alias — kept for any inline calls
+async function confirmCancelReq(reqId) { cancelReq(reqId); }
 
 function resetCancelRow(reqId) {
   const cancelRow = document.getElementById('modalCancelRow-'+reqId);
@@ -1728,16 +1801,25 @@ async function reopenReq(reqId) {
   });
 
   try {
-    // Write: status, ReopenedAt (col AL=37), PriorApprovalData (col AM=38), clear r[17-22]
+    // Write: status + clear prior approval cols
     await apiUpdate(T.requests+'!Q'+(idx+2), [[status]]);
-    await apiUpdate(T.requests+'!R'+(idx+2)+':W'+(idx+2), [['','','','','','']]);  // clear prior approval cols
-    await apiUpdate(T.requests+'!AL'+(idx+2), [[now]]);         // ReopenedAt
-    await apiUpdate(T.requests+'!AM'+(idx+2), [[priorData]]);   // PriorApprovalData
+    await apiUpdate(T.requests+'!R'+(idx+2)+':W'+(idx+2), [['','','','','','']]);
+
+    // Try writing ReopenedAt/PriorApprovalData to extended cols; fall back to comments
+    let wroteExtended = false;
+    try {
+      await apiUpdate(T.requests+'!AL'+(idx+2), [[now]]);
+      await apiUpdate(T.requests+'!AM'+(idx+2), [[priorData]]);
+      wroteExtended = true;
+    } catch(extErr) {
+      // Sheet grid too small — store in comments instead
+      await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Reopened', priorData]]);
+    }
 
     allRequests[idx][16] = status;
     allRequests[idx][17] = ''; allRequests[idx][18] = ''; allRequests[idx][19] = '';
     allRequests[idx][20] = ''; allRequests[idx][21] = ''; allRequests[idx][22] = '';
-    allRequests[idx][37] = now;
+    allRequests[idx][37] = now;   // in-memory only if sheet write failed
     allRequests[idx][38] = priorData;
 
     toast('Requisition reopened — status set to '+status,'success');
@@ -1873,6 +1955,12 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
   document.getElementById('modalSub').textContent=`${r[0]} · ${r[2]} · ${fd(r[1])}`;
 
   document.getElementById('modalBody').innerHTML=`
+    <div class="modal-tabs">
+      <button class="modal-tab-btn active" id="mtab-details-${reqId}" onclick="switchModalTab('${reqId}','details')">Details</button>
+      <button class="modal-tab-btn" id="mtab-comments-${reqId}" onclick="switchModalTab('${reqId}','comments')">Comments</button>
+      <button class="modal-tab-btn" id="mtab-audit-${reqId}" onclick="switchModalTab('${reqId}','audit')">Audit Log</button>
+    </div>
+    <div class="modal-tab-panel active" id="mpanel-details-${reqId}">
     <div class="detail-grid">
       <div class="detail-item"><div class="label">Type</div><div class="value"><span class="tag tag-${(r[4]||'').toLowerCase()}">${r[4]||'—'}</span></div></div>
       <div class="detail-item"><div class="label">Category</div><div class="value"><span class="tag ${r[6]==='Backfill'?'tag-backfill':'tag-new'}">${r[6]||'—'}</span></div></div>
@@ -2054,6 +2142,7 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
     <div id="modalCancelRow-${reqId}" style="margin-top:12px;border-top:1px solid var(--gray-mid);padding-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
       ${reopenRowHtml(reqId)}
     </div>`:''}
+  </div>
   `;
   // Silently record that the PBP/SMT has viewed this request
   const viewIdx = allRequests.findIndex(x=>x[0]===reqId);
@@ -2068,7 +2157,97 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
       apiUpdate(T.requests+'!Z'+(viewIdx+2), [[viewNow]]).catch(()=>{});
     }
   }
+  // Close the details panel div and add Comments + Audit panels (populated on demand)
+  const detailsPanel = document.getElementById('mpanel-details-'+reqId);
+  if (detailsPanel) {
+    // Append close tag for details panel + the two placeholder panels
+    detailsPanel.insertAdjacentHTML('afterend', `
+      <div class="modal-tab-panel" id="mpanel-comments-${reqId}">
+        <div style="padding:32px;text-align:center;color:var(--gray-dark);font-size:13px">Loading comments…</div>
+      </div>
+      <div class="modal-tab-panel" id="mpanel-audit-${reqId}">
+        <div style="padding:32px;text-align:center;color:var(--gray-dark);font-size:13px">Loading audit log…</div>
+      </div>`);
+  }
+
   document.getElementById('modalOverlay').classList.add('open');
+}
+
+function switchModalTab(reqId, tab) {
+  ['details','comments','audit'].forEach(t => {
+    const btn   = document.getElementById('mtab-'+t+'-'+reqId);
+    const panel = document.getElementById('mpanel-'+t+'-'+reqId);
+    if (btn)   btn.classList.toggle('active', t===tab);
+    if (panel) panel.classList.toggle('active', t===tab);
+  });
+  if (tab==='comments') loadAndRenderComments(reqId);
+  if (tab==='audit')    loadAndRenderAudit(reqId);
+}
+
+async function loadAndRenderComments(reqId) {
+  const panel = document.getElementById('mpanel-comments-'+reqId);
+  if (!panel) return;
+  const comments = await loadCommentsForReq(reqId);
+  if (!comments.length) {
+    panel.innerHTML = '<div style="padding:32px;text-align:center;color:var(--gray-dark)"><div style="font-size:24px;margin-bottom:8px">💬</div><p>No comments yet.</p></div>';
+    return;
+  }
+  panel.innerHTML = '<div style="padding:4px 0">' + comments.map(cm => {
+    const initials = (cm[2]||'?').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+    const stage = cm[4] ? `<span class="comment-stage">${cm[4]}</span>` : '';
+    return `<div class="comment-item">
+      <div class="comment-avatar">${initials}</div>
+      <div class="comment-bubble">
+        <div class="comment-meta"><strong>${cm[2]||'Unknown'}</strong>${stage} · ${fd(cm[1])}</div>
+        <div class="comment-text">${(cm[5]||'').replace(/\n/g,'<br>')}</div>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+async function loadAndRenderAudit(reqId) {
+  const panel = document.getElementById('mpanel-audit-'+reqId);
+  if (!panel) return;
+  const r = allRequests.find(x=>x[0]===reqId);
+  if (!r) { panel.innerHTML = '<p style="padding:32px;color:var(--gray-dark)">Request not found.</p>'; return; }
+  const comments = await loadCommentsForReq(reqId);
+
+  // Build timeline events from request data + comments
+  const events = [];
+  const push = (ts, icon, bg, label, meta, note) => events.push({ts,icon,bg,label,meta,note});
+
+  push(r[1], '📝', '#E3F2FD', 'Submitted', `By ${r[2]} (${r[3]||'—'})`, null);
+
+  if (r[24]) push(r[24], '👁', '#FFF8E1', 'Viewed by PBP', r[9]||'PBP', null);
+  if (r[17]) push(r[19]||r[1], r[17]==='Approved'?'✓':'✕', r[17]==='Approved'?'#E8F5EE':'#FDECEA',
+    `PBP ${r[17]}`, `By ${r[18]||'—'}`, null);
+
+  if (r[25]) push(r[25], '👁', '#FFF8E1', 'Viewed by SMT', r[8]||'SMT', null);
+  if (r[20]) push(r[22]||r[1], r[20]==='Approved'?'✓':'✕', r[20]==='Approved'?'#E8F5EE':'#FDECEA',
+    `SMT ${r[20]}`, `By ${r[21]||'—'}`, null);
+
+  if (r[23]) push(r[1], '🏁', '#E8F5EE', `Marked ${r[23]}`, 'Admin action', null);
+  if (r[16]==='Cancelled') push(r[1], '🚫', '#FDECEA', 'Cancelled', '', null);
+  if (r[37]) push(r[37], '🔄', '#FFF3E0', 'Reopened', `Status reset to ${r[16]}`, null);
+
+  // Append comments as events
+  comments.forEach(cm => {
+    push(cm[1], '💬', '#F3E5F5', `Comment (${cm[4]||'Note'})`, `By ${cm[2]||'—'}`, cm[5]);
+  });
+
+  // Sort by timestamp
+  events.sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+
+  if (!events.length) { panel.innerHTML = '<div style="padding:32px;text-align:center;color:var(--gray-dark)">No audit events found.</div>'; return; }
+  panel.innerHTML = '<div style="padding:4px 0">' + events.map(ev=>`
+    <div class="audit-item">
+      <div class="audit-dot" style="background:${ev.bg}">${ev.icon}</div>
+      <div class="audit-body">
+        <div class="audit-label">${ev.label}</div>
+        <div class="audit-meta">${ev.meta ? ev.meta+' · ' : ''}${fd(ev.ts)}</div>
+        ${ev.note ? `<div class="audit-note">${ev.note.replace(/\n/g,'<br>')}</div>` : ''}
+      </div>
+    </div>`).join('') + '</div>';
 }
 
 async function submitApproval(reqId, decision, commentOverride) {
@@ -2092,7 +2271,10 @@ async function submitApproval(reqId, decision, commentOverride) {
       await apiUpdate(T.requests+'!U'+sheetRow+':W'+sheetRow,[[decision,eu.name,now]]);
       allRequests[idx][16]=newStatus; allRequests[idx][20]=decision; allRequests[idx][21]=eu.name; allRequests[idx][22]=now;
     }
-    if (comment) await apiAppend(T.comments+'!A2',[[reqId,now,eu.name,eu.email,isPBP?'PBP':'SMT',comment]]);
+    if (comment) {
+      await apiAppend(T.comments+'!A2',[[reqId,now,eu.name,eu.email,isPBP?'PBP':'SMT',comment]]);
+      delete _commentsCache[reqId];
+    }
     toast('Request '+decision.toLowerCase(),'success');
     closeModal();
     renderAll();
@@ -2115,7 +2297,7 @@ function renderMatrix() {
     if(pbpf&&r[1]!==pbpf)return false;
     if(search&&!(r[0]+' '+r[1]+' '+r[2]).toLowerCase().includes(search))return false;
     return true;
-  });
+  }).sort((a,b)=>(a[0]||'').localeCompare(b[0]||''));  // alphabetize by cost center
   set('mxCount',rows.length);
   const ro=!canEditMatrix();
   document.getElementById('matrixTable').innerHTML=rows.length
@@ -2192,7 +2374,7 @@ function renderPeopleTable() {
     if(sgf&&!(r[4]||'').includes(sgf))return false;
     if(search&&!(r[0]+' '+r[1]).toLowerCase().includes(search))return false;
     return true;
-  });
+  }).sort((a,b)=>(a[0]||'').localeCompare(b[0]||''));  // alphabetize by name
   set('peopleCount',rows.length);
 
   const isMaster=hasGroup('master_admin')&&!proxyUser;
