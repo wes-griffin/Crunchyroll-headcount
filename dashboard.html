@@ -219,7 +219,7 @@
       <div id="dash-issue-err" style="color:#d32f2f;font-size:12px;margin-bottom:10px;display:none">Please fill in both fields.</div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button onclick="closeDashIssueModal()" style="padding:9px 18px;font-size:13px;font-weight:600;border:1px solid #ddd;border-radius:7px;cursor:pointer;background:white;font-family:inherit">Cancel</button>
-        <button onclick="submitDashIssue()" style="padding:9px 18px;font-size:13px;font-weight:600;border:none;border-radius:7px;cursor:pointer;background:#FF5E00;color:white;font-family:inherit">Submit Report</button>
+        <button id="dashIssueSubmitBtn" onclick="submitDashIssue()" style="padding:9px 18px;font-size:13px;font-weight:600;border:none;border-radius:7px;cursor:pointer;background:#FF5E00;color:white;font-family:inherit">Submit Report</button>
       </div>
     </div>
   </div>
@@ -670,19 +670,45 @@ const CONFIG_TAB = '[Config] Dashboard Mapping';
 const ISSUES_SHEET_ID = '1YDCy3nR1WKukL-y-Xt4xBBhhNdq2amYlA0YYckCnSdM';
 
 async function dashApiAppend(sheetId, range, values) {
-  const token = crGetAccessToken ? crGetAccessToken() : null;
-  if (!token) return;
+  // crGetAccessToken returns a Promise — must await it
+  const token = typeof crGetAccessToken === 'function' ? await crGetAccessToken() : null;
+  if (!token) throw new Error('Not signed in — please reload and sign in again.');
   const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + encodeURIComponent(range) + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS';
-  await fetch(url, { method:'POST', headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'}, body: JSON.stringify({ values }) });
+  const res = await fetch(url, { method:'POST', headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'}, body: JSON.stringify({ values }) });
+  if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || res.statusText); }
+}
+
+async function dashApiEnsureIssuesSheet(sheetId) {
+  const token = typeof crGetAccessToken === 'function' ? await crGetAccessToken() : null;
+  if (!token) return;
+  try {
+    const meta = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId,
+      { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.json());
+    const exists = meta.sheets && meta.sheets.some(s => s.properties.title === 'Issues');
+    if (!exists) {
+      await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + ':batchUpdate', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: [{ addSheet: { properties: { title: 'Issues' } } }] })
+      });
+      // Write headers
+      await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/Issues!A1:H1?valueInputOption=RAW', {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [['ID','Submitted','ReporterName','ReporterEmail','Page','Title','Description','Status']] })
+      });
+    }
+  } catch(e) { /* proceed anyway */ }
 }
 
 function openDashIssueModal() {
   document.getElementById('dash-issue-title').value = '';
   document.getElementById('dash-issue-desc').value = '';
   document.getElementById('dash-issue-err').style.display = 'none';
-  const ov = document.getElementById('dashIssueOverlay');
-  ov.style.display = 'flex';
-  setTimeout(() => document.getElementById('dash-issue-title').focus(), 100);
+  const submitBtn = document.getElementById('dashIssueSubmitBtn');
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Report'; }
+  document.getElementById('dashIssueOverlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('dash-issue-title').focus(), 120);
 }
 function closeDashIssueModal() {
   document.getElementById('dashIssueOverlay').style.display = 'none';
@@ -692,16 +718,27 @@ async function submitDashIssue() {
   const desc  = document.getElementById('dash-issue-desc').value.trim();
   if (!title || !desc) { document.getElementById('dash-issue-err').style.display='block'; return; }
   document.getElementById('dash-issue-err').style.display = 'none';
+  const submitBtn = document.getElementById('dashIssueSubmitBtn');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
   const eu  = crGetUser ? crGetUser() : { name:'Unknown', email:'' };
   const now = new Date().toISOString();
   const id  = 'ISS-' + Date.now();
   try {
-    await dashApiAppend(ISSUES_SHEET_ID, 'Issues!A2', [[id, now, eu.name||'Dashboard User', eu.email||'', 'Global Headcount Dashboard', title, desc, 'Open']]);
+    await dashApiEnsureIssuesSheet(ISSUES_SHEET_ID);
+    await dashApiAppend(ISSUES_SHEET_ID, 'Issues!A2',
+      [[id, now, eu.name||'Dashboard User', eu.email||'', 'Global Headcount Dashboard', title, desc, 'Open']]);
     closeDashIssueModal();
-    alert('Issue reported — thank you! The admin team will review it.');
-  } catch(e) {
-    closeDashIssueModal();
-    alert('Issue reported locally. If you see this message frequently, let the admin team know.');
+    // Show a visible toast-style notification
+    const banner = document.createElement('div');
+    banner.textContent = '✓ Issue reported — thank you! The admin team will review it.';
+    banner.style.cssText = 'position:fixed;bottom:80px;right:28px;background:#2E7D32;color:white;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-family:inherit';
+    document.body.appendChild(banner);
+    setTimeout(() => banner.remove(), 4000);
+  } catch(err) {
+    console.error('Issue submit failed:', err);
+    document.getElementById('dash-issue-err').textContent = 'Submission failed: ' + err.message;
+    document.getElementById('dash-issue-err').style.display = 'block';
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Try Again'; }
   }
 }
 
@@ -3244,7 +3281,7 @@ function dmcFilterWidget(idx, field, stored) {
   var valId   = 'dfw-val-' + idx + '-' + field;
 
   // Build select
-  var selHtml = '<select id="' + selId + '" class="dci mono" style="flex:0 0 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis" '
+  var selHtml = '<select id="' + selId + '" class="dci mono" style="width:100%;min-width:0" '
     + 'data-idx="' + idx + '" data-field="' + field + '" onchange="dmcFilterChange(this.dataset.idx,this.dataset.field)">';
   DM_OP_OPTIONS.forEach(function(opt) {
     var prefix = opt[0], label = opt[1];
@@ -3257,14 +3294,15 @@ function dmcFilterWidget(idx, field, stored) {
   var curOpt   = DM_OP_OPTIONS.find(function(o){ return o[0] === parsed.op; }) || DM_OP_OPTIONS[0];
   var needsVal = curOpt[2];
   var pholder  = curOpt[3] || 'value…';
-  var valStyle = needsVal ? 'flex:1;min-width:60px' : 'display:none;flex:1;min-width:60px';
+  var valStyle = needsVal ? 'width:100%;min-width:0' : 'display:none;width:100%';
 
   var valHtml = '<input id="' + valId + '" class="dci mono" style="' + valStyle + '" '
     + 'placeholder="' + _escAttr(pholder) + '" '
     + 'value="' + _escAttr(parsed.val) + '" '
     + 'data-idx="' + idx + '" data-field="' + field + '" oninput="dmcFilterChange(this.dataset.idx,this.dataset.field)">';
 
-  return '<div style="display:flex;gap:4px;align-items:center">' + selHtml + valHtml + '</div>';
+  // Outer wrapper is display:grid with 2 equal columns — select always 50%, value always 50%
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;min-width:0">' + selHtml + valHtml + '</div>';
 }
 
 // Called when operator OR value changes — combine and store
