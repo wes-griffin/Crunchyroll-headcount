@@ -1898,7 +1898,7 @@ async function checkIsMasterAdmin() {
   } catch(e) { return false; }
 }
 
-// ── Data Mapping UI (spreadsheet-style inline editor) ─────────────────────
+// ── Data Mapping UI ──────────────────────────────────────────────────────────
 
 const OP_COLORS = {
   LIST:'#1565C0', COUNT_ROWS:'#2E7D32', SUM:'#E65100', COUNT_DISTINCT:'#2E7D32',
@@ -1908,78 +1908,124 @@ const OP_COLORS = {
 };
 
 const TAB_LABELS = {
-  all:'Utility', summary:'Summary Tab', employees:'Employees Tab',
-  contingent:'Contingent Workers Tab', reqs:'Open Reqs Tab', pa:'Pending Hires & Attrition Tab'
+  all:'Utility', summary:'Summary', employees:'Employees',
+  contingent:'Contingent Workers', reqs:'Open Reqs', pa:'Pending Hires & Attrition'
 };
 
-// Map dashboardTab → switchTab id
+// Explicit map: metricKey → array of element IDs to highlight on the target tab.
+// We highlight the nearest ancestor card/table so the flash is visible.
+const METRIC_HIGHLIGHT_MAP = {
+  'hc-ee':                ['summaryEETable', 'eeHCBySMT'],
+  'hc-cw':                ['summaryCWTable', 'cwHCBySMT'],
+  'summary-ee-current':   ['s-totalEE', 'ee-total'],
+  'summary-ee-hires':     ['s-hiresEE', 'ee-hires', 'eeHiresChart'],
+  'summary-ee-attrition': ['s-attrEE',  'ee-attr',  'eeAttrChart'],
+  'summary-ee-future-attr':['s-futureAttrEE', 'ee-futureAttr'],
+  'summary-ee-topline':   ['s-tlEE', 'summaryTLChart'],
+  'summary-ee-headroom':  ['s-headroomEE', 'eeHeadroomTable'],
+  'summary-ee-open-reqs': ['eeHeadroomTable'],
+  'summary-ee-pend-reqs': ['eeHeadroomTable'],
+  'summary-cw-current':   ['s-totalCW', 'cw-total'],
+  'summary-cw-hires':     ['s-hiresCW', 'cw-hires'],
+  'summary-cw-attrition': ['s-attrCW',  'cw-attr', 'cwMoveChart'],
+  'summary-cw-future-attr':['s-futureAttrEE', 'cw-futureAttr'],
+  'summary-cw-future-hires':['cw-futureHires', 'cwMoveChart'],
+  'combined-ee-current':  ['s-combined'],
+  'combined-ee-future':   ['s-futureCombined'],
+  'combined-cw-current':  ['s-combined'],
+  'combined-cw-future':   ['s-futureCombined'],
+  'hc-ee-loc':            ['eeHCBySMT'],
+  'hc-cw-loc':            ['cwHCByLoc', 'cwHCChart'],
+  'gh-reqs':              ['reqsAllRoles', 'reqsBySMT'],
+  'gh-total':             ['r-total'],
+  'gh-ee-count':          ['r-eeRoles'],
+  'gh-cw-count':          ['r-cwRoles'],
+  'gh-by-smt':            ['reqsBySMT', 'reqsSMTChart'],
+  'gh-by-pbp':            ['reqsByPBP'],
+  'gh-by-location':       ['reqsByLoc', 'reqsLocChart'],
+  'wd-main':              [],
+  'pa-hires-smt':         ['hiresBySMT', 'paCompareChart'],
+  'pa-hires-loc':         ['hiresByLoc'],
+  'pa-attrition-smt':     ['attrBySMT',  'paCompareChart'],
+  'pa-attrition-loc':     ['attrByLoc'],
+  'pa-hires-total':       ['pa-hires'],
+  'pa-hires-ee':          ['pa-hires', 'pa-hiresSub'],
+  'pa-hires-cw':          ['pa-hires', 'pa-hiresSub'],
+  'pa-attrition-total':   ['pa-attr'],
+  'pa-attrition-ee':      ['pa-attr', 'pa-attrSub'],
+  'pa-attrition-cw':      ['pa-attr', 'pa-attrSub'],
+};
+
+// Tab nav: dashboardTab value → panel id
 const TAB_NAV_MAP = {
-  summary:   'summary',
-  employees: 'ee',
-  contingent:'cw',
-  reqs:      'reqs',
-  pa:        'pa',
+  summary:'summary', employees:'ee', contingent:'cw', reqs:'reqs', pa:'pa'
 };
 
-// Navigate to the tab for a given dashboardTab value and briefly highlight
-// any element whose text content contains the display name.
-function navToTabForRow(dashboardTab, displayName) {
+// Highlight the closest meaningful ancestor (kpi card, chart card, table wrap)
+function _dmHighlightEl(el) {
+  if (!el) return;
+  var ancestor = el;
+  var selectors = ['.kpi','.chart-card','.table-wrap','.section-header'];
+  var found = false;
+  while (ancestor && ancestor !== document.body) {
+    for (var i = 0; i < selectors.length; i++) {
+      if (ancestor.matches && ancestor.matches(selectors[i])) { found = true; break; }
+    }
+    if (found) break;
+    ancestor = ancestor.parentElement;
+  }
+  var target = found ? ancestor : el;
+  target.scrollIntoView({ behavior:'smooth', block:'center' });
+  var prev = { outline: target.style.outline, background: target.style.background,
+                transition: target.style.transition, borderRadius: target.style.borderRadius };
+  target.style.transition = 'background 0.15s, outline 0.15s';
+  target.style.outline = '3px solid #FB8C00';
+  target.style.background = '#FFF3E0';
+  target.style.borderRadius = '6px';
+  setTimeout(function() {
+    target.style.transition = 'background 0.6s, outline 0.6s';
+    target.style.outline = prev.outline || '';
+    target.style.background = prev.background || '';
+    setTimeout(function() {
+      target.style.transition = prev.transition || '';
+      target.style.borderRadius = prev.borderRadius || '';
+    }, 700);
+  }, 1800);
+}
+
+function navToTabForRow(metricKey, dashboardTab) {
+  // Determine which panel to switch to
   var navId = null;
   if (dashboardTab) {
-    // dashboardTab can be comma-separated (e.g. "summary,employees")
     var parts = dashboardTab.split(',').map(function(s){ return s.trim(); });
     for (var i = 0; i < parts.length; i++) {
       var mapped = TAB_NAV_MAP[parts[i]];
       if (mapped) { navId = mapped; break; }
     }
   }
-  if (!navId || navId === 'mapping') return; // nowhere useful to go
+  if (!navId) return;
 
-  // Switch to the target tab
-  var targetPanel = document.getElementById('tab-' + navId);
-  var tabBtns = document.querySelectorAll('.tab-btn');
-  if (!targetPanel) return;
+  // Switch tab
   document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
-  tabBtns.forEach(function(b){ b.classList.remove('active'); });
-  targetPanel.classList.add('active');
-  // Find and activate the right tab button
-  tabBtns.forEach(function(b){
-    if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf("'"+navId+"'") !== -1) {
-      b.classList.add('active');
-    }
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  var panel = document.getElementById('tab-' + navId);
+  if (panel) panel.classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(function(b){
+    var oc = b.getAttribute('onclick') || '';
+    if (oc.indexOf("'"+navId+"'") !== -1) b.classList.add('active');
   });
 
-  // Highlight: look for an element whose visible text matches the display name
-  if (!displayName) return;
-  var needle = displayName.trim().toLowerCase();
-  // Search all text nodes — check headings, labels, th, td, h2, h3, etc.
-  var candidates = targetPanel.querySelectorAll('h1,h2,h3,h4,th,td,label,span,div,p');
-  var found = null;
-  candidates.forEach(function(el) {
-    if (found) return;
-    // Only check leaf-ish nodes (text content without deep nesting matching better)
-    var txt = el.textContent.trim().toLowerCase();
-    if (txt === needle || txt.startsWith(needle)) found = el;
-  });
-  if (!found) {
-    // Looser match: contains
-    candidates.forEach(function(el) {
-      if (found) return;
-      if (el.textContent.trim().toLowerCase().indexOf(needle) !== -1 &&
-          el.textContent.trim().length < needle.length * 3) found = el;
+  // Highlight the mapped elements
+  var ids = METRIC_HIGHLIGHT_MAP[metricKey] || [];
+  if (!ids.length) return;
+  // Small delay so the tab switch renders first
+  setTimeout(function() {
+    var highlighted = 0;
+    ids.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && highlighted < 2) { _dmHighlightEl(el); highlighted++; }
     });
-  }
-  if (found) {
-    found.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    found.style.transition = 'background 0.2s';
-    found.style.background = '#FFF3E0';
-    found.style.outline = '2px solid var(--orange)';
-    found.style.borderRadius = '4px';
-    setTimeout(function() {
-      found.style.background = '';
-      found.style.outline = '';
-    }, 2500);
-  }
+  }, 60);
 }
 
 function updateOpDesc(idx) {
@@ -1988,12 +2034,49 @@ function updateOpDesc(idx) {
   if (sel && desc) desc.textContent = OPERATION_DEFS[sel.value] || '';
 }
 
-// ── Render the full spreadsheet-style mapping table ────────────────────────
+// ── Column definitions: [key, label, width, monospace, placeholder, isTextarea, tooltip] ──
+var DM_COLS = [
+  ['displayName',  'Name',           '170px', false, '',                        false,
+   'Human-readable label. Click the ↗ link to jump to the elements this metric powers on its dashboard tab.'],
+  ['metricKey',    'Key',            '130px', true,  '',                        false,
+   'Unique code identifier (e.g. "hc-ee"). Used as D[key] in the data engine — must be stable and unique across all rows.'],
+  ['operation',    'Operation',      '148px', false, '',                        false,
+   'How fetched rows are reduced: LIST → array, SUM → numeric total, COUNT_ROWS → count, GROUP_BY_COUNT/SUM → grouped object, SINGLE_CELL → first cell value. Hover the dropdown for each operation\'s definition.'],
+  ['sheetTab',     'Sheet Tab',      '190px', false, '',                        false,
+   'Exact name of the Google Sheets tab (case-sensitive, spaces included), e.g. "[IMPORT] Workday Data".'],
+  ['range',        'Range',          '88px',  true,  'A5:M13',                  false,
+   'A1-notation cell range to fetch. Empty trailing rows are filtered automatically.'],
+  ['filterCol',    'F.Col',          '50px',  true,  'A',                       false,
+   'Column letter or 0-based index for the primary filter condition. Leave blank for no filter.'],
+  ['filterValue',  'F.Value',        '108px', false, '!',                       false,
+   'Operator + value: ! (not blank)  !val (not equals)  !~text (not contains)  ~text (contains)  ~/re/flags  !~/re/flags  >=today  <=today  >=N  <=N  value (exact).'],
+  ['filterCol2',   'F.Col2',         '50px',  true,  '',                        false,
+   'Column for a second AND filter. Both conditions must pass.'],
+  ['filterValue2', 'F.Val2',         '90px',  false, '',                        false,
+   'Same operators as F.Value, applied to F.Col2.'],
+  ['valueCol',     'Val',            '44px',  true,  'E',                       false,
+   'Column summed (SUM), counted (COUNT_DISTINCT), or returned (FIRST_VALUE). For PERCENTAGE: "numKey/denKey". For DELTA: "key1,key2".'],
+  ['groupCol',     'Grp',            '44px',  true,  'A',                       false,
+   'Column to group by in GROUP_BY_COUNT / GROUP_BY_SUM / CROSS_TAB operations.'],
+  ['seriesCol',    'Ser',            '44px',  true,  '',                        false,
+   'Secondary grouping dimension for CROSS_TAB operations.'],
+  ['dashboardTab', 'Tab',            '108px', false, 'summary',                 false,
+   'Which dashboard tab this metric belongs to. Controls the ↗ link and this editor\'s grouping. Values: all  summary  employees  contingent  reqs  pa. Comma-separate for multi-tab metrics.'],
+  ['filtersJSON',  'Filters JSON',   '180px', true,  '[{"col":"A","op":"!"}]',  false,
+   'Extra AND filters as JSON array. Each rule: {"col":"A","op":"!~","val":"total"}. Ops: "!" "=" "!=" "~" "!~" "regex" "!~regex" ">=today" "<=today" ">=" "<=". Use when you need more than 2 conditions or multiple on the same column.'],
+  ['options',      'Options',        '118px', true,  '{"skipRows":1}',          false,
+   'Misc options JSON. skipRows: N skips the first N rows (e.g. header). _projectCols:[0,2] projects each raw row to those column indices, producing [[col0,col2],...] pairs.'],
+  ['columnMapping','Column Mapping', '230px', true,  '',                        true,
+   'JSON shaping raw rows into named objects (LIST). Simple: {"name":1}. Numeric: {"ee":{"col":1,"number":true}}. Derived bool: {"$isEE":{"col":3,"exact":"Employee"}} or {"$isEE":{"col":25,"regex":"^(ee|employee)$","flags":"i"}}. Empty = return raw arrays.'],
+  ['notes',        'Notes',          '170px', false, '',                        false,
+   'Internal annotation only — not shown on any dashboard. Document why this row exists, what reads it, or source data quirks.'],
+];
+
 function renderDataMapping() {
   var el = document.getElementById('mappingTable');
   if (!el) return;
   if (!_configRows.length) {
-    el.innerHTML = '<p style="color:var(--gray-dark);padding:20px 0">No rows configured. Click "+ Add Row" to get started.</p>';
+    el.innerHTML = '<p style="padding:32px 0;color:#999;text-align:center;font-size:13px">No rows configured. Click <strong>+ Add Row</strong> to get started.</p>';
     return;
   }
 
@@ -2005,222 +2088,301 @@ function renderDataMapping() {
     groups[tab].push(i);
   });
   var allTabs = tabOrder.filter(function(t){ return groups[t]; })
-    .concat(Object.keys(groups).filter(function(t){ return tabOrder.indexOf(t)<0; }));
-
-  // Column definitions: [key, label, width, monospace, placeholder, isTextarea, tooltip]
-  var COLS = [
-    ['displayName',   'Name',           '160px', false, '',                       false,
-      'Human-readable label shown in the UI. Click ↗ to jump to that metric on its dashboard tab. Double-click to edit.'],
-    ['metricKey',     'Metric Key',     '140px', true,  '',                       false,
-      'Unique identifier used in code (e.g. "hc-ee", "gh-reqs"). Used as the D[key] lookup — must be stable and unique across all rows.'],
-    ['operation',     'Operation',      '140px', false, '',                       false,
-      'How the fetched rows are reduced to a value. LIST → array of rows. SUM → numeric total of Value Col. COUNT_ROWS → row count. GROUP_BY_COUNT / GROUP_BY_SUM → object keyed by Group Col. SINGLE_CELL → raw value of first cell. Hover each option in the dropdown for its full definition.'],
-    ['sheetTab',      'Sheet Tab',      '180px', false, '',                       false,
-      'Exact name of the Google Sheets tab to read from (case-sensitive). Must match the tab name in the spreadsheet exactly, including spaces and brackets, e.g. "[IMPORT] Workday Data".'],
-    ['range',         'Range',          '90px',  true,  'A5:M13',                false,
-      'A1-notation cell range to fetch, e.g. A5:M13. Rows outside this range are never read. For large datasets use a generous lower bound like A2:AK4500 — empty rows are filtered automatically.'],
-    ['filterCol',     'F.Col',          '52px',  true,  'A',                     false,
-      'Column letter or 0-based index for the primary filter. Rows where this column fails the Filter Value test are dropped before any operation runs. Leave blank for no filter.'],
-    ['filterValue',   'F.Val',          '110px', false, '!',                     false,
-      'Operator + value applied to Filter Col. Operators: ! (not blank)  !value (not equals)  !~text (not contains)  ~text (contains)  ~/regex/flags (regex match)  !~/regex/flags (regex not match)  >=today  <=today  >=N  <=N  >N  <N  value (exact match, case-insensitive).'],
-    ['filterCol2',    'F.Col2',         '52px',  true,  '',                      false,
-      'Column letter or 0-based index for a second AND filter. Both Filter Col and Filter Col 2 must pass for a row to be included. Leave blank if only one filter condition is needed.'],
-    ['filterValue2',  'F.Val2',         '90px',  false, '',                      false,
-      'Operator + value for the second filter (Filter Col 2). Supports the same operators as Filter Value: !, !value, !~text, >=today, <=today, >=N, etc.'],
-    ['valueCol',      'Val',            '45px',  true,  'E',                     false,
-      'Column letter or 0-based index whose values are summed (SUM), counted distinctly (COUNT_DISTINCT), or returned (FIRST_VALUE). Also used as "numeratorKey/denominatorKey" for PERCENTAGE and comma-separated metric keys for DELTA. Not used by LIST or GROUP_BY_COUNT.'],
-    ['groupCol',      'Grp',            '45px',  true,  'A',                     false,
-      'Column letter or 0-based index to group by in GROUP_BY_COUNT and GROUP_BY_SUM operations. Each unique value in this column becomes a key in the returned object. Also used by CROSS_TAB and MULTI_SERIES.'],
-    ['seriesCol',     'Ser',            '45px',  true,  '',                      false,
-      'Column letter or 0-based index for the secondary grouping dimension in CROSS_TAB operations. Each unique value becomes a series (sub-key) within each group.'],
-    ['dashboardTab',  'Tab',            '110px', false, 'summary',               false,
-      'Which dashboard tab this metric belongs to. Controls grouping in this editor and enables the ↗ navigation link on the Name column. Values: all  summary  employees  contingent  reqs  pa. Comma-separate for metrics used by multiple tabs, e.g. "summary,employees".'],
-    ['filtersJSON',   'Filters JSON',   '190px', true,  '[{"col":"A","op":"!"}]',false,
-      'Additional AND filter rules as a JSON array, applied after Filter Col/Val. Each rule: {"col":"A","op":"!~","val":"total"}. Ops: "!" (not blank)  "=" "!=" "~" "!~" "regex" "!~regex" ">=today" "<=today" ">=" "<=" ">" "<". Use this for more than 2 conditions or multiple conditions on the same column.'],
-    ['options',       'Options JSON',   '130px', true,  '{"skipRows":1}',        false,
-      'Misc row-level options as a JSON object. skipRows: N — skip the first N rows of the fetched range (use 1 to drop a header row, e.g. GH data). _projectCols: [0,2] — for LIST rows, project each raw row to only these column indices, producing [[col0,col2],...] pairs (used for location rows).'],
-    ['columnMapping', 'Column Mapping', '240px', true,  '',                      true,
-      'JSON that defines how raw row arrays are shaped into named objects (LIST operation). Simple: {"name":1,"status":2} maps col index → field name. Numeric conversion: {"ee":{"col":1,"number":true}}. Derived boolean: {"$isEE":{"col":3,"exact":"Employee"}} or {"$isEE":{"col":25,"regex":"^(ee|employee)$","flags":"i"}}. If absent or empty, raw arrays are returned unchanged (required for hc-ee, hc-cw). Also used by CROSS_TAB and MULTI_SERIES — see OPERATION_DEFS for their format.'],
-    ['notes',         'Notes',          '180px', false, '',                      false,
-      'Free-text annotation for your own reference. Shown nowhere else — use it to document why this row exists, what downstream code reads it, or any gotchas about the source data range.'],
-  ];
+    .concat(Object.keys(groups).filter(function(t){ return tabOrder.indexOf(t) < 0; }));
 
   var ops = Object.keys(OPERATION_DEFS);
 
+  // ── CSS ──────────────────────────────────────────────────────────────────
   var css = '<style>'
-    + '#dm-grid { border-collapse:collapse; width:100%; font-size:12px; }'
-    + '#dm-grid th { position:sticky;top:0;z-index:2;background:#F7F7F7;border:1px solid #E0E0E0;'
-    +   'padding:5px 7px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;'
-    +   'color:#888;white-space:nowrap;text-align:left; }'
-    + '#dm-grid td { border:1px solid #EBEBEB;padding:0;vertical-align:top; }'
-    + '#dm-grid tr.dm-group-hdr td { background:#F9F9F9;padding:6px 10px 4px;'
-    +   'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;'
-    +   'border-left:none;border-right:none;border-top:2px solid #E8E8E8; }'
-    + '.dm-cell { width:100%;box-sizing:border-box;border:none;outline:none;background:transparent;'
-    +   'font-size:12px;font-family:inherit;padding:5px 7px;resize:none; }'
-    + '.dm-cell:focus { background:#FFFDE7;outline:2px solid #FB8C00;outline-offset:-2px;z-index:1;position:relative; }'
-    + '.dm-cell-mono { font-family:monospace; }'
-    + '.dm-cell-op { width:100%;box-sizing:border-box;border:none;outline:none;background:transparent;'
-    +   'font-size:11px;font-family:inherit;padding:5px 7px;cursor:pointer; }'
-    + '.dm-cell-op:focus { background:#FFFDE7; }'
-    + '.dm-name-link { font-weight:600;color:var(--orange);cursor:pointer;text-decoration:none;'
-    +   'background:none;border:none;padding:5px 7px;font-size:12px;font-family:inherit;'
-    +   'text-align:left;width:100%;display:block; }'
-    + '.dm-name-link:hover { text-decoration:underline; }'
-    + '.dm-del { background:none;border:none;color:#ccc;cursor:pointer;padding:4px 6px;font-size:13px; }'
-    + '.dm-del:hover { color:#e53935; }'
-    + '#dm-dirty-banner { display:none;position:sticky;bottom:0;background:#E65100;color:#fff;'
-    +   'padding:10px 16px;font-size:12px;font-weight:700;border-radius:8px 8px 0 0;'
-    +   'display:flex;align-items:center;gap:12px;margin-top:8px; }'
+    + ':root { --dm-row: #fff; --dm-row-alt: #FAFAFA; --dm-border: #EBEBEB; --dm-group-border: #E0E0E0; }'
+
+    // Table shell
+    + '#dm-wrap { overflow-x:auto; }'
+    + '#dm-grid { border-collapse:collapse; width:100%; font-size:11.5px; }'
+
+    // Column group header row
+    + '#dm-grid tr.dm-col-group th { background:#F5F5F5; padding:3px 8px 3px; font-size:9px;'
+    +   'font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#aaa;'
+    +   'border-bottom:1px solid var(--dm-border); white-space:nowrap; text-align:left; }'
+    + '#dm-grid tr.dm-col-group th.cg-divider { border-left:2px solid var(--dm-group-border); }'
+
+    // Column headers
+    + '#dm-grid tr.dm-col-hdr th { position:sticky; top:0; z-index:3; background:#FAFAFA;'
+    +   'padding:6px 8px 5px; font-size:10px; font-weight:700; text-transform:uppercase;'
+    +   'letter-spacing:0.4px; color:#888; white-space:nowrap; text-align:left;'
+    +   'border-bottom:2px solid var(--dm-group-border); border-top:none;'
+    +   'cursor:default; user-select:none; }'
+    + '#dm-grid tr.dm-col-hdr th.cg-divider { border-left:2px solid var(--dm-group-border); }'
+    + '#dm-grid tr.dm-col-hdr th[title] { cursor:help; }'
+    + '#dm-grid tr.dm-col-hdr th[title]:hover { color:#555; background:#F0F0F0; }'
+
+    // Sticky name column
+    + '#dm-grid td.dm-sticky, #dm-grid th.dm-sticky {'
+    +   'position:sticky; left:0; z-index:2; background:inherit; }'
+    + '#dm-grid td.dm-sticky::after {'
+    +   'content:""; position:absolute; top:0; right:-8px; bottom:0; width:8px;'
+    +   'background:linear-gradient(to right,rgba(0,0,0,0.06),transparent);'
+    +   'pointer-events:none; }'
+
+    // Data rows
+    + '#dm-grid tbody tr { background:var(--dm-row); }'
+    + '#dm-grid tbody tr:nth-child(even) { background:var(--dm-row-alt); }'
+    + '#dm-grid td { border-bottom:1px solid var(--dm-border); padding:0; vertical-align:top; }'
+    + '#dm-grid td.cg-divider { border-left:2px solid var(--dm-group-border); }'
+
+    // Group header rows
+    + '#dm-grid tr.dm-group-hdr td { background:#F9F6F2; padding:8px 12px 5px;'
+    +   'font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:1.2px;'
+    +   'color:#C47D3A; border-top:2px solid #EDE0D4; border-bottom:1px solid #EDE0D4;'
+    +   'border-left:none; border-right:none; }'
+
+    // Cells
+    + '.dm-cell { width:100%; box-sizing:border-box; border:none; outline:none;'
+    +   'background:transparent; font-size:11.5px; font-family:inherit;'
+    +   'padding:6px 8px; resize:none; color:#333; }'
+    + '.dm-cell::placeholder { color:#C8C8C8; }'
+    + '.dm-cell:focus { background:#FFFDE7; outline:2px solid #FB8C00;'
+    +   'outline-offset:-2px; z-index:1; position:relative; }'
+    + '.dm-cell-mono { font-family:"SF Mono","Fira Mono","Consolas",monospace; font-size:11px; }'
+    + '.dm-cell-op { width:100%; box-sizing:border-box; border:none; outline:none;'
+    +   'background:transparent; font-size:11px; font-family:inherit;'
+    +   'padding:6px 8px; cursor:pointer; color:#333; }'
+    + '.dm-cell-op:focus { background:#FFFDE7; outline:2px solid #FB8C00; outline-offset:-2px; }'
+
+    // Name cell
+    + '.dm-name-wrap { position:relative; min-height:30px; }'
+    + '.dm-nav-btn { display:block; width:100%; text-align:left; background:none; border:none;'
+    +   'padding:6px 8px; font-size:12px; font-weight:600; color:#E65100; cursor:pointer;'
+    +   'font-family:inherit; line-height:1.3; }'
+    + '.dm-nav-btn:hover { text-decoration:underline; }'
+    + '.dm-nav-btn .dm-nav-arrow { font-size:10px; opacity:0.6; margin-left:3px; }'
+    + '.dm-key-sub { display:block; font-family:"SF Mono","Fira Mono","Consolas",monospace;'
+    +   'font-size:9.5px; color:#BBB; padding:0 8px 5px; line-height:1; }'
+    + '.dm-name-inp { position:absolute; inset:0; opacity:0; pointer-events:none;'
+    +   'font-weight:600; font-size:12px; color:#E65100; }'
+
+    // Delete button
+    + '.dm-del { background:none; border:none; color:#DDD; cursor:pointer;'
+    +   'padding:5px 7px; font-size:14px; line-height:1; border-radius:4px; }'
+    + '.dm-del:hover { color:#E53935; background:#FFF5F5; }'
+
+    // Dirty banner
+    + '#dm-dirty { display:none; align-items:center; gap:10px; position:sticky; bottom:0;'
+    +   'background:#212121; color:#fff; padding:10px 18px; margin-top:2px;'
+    +   'border-radius:10px 10px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,0.18); }'
+    + '#dm-dirty .dm-dirty-dot { width:8px; height:8px; border-radius:50%;'
+    +   'background:#FB8C00; flex-shrink:0; }'
+    + '#dm-dirty .dm-dirty-label { font-size:12px; font-weight:600; flex:1; }'
+    + '#dm-dirty .dm-save-btn { background:#FB8C00; color:#fff; border:none;'
+    +   'padding:6px 18px; border-radius:6px; font-size:12px; font-weight:700;'
+    +   'cursor:pointer; letter-spacing:0.2px; }'
+    + '#dm-dirty .dm-save-btn:hover { background:#E65100; }'
+    + '#dm-dirty .dm-discard-btn { background:none; border:1px solid rgba(255,255,255,0.25);'
+    +   'color:rgba(255,255,255,0.7); padding:6px 14px; border-radius:6px;'
+    +   'font-size:12px; cursor:pointer; }'
+    + '#dm-dirty .dm-discard-btn:hover { border-color:rgba(255,255,255,0.5); color:#fff; }'
     + '</style>';
 
-  // Build header — c[6] is the tooltip description
-  var thead = '<thead><tr><th style="width:28px"></th>';
-  COLS.forEach(function(c) {
-    var tip = c[6] ? ' title="'+c[6].replace(/"/g,"&quot;")+'" style="cursor:help;min-width:'+c[2]+';max-width:'+c[2]+'"' : ' style="min-width:'+c[2]+';max-width:'+c[2]+'"';
-    thead += '<th'+tip+'>'+c[1]+(c[6] ? ' <span style="font-size:9px;opacity:0.5">?</span>' : '')+'</th>';
-  });
-  thead += '</tr></thead>';
+  // ── Column group spans ─────────────────────────────────────────────────────
+  // Groups: [label, span, isDivider]
+  var COL_GROUPS = [
+    ['',         1, false], // del
+    ['Identity', 3, false], // name, key, op
+    ['Source',   2, true],  // sheetTab, range
+    ['Filters',  6, true],  // filterCol, filterVal, filterCol2, filterVal2, filtersJSON, options
+    ['Output',   3, true],  // valueCol, groupCol, seriesCol
+    ['Routing',  1, true],  // dashboardTab
+    ['Mapping',  2, true],  // columnMapping, notes
+  ];
 
-  // Build body
+  // Column divider flags matching COLS order:
+  // del | name key op | sheetTab range | fcol fval fcol2 fval2 fjson opts | val grp ser | tab | cm notes
+  var COL_DIVIDERS = [false, false, false, false, true, true, false, false, false, false, true, false, false, true, false, true, false, false];
+  // Index:          del      nm    key    op     sT    rng   fc    fv    fc2   fv2   fj    opt  vc    gc    sc   tab   cm    nt
+
+  // Build thead — group row
+  var groupHdr = '<tr class="dm-col-group"><th></th>';
+  COL_GROUPS.forEach(function(g, gi) {
+    if (gi === 0) return; // del already done
+    groupHdr += '<th colspan="'+g[1]+'"'+(g[2]?' class="cg-divider"':'')+'>'+g[0]+'</th>';
+  });
+  groupHdr += '</tr>';
+
+  // Build thead — column labels
+  var colHdr = '<tr class="dm-col-hdr"><th class="dm-sticky" style="width:28px;min-width:28px"></th>';
+  DM_COLS.forEach(function(c, ci) {
+    var isDivider = COL_DIVIDERS[ci + 1]; // +1 for del column
+    var cls = (ci === 0 ? 'dm-sticky ' : '') + (isDivider ? 'cg-divider' : '');
+    var tip = c[6] ? ' title="'+c[6].replace(/"/g,'&quot;')+'"' : '';
+    colHdr += '<th class="'+cls+'" style="min-width:'+c[2]+';max-width:'+c[2]+'"'+tip+'>'+c[1]+'</th>';
+  });
+  colHdr += '</tr>';
+
+  var thead = '<thead>' + groupHdr + colHdr + '</thead>';
+
+  // ── Table body ─────────────────────────────────────────────────────────────
   var tbody = '<tbody>';
   allTabs.forEach(function(tab) {
     if (!groups[tab] || !groups[tab].length) return;
-    // Group header
-    tbody += '<tr class="dm-group-hdr"><td colspan="'+(COLS.length+1)+'">'+(TAB_LABELS[tab]||tab)+'</td></tr>';
+    tbody += '<tr class="dm-group-hdr"><td colspan="'+(DM_COLS.length+1)+'">'
+      +(TAB_LABELS[tab]||tab)
+      +' <span style="font-weight:400;opacity:0.6">('+groups[tab].length+' rows)</span>'
+      +'</td></tr>';
+
     groups[tab].forEach(function(idx) {
       var r = _configRows[idx];
-      var opColor = OP_COLORS[r.operation] || '#666';
       tbody += '<tr id="dm-row-'+idx+'">';
+
       // Delete button
-      tbody += '<td style="text-align:center;vertical-align:middle;width:28px">'
-        + '<button class="dm-del" onclick="deleteMappingRow('+idx+')" title="Delete">×</button>'
-        + '</td>';
-      COLS.forEach(function(c) {
+      tbody += '<td class="dm-sticky" style="width:28px;min-width:28px;text-align:center;vertical-align:middle">'
+        +'<button class="dm-del" onclick="deleteMappingRow('+idx+')" title="Delete this row">×</button>'
+        +'</td>';
+
+      DM_COLS.forEach(function(c, ci) {
         var field = c[0], w = c[2], mono = c[3], ph = c[4], isTA = c[5], tip = c[6]||'';
-        var tipAttr = tip ? ' title="'+tip.replace(/"/g,"&quot;")+'"' : '';
         var val = (r[field] || '').toString();
-        var style = 'min-width:'+w+';max-width:'+w+';';
+        var isDivider = COL_DIVIDERS[ci + 1];
+        var tdCls = (ci === 0 ? 'dm-sticky ' : '') + (isDivider ? 'cg-divider' : '');
+        var tdStyle = 'min-width:'+w+';max-width:'+w+';';
+        var tipAttr = tip ? ' title="'+tip.replace(/"/g,'&quot;")+'"' : '';
 
+        // ── Name column: nav button + hidden real input ──────────────────────
         if (field === 'displayName') {
-          // Clickable link to navigate to tab
-          var hasNav = r.dashboardTab && r.dashboardTab.split(',').some(function(t){ return TAB_NAV_MAP[t.trim()]; });
+          var hasNav = r.dashboardTab && r.dashboardTab.split(',').some(function(t){
+            return TAB_NAV_MAP[t.trim()];
+          });
+          var tabLabel = r.dashboardTab ? (TAB_LABELS[r.dashboardTab.split(',')[0].trim()] || r.dashboardTab) : '';
+          var navTitle = hasNav ? 'Jump to "'+tabLabel+'" tab and highlight this metric\'s elements' : 'No navigation target (set Tab field)';
+          tbody += '<td class="'+tdCls+'" style="'+tdStyle+'">'
+            +'<div class="dm-name-wrap">';
           if (hasNav) {
-            tbody += '<td style="'+style+'">'
-              + '<button class="dm-name-link" '
-              + 'onclick="navToTabForRow(\''+esc(r.dashboardTab)+'\',\''+esc(r.displayName)+'\')" '
-              + 'title="Navigate to '+esc(TAB_LABELS[r.dashboardTab.split(',')[0].trim()]||r.dashboardTab)+'">'
-              + esc(val||'—')
-              + '</button>'
-              + '<input type="hidden" id="me-displayName-'+idx+'" value="'+esc(val)+'">'
-              + '</td>';
-            // Update the hidden input when we read it during save — we'll use a visible input instead
-            // Actually replace with an input that overlays on click:
-            tbody = tbody.slice(0, tbody.lastIndexOf('<td style="'+style+'">'));
-            tbody += '<td style="'+style+';position:relative">'
-              + '<button class="dm-name-link" '
-              + 'onclick="navToTabForRow(\''+esc(r.dashboardTab)+'\',\''+esc(r.displayName)+'\')" '
-              + 'title="Go to '+esc(TAB_LABELS[r.dashboardTab.split(',')[0].trim()]||r.dashboardTab)+'">'
-              + esc(val||'—') + ' ↗'
-              + '</button>'
-              + '<input id="me-displayName-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'" '
-              + 'class="dm-cell'+(mono?' dm-cell-mono':'')+'" '
-              + 'style="position:absolute;inset:0;opacity:0;pointer-events:none" '
-              + 'oninput="dmMarkDirty()" onchange="dmSyncNameBtn('+idx+')">'
-              + '</td>';
-            return;
+            tbody += '<button class="dm-nav-btn" id="dm-navbtn-'+idx+'" '
+              +'onclick="navToTabForRow(\''+esc(r.metricKey)+'\',\''+esc(r.dashboardTab)+'\')" '
+              +'title="'+navTitle+'">'
+              +(esc(val)||'<em style="font-weight:400;color:#ccc">unnamed</em>')
+              +'<span class="dm-nav-arrow">↗</span>'
+              +'</button>';
           } else {
-            // No nav — just an editable input
-            tbody += '<td style="'+style+'">'
-              + '<input id="me-displayName-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'" '
-              + 'class="dm-cell'+(mono?' dm-cell-mono':'')+'" oninput="dmMarkDirty()">'
-              + '</td>';
-            return;
+            tbody += '<button class="dm-nav-btn" id="dm-navbtn-'+idx+'" style="color:#999;cursor:default" '
+              +'title="'+navTitle+'">'
+              +(esc(val)||'<em style="font-weight:400;color:#ccc">unnamed</em>')
+              +'</button>';
           }
+          tbody += '<input id="me-displayName-'+idx+'" class="dm-cell dm-name-inp" '
+            +'value="'+esc(val)+'" placeholder="Display name" '
+            +'oninput="dmMarkDirty();dmSyncNameBtn('+idx+')">'
+            +'</div>'
+            +'<span class="dm-key-sub" id="dm-keysub-'+idx+'">'+esc(r.metricKey)+'</span>'
+            +'</td>';
+          return;
         }
 
+        // ── Operation: colored select ────────────────────────────────────────
         if (field === 'operation') {
+          var opColor = OP_COLORS[r.operation] || '#666';
           var opOpts = ops.map(function(op){
-            return '<option value="'+op+'"'+(op===r.operation?' selected':'')+' style="color:'+OP_COLORS[op]+'">'
-              +op+'</option>';
+            return '<option value="'+op+'"'+(op===r.operation?' selected':'')+'>'+op+'</option>';
           }).join('');
-          tbody += '<td style="'+style+'">'
-            + '<select id="me-operation-'+idx+'" class="dm-cell-op" oninput="dmMarkDirty()" '
-            + 'title="'+(tip||esc(OPERATION_DEFS[r.operation]||''))+'">'
-            + opOpts+'</select>'
-            + '</td>';
+          tbody += '<td class="'+tdCls+'" style="'+tdStyle+'">'
+            +'<select id="me-operation-'+idx+'" class="dm-cell-op" style="color:'+opColor+';font-weight:600" '
+            +'oninput="dmMarkDirty();this.style.color=OP_COLORS[this.value]||\'#666\'" '
+            +'title="'+(tip||'').replace(/"/g,'&quot;')+'">'
+            +opOpts+'</select>'
+            +'</td>';
           return;
         }
 
+        // ── Textarea ─────────────────────────────────────────────────────────
         if (isTA) {
-          tbody += '<td style="'+style+'">'
-            + '<textarea id="me-'+field+'-'+idx+'" class="dm-cell dm-cell-mono" rows="2" '
-            + 'placeholder="'+esc(ph)+'"'+tipAttr+' oninput="dmMarkDirty()">'+esc(val)+'</textarea>'
-            + '</td>';
+          tbody += '<td class="'+tdCls+'" style="'+tdStyle+'">'
+            +'<textarea id="me-'+field+'-'+idx+'" class="dm-cell dm-cell-mono" rows="2" '
+            +'placeholder="'+esc(ph)+'"'+tipAttr+' oninput="dmMarkDirty()">'+esc(val)+'</textarea>'
+            +'</td>';
           return;
         }
 
-        tbody += '<td style="'+style+'">'
-          + '<input id="me-'+field+'-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'" '
-          + 'class="dm-cell'+(mono?' dm-cell-mono':'')+'"'+tipAttr+' oninput="dmMarkDirty()">'
-          + '</td>';
+        // ── Plain input ───────────────────────────────────────────────────────
+        tbody += '<td class="'+tdCls+'" style="'+tdStyle+'">'
+          +'<input id="me-'+field+'-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'" '
+          +'class="dm-cell'+(mono?' dm-cell-mono':'')+'"'+tipAttr+' oninput="dmMarkDirty()">'
+          +'</td>';
       });
       tbody += '</tr>';
     });
   });
   tbody += '</tbody>';
 
-  // Dirty banner
-  var banner = '<div id="dm-dirty-banner" style="display:none">'
-    + '<span>⚠ Unsaved changes</span>'
-    + '<button onclick="dmSaveAll()" style="background:#fff;color:#E65100;border:none;padding:6px 16px;'
-    + 'border-radius:5px;font-weight:700;cursor:pointer;font-size:12px">Save All to Sheet</button>'
-    + '<button onclick="dmDiscard()" style="background:none;border:1px solid rgba(255,255,255,0.5);'
-    + 'color:#fff;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px">Discard</button>'
-    + '</div>';
+  // ── Dirty banner ──────────────────────────────────────────────────────────
+  var banner = '<div id="dm-dirty">'
+    +'<div class="dm-dirty-dot"></div>'
+    +'<span class="dm-dirty-label">Unsaved changes</span>'
+    +'<button class="dm-save-btn" onclick="dmSaveAll()">Save to Sheet</button>'
+    +'<button class="dm-discard-btn" onclick="dmDiscard()">Discard</button>'
+    +'</div>';
 
   el.innerHTML = css
-    + '<div style="font-size:11px;color:#aaa;margin-bottom:12px">'
-    + _configRows.length + ' rows · Click a <strong style="color:var(--orange)">Name ↗</strong> to navigate to that metric on its tab · Edit any cell directly · Save when done</div>'
-    + '<div style="overflow-x:auto"><table id="dm-grid">' + thead + tbody + '</table></div>'
+    + '<div style="font-size:11px;color:#aaa;margin-bottom:14px;line-height:1.5">'
+    + '<strong style="color:#666">'+_configRows.length+' rows</strong>'
+    + ' · Edit any cell directly · Hover a <u style="cursor:help">column header</u> for its definition'
+    + ' · Click an <strong style="color:#E65100">orange name ↗</strong> to navigate to that metric on its dashboard tab'
+    + '</div>'
+    + '<div id="dm-wrap"><table id="dm-grid">' + thead + tbody + '</table></div>'
     + banner;
 
-  // Make display name buttons show editable input on double-click
-  _configRows.forEach(function(r, idx) {
-    var btn = document.querySelector('#dm-row-'+idx+' .dm-name-link');
+  // Wire double-click on name buttons to expose the real input
+  _configRows.forEach(function(_, idx) {
+    var btn = document.getElementById('dm-navbtn-'+idx);
     var inp = document.getElementById('me-displayName-'+idx);
-    if (btn && inp && inp.style.position === 'absolute') {
-      btn.addEventListener('dblclick', function(e) {
-        e.stopPropagation();
-        btn.style.display = 'none';
-        inp.style.position = '';
-        inp.style.opacity = '';
-        inp.style.pointerEvents = '';
-        inp.focus();
-        inp.addEventListener('blur', function() {
-          btn.textContent = (inp.value || '—') + ' ↗';
-          btn.style.display = '';
-          inp.style.position = 'absolute';
-          inp.style.opacity = '0';
-          inp.style.pointerEvents = 'none';
-        }, { once: true });
+    if (!btn || !inp) return;
+    btn.addEventListener('dblclick', function(e) {
+      e.stopPropagation();
+      btn.style.display = 'none';
+      inp.classList.remove('dm-name-inp');
+      inp.style.position = '';
+      inp.style.opacity = '';
+      inp.style.pointerEvents = '';
+      inp.focus();
+      inp.select();
+      inp.addEventListener('blur', function onBlur() {
+        inp.removeEventListener('blur', onBlur);
+        btn.textContent = inp.value || 'unnamed';
+        var arrow = document.createElement('span');
+        arrow.className = 'dm-nav-arrow'; arrow.textContent = '↗';
+        btn.appendChild(arrow);
+        btn.style.display = '';
+        inp.classList.add('dm-name-inp');
+        inp.style.position = 'absolute';
+        inp.style.opacity = '0';
+        inp.style.pointerEvents = 'none';
       });
-    }
+    });
   });
 }
 
 var _dmDirty = false;
 
 function dmMarkDirty() {
-  _dmDirty = true;
-  var b = document.getElementById('dm-dirty-banner');
-  if (b) b.style.display = 'flex';
+  if (!_dmDirty) {
+    _dmDirty = true;
+    var b = document.getElementById('dm-dirty');
+    if (b) b.style.display = 'flex';
+  }
 }
 
 function dmSyncNameBtn(idx) {
   var inp = document.getElementById('me-displayName-'+idx);
-  var btn = document.querySelector('#dm-row-'+idx+' .dm-name-link');
-  if (inp && btn) btn.textContent = (inp.value || '—') + ' ↗';
+  var btn = document.getElementById('dm-navbtn-'+idx);
+  var sub = document.getElementById('dm-keysub-'+idx);
+  if (inp && btn) {
+    // Update visible button text
+    var arrow = btn.querySelector('.dm-nav-arrow');
+    btn.textContent = inp.value || 'unnamed';
+    if (arrow) btn.appendChild(arrow);
+  }
+  if (sub) {
+    var keyEl = document.getElementById('me-metricKey-'+idx);
+    if (keyEl) sub.textContent = keyEl.value || '';
+  }
 }
 
 function _dmReadRow(idx) {
@@ -2249,16 +2411,11 @@ function _dmReadRow(idx) {
 }
 
 async function dmSaveAll() {
-  // Read all rows from the live DOM into _configRows
   _configRows.forEach(function(_, idx) { _configRows[idx] = _dmReadRow(idx); });
   _dmDirty = false;
-  var b = document.getElementById('dm-dirty-banner');
+  var b = document.getElementById('dm-dirty');
   if (b) b.style.display = 'none';
-  try {
-    await saveMappingAllToSheet();
-  } catch(e) {
-    console.warn('Sheet save failed:', e.message);
-  }
+  try { await saveMappingAllToSheet(); } catch(e) { console.warn('Sheet save:', e.message); }
 }
 
 function dmDiscard() {
@@ -2267,11 +2424,7 @@ function dmDiscard() {
 }
 
 function addMappingRow() {
-  // Flush any unsaved edits first
-  _configRows.forEach(function(_, idx) {
-    var r = _dmReadRow(idx);
-    if (r.metricKey || r.displayName) _configRows[idx] = r;
-  });
+  _configRows.forEach(function(_, idx) { _configRows[idx] = _dmReadRow(idx); });
   _configRows.push({ metricKey:'', displayName:'', spreadsheetId:HR, sheetTab:'', range:'',
     filterCol:'', filterValue:'', filterCol2:'', filterValue2:'',
     valueCol:'', groupCol:'', seriesCol:'', operation:'LIST',
@@ -2280,17 +2433,15 @@ function addMappingRow() {
   setTimeout(function() {
     var lastIdx = _configRows.length - 1;
     var row = document.getElementById('dm-row-'+lastIdx);
-    if (row) {
-      row.scrollIntoView({ behavior:'smooth', block:'center' });
-      var first = document.getElementById('me-displayName-'+lastIdx);
-      if (first) first.focus();
-    }
+    if (row) row.scrollIntoView({ behavior:'smooth', block:'center' });
+    var first = document.getElementById('me-displayName-'+lastIdx);
+    if (first) { first.classList.remove('dm-name-inp'); first.style.position=''; first.style.opacity=''; first.style.pointerEvents=''; first.focus(); }
   }, 80);
 }
 
 async function deleteMappingRow(i) {
   var name = _configRows[i].displayName || _configRows[i].metricKey || 'this row';
-  if (!confirm('Delete "'+name+'"? Cannot be undone.')) return;
+  if (!confirm('Delete "'+name+'"? This cannot be undone.')) return;
   _configRows.splice(i, 1);
   renderDataMapping();
   try { await saveMappingAllToSheet(); } catch(e) {}
