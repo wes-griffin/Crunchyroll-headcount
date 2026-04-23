@@ -800,7 +800,7 @@ async function seedConfigTab() {
 // Bump this when CONFIG_DEFAULTS changes — triggers a one-time reseed of the sheet.
 // User-added rows are preserved by merging: defaults fill in missing metricKeys,
 // existing rows (by metricKey) are kept as-is so manual edits survive.
-const CONFIG_VERSION = 3;
+const CONFIG_VERSION = 4;
 
 async function loadConfig() {
   try {
@@ -823,6 +823,13 @@ async function loadConfig() {
       const existingByKey = {};
       dataRows.filter(r => r[0] !== '__version__').forEach(r => {
         existingByKey[r[0].trim()] = r;
+      });
+      // Discard any existing row where operation is blank — these were corrupted
+      // by saving while sections were collapsed (inputs missing from DOM)
+      Object.keys(existingByKey).forEach(function(k) {
+        if (!existingByKey[k][12] || !existingByKey[k][12].toString().trim()) {
+          delete existingByKey[k];
+        }
       });
       const merged = CONFIG_DEFAULTS.map(def => existingByKey[def[0]] || def);
       // Also keep any user-added rows that aren't in CONFIG_DEFAULTS
@@ -2463,7 +2470,11 @@ function _dmReadRow(idx) {
 }
 
 async function dmSaveAll() {
-  _configRows.forEach(function(_, idx) { _configRows[idx] = _dmReadRow(idx); });
+  // Only overwrite rows whose inputs are visible in the DOM (not collapsed)
+  _configRows.forEach(function(_, idx) {
+    var r = _dmReadRow(idx);
+    if (r.metricKey || r.displayName) _configRows[idx] = r;
+  });
   _dmDirty = false;
   var b = document.getElementById('dm-dirty');
   if (b) b.style.display = 'none';
