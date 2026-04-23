@@ -2047,39 +2047,39 @@ function updateOpDesc(idx) {
 // ── Column definitions: [key, label, width, monospace, placeholder, isTextarea, tooltip] ──
 var DM_COLS = [
   ['displayName',  'Name',          170, false, '',                        false,
-   'Human-readable label. Click ↗ to jump to the elements this metric powers on its dashboard tab.'],
-  ['metricKey',    'Key',           130, true,  '',                        false,
-   'Unique code identifier used as D[key]. Must be stable and unique across all rows.'],
-  ['operation',    'Operation',     148, false, '',                        false,
-   'How fetched rows are reduced: LIST → array, SUM → numeric total, COUNT_ROWS → count, GROUP_BY_COUNT/SUM → grouped object, SINGLE_CELL → first cell value.'],
+   'The friendly name shown in the dashboard. Click ↗ to jump straight to where this metric appears.'],
+  ['metricKey',    'Metric ID',     130, true,  '',                        false,
+   'A short internal code that identifies this metric (e.g. "hc-ee"). Keep it consistent — changing it will break the dashboard.'],
+  ['operation',    'How to Read',   148, false, '',                        false,
+   'How to turn the raw sheet rows into a number or list. LIST = keep all rows as a list. SINGLE_CELL = just grab one cell value. SUM = add up a column. COUNT_ROWS = count matching rows. GROUP_BY_SUM/COUNT = group rows and total each group.'],
   ['sheetTab',     'Sheet Tab',     190, false, '',                        false,
-   'Exact name of the Google Sheets tab (case-sensitive). E.g. "[IMPORT] Workday Data".'],
-  ['range',        'Range',          88, true,  'A5:M13',                  false,
-   'A1-notation cell range to fetch. Empty trailing rows are filtered automatically.'],
-  ['filterCol',    'F.Col',          50, true,  'A',                       false,
-   'Column letter or 0-based index for the primary filter. Leave blank for no filter.'],
-  ['filterValue',  'F.Value',       108, false, '!',                       false,
-   'Operator + value: ! (not blank)  !val (not equals)  !~text (not contains)  ~text (contains)  ~/re/flags  !~/re/flags  >=today  <=today  >=N  <=N  value (exact).'],
-  ['filterCol2',   'F.Col2',         50, true,  '',                        false,
-   'Column for a second AND filter. Both conditions must pass.'],
-  ['filterValue2', 'F.Val2',         90, false, '',                        false,
-   'Same operators as F.Value, applied to F.Col2.'],
-  ['valueCol',     'Val',            44, true,  'E',                       false,
-   'Column summed (SUM), counted (COUNT_DISTINCT), or returned (FIRST_VALUE). For PERCENTAGE: "numKey/denKey". For DELTA: "key1,key2".'],
-  ['groupCol',     'Grp',            44, true,  'A',                       false,
-   'Column to group by in GROUP_BY_COUNT / GROUP_BY_SUM / CROSS_TAB operations.'],
-  ['seriesCol',    'Ser',            44, true,  '',                        false,
-   'Secondary grouping dimension for CROSS_TAB operations.'],
-  ['dashboardTab', 'Tab',           108, false, 'summary',                 false,
-   'Which dashboard tab this metric belongs to. Values: all  summary  employees  contingent  reqs  pa. Comma-separate for multi-tab metrics.'],
-  ['filtersJSON',  'Filters JSON',  180, true,  '[{"col":"A","op":"!"}]',  false,
-   'Extra AND filters as JSON array. Each rule: {"col":"A","op":"!~","val":"total"}. Ops: "!" "=" "!=" "~" "!~" "regex" "!~regex" ">=today" "<=today" ">=" "<=".'],
+   'The exact name of the Google Sheets tab where this data lives (case-sensitive), e.g. "[IMPORT] Workday Data".'],
+  ['range',        'Cell Range',     88, true,  'A5:M13',                  false,
+   'Which cells to read, in standard spreadsheet notation (e.g. A5:M500). Blank trailing rows are ignored automatically.'],
+  ['filterCol',    'Filter Column',  50, true,  'A',                       false,
+   'A column letter or number (0-based) to filter rows by. Leave blank to skip filtering.'],
+  ['filterValue',  'Filter Rule',   108, false, '!',                       false,
+   'What rows to keep. Examples: ! = not blank, !Total = skip rows where the cell says "Total", ~Active = keep rows containing "Active", <=today = only past/current dates, >=today = only future dates.'],
+  ['filterCol2',   'Filter Col 2',   50, true,  '',                        false,
+   'A second column to filter by (both conditions must be true). Same format as Filter Column.'],
+  ['filterValue2', 'Filter Rule 2',  90, false, '',                        false,
+   'The filter rule for the second column. Same format as Filter Rule.'],
+  ['valueCol',     'Value Col',      44, true,  'E',                       false,
+   'The column to sum or return (for SUM, COUNT, and FIRST_VALUE operations). Not needed for LIST.'],
+  ['groupCol',     'Group By',       44, true,  'A',                       false,
+   'The column to group rows by (for GROUP_BY operations, e.g. group by SMT or location).'],
+  ['seriesCol',    'Series Col',     44, true,  '',                        false,
+   'A second grouping column for cross-tab (pivot) operations. Usually left blank.'],
+  ['dashboardTab', 'Shows On Tab',  108, false, 'summary',                 false,
+   'Which dashboard tab uses this metric. Options: summary, employees, contingent, reqs, pa, all. Separate multiple tabs with commas.'],
+  ['filtersJSON',  'Advanced Filters', 180, true, '[{"col":"A","op":"!"}]', false,
+   'Extra row filters written as JSON (for power users). Each filter is {"col":"A","op":"!~","val":"total"}. Operators: ! (not blank), = (equals), != (not equals), ~ (contains), !~ (does not contain), >=today, <=today.'],
   ['options',      'Options',       118, true,  '{"skipRows":1}',          false,
-   'Misc options JSON. skipRows: N skips first N rows. _projectCols:[0,2] projects each row to those column indices.'],
-  ['columnMapping','Col Mapping',   230, true,  '',                        true,
-   'JSON shaping raw rows into named objects (LIST). Simple: {"name":1}. Numeric: {"ee":{"col":1,"number":true}}. Derived bool: {"$isEE":{"col":3,"exact":"Employee"}}. Empty = raw arrays.'],
+   'Extra settings as JSON. skipRows: 1 skips the header row. _projectCols:[0,2] keeps only specific columns from each row (by position number).'],
+  ['columnMapping','Column Mapping', 230, true,  '',                        true,
+   'Maps raw column positions to named fields (for LIST). Example: {"name":1,"type":3} means column 1 becomes "name", column 3 becomes "type". Leave blank to keep rows as raw arrays.'],
   ['notes',        'Notes',         170, false, '',                        false,
-   'Internal annotation only. Document why this row exists, what reads it, or source data quirks.'],
+   'Your own internal notes about this metric — why it exists, what it powers, or any quirks in the source data.'],
 ];
 
 // Column widths (px) — user can drag to resize, stored here
@@ -2089,6 +2089,20 @@ var _dmColWidths = DM_COLS.map(function(c){ return c[2]; });
 var _dmCollapsed = {};
 
 function renderDataMapping() {
+  // Update toggle button state each time we render
+  var cardBtn = document.getElementById('dm-toggle-card');
+  var sheetBtn = document.getElementById('dm-toggle-sheet');
+  if (cardBtn && sheetBtn) {
+    if (_dmViewMode === 'card') {
+      cardBtn.style.cssText = 'padding:6px 14px;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.15s;background:white;color:var(--orange);box-shadow:0 1px 3px rgba(0,0,0,0.12)';
+      sheetBtn.style.cssText = 'padding:6px 14px;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.15s;background:none;color:#888';
+    } else {
+      sheetBtn.style.cssText = 'padding:6px 14px;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.15s;background:white;color:var(--orange);box-shadow:0 1px 3px rgba(0,0,0,0.12)';
+      cardBtn.style.cssText = 'padding:6px 14px;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.15s;background:none;color:#888';
+    }
+  }
+  if (_dmViewMode === 'card') { renderDmCardView(); return; }
+
   var el = document.getElementById('mappingTable');
   if (!el) return;
   if (!_configRows.length) {
@@ -2484,6 +2498,195 @@ async function dmSaveAll() {
 function dmDiscard() {
   _dmDirty = false;
   renderDataMapping();
+}
+
+
+// ── View toggle ────────────────────────────────────────────────────────────
+var _dmViewMode = 'card'; // 'card' | 'sheet'
+
+function setDmView(mode) {
+  _dmViewMode = mode;
+  // Update toggle button styles
+  var cardBtn = document.getElementById('dm-toggle-card');
+  var sheetBtn = document.getElementById('dm-toggle-sheet');
+  if (cardBtn && sheetBtn) {
+    if (mode === 'card') {
+      cardBtn.style.cssText = 'padding:6px 14px;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.15s;background:white;color:var(--orange);box-shadow:0 1px 3px rgba(0,0,0,0.12)';
+      sheetBtn.style.cssText = 'padding:6px 14px;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.15s;background:none;color:#888';
+    } else {
+      sheetBtn.style.cssText = 'padding:6px 14px;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.15s;background:white;color:var(--orange);box-shadow:0 1px 3px rgba(0,0,0,0.12)';
+      cardBtn.style.cssText = 'padding:6px 14px;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.15s;background:none;color:#888';
+    }
+  }
+  renderDataMapping();
+}
+
+// ── CARD VIEW renderer ─────────────────────────────────────────────────────
+function renderDmCardView() {
+  var el = document.getElementById('mappingTable');
+  if (!el) return;
+  if (!_configRows.length) {
+    el.innerHTML = '<p style="padding:32px;color:#999;text-align:center;">No rows configured yet. Switch to Spreadsheet View and click + Add Row to get started.</p>';
+    return;
+  }
+
+  var TAB_LABELS = { all:'All Tabs', summary:'Summary', employees:'Employees', contingent:'Contingent Workers', reqs:'Open Reqs', pa:'Pending Actions' };
+  var OP_COLORS  = { LIST:'var(--blue)', SINGLE_CELL:'var(--green)', SUM:'var(--amber)', COUNT_ROWS:'var(--orange)', GROUP_BY_SUM:'#6A1B9A', GROUP_BY_COUNT:'#6A1B9A' };
+
+  var tabOrder = ['all','summary','employees','contingent','reqs','pa'];
+  var groups = {};
+  _configRows.forEach(function(r, i) {
+    var tab = r.dashboardTab ? r.dashboardTab.split(',')[0].trim() : 'other';
+    if (!groups[tab]) groups[tab] = [];
+    groups[tab].push(i);
+  });
+  var allTabs = tabOrder.filter(function(t){ return groups[t]; })
+    .concat(Object.keys(groups).filter(function(t){ return tabOrder.indexOf(t) < 0; }));
+  var ops = Object.keys(OPERATION_DEFS);
+
+  var parts = [];
+  parts.push('<style>'
+    + '.dmcard-section{margin-bottom:32px}'
+    + '.dmcard-section-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;margin-top:24px}'
+    + '.dmcard-section-hdr h3{font-size:15px;font-weight:700;color:var(--black)}'
+    + '.dmcard-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:14px}'
+    + '.dmcard{background:white;border-radius:12px;border:1px solid var(--gray-mid);overflow:hidden;transition:box-shadow 0.15s}'
+    + '.dmcard:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08)}'
+    + '.dmcard-top{padding:14px 18px 10px;border-bottom:1px solid var(--gray-mid)}'
+    + '.dmcard-name-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}'
+    + '.dmcard-key{font-size:10px;font-family:monospace;color:var(--gray-dark);background:var(--gray);padding:2px 7px;border-radius:4px;flex-shrink:0}'
+    + '.dmcard-tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center}'
+    + '.dmcard-op{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;color:white;letter-spacing:0.3px;flex-shrink:0}'
+    + '.dmcard-body{padding:12px 18px;display:flex;flex-direction:column;gap:10px}'
+    + '.dmcard-field{display:grid;grid-template-columns:120px 1fr;gap:6px;align-items:start}'
+    + '.dmcard-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--gray-dark);padding-top:7px}'
+    + '.dci{font-size:12px;font-family:inherit;color:var(--text);background:var(--gray);border:1px solid transparent;border-radius:6px;padding:5px 9px;width:100%;outline:none;transition:border-color 0.15s;resize:vertical}'
+    + '.dci:focus{border-color:var(--orange);background:white}'
+    + '.dci.mono{font-family:monospace;font-size:11px}'
+    + '.dmcard-footer{padding:8px 18px 12px;display:flex;align-items:center;justify-content:space-between;background:var(--gray);border-top:1px solid var(--gray-mid)}'
+    + '</style>');
+
+  allTabs.forEach(function(tab) {
+    var indices = groups[tab] || [];
+    var label = TAB_LABELS[tab] || tab;
+    parts.push('<div class="dmcard-section">');
+    parts.push('<div class="dmcard-section-hdr"><h3>' + label + '</h3><span class="pill">' + indices.length + '</span></div>');
+    parts.push('<div class="dmcard-grid">');
+
+    indices.forEach(function(i) {
+      var r = _configRows[i];
+      var op = r.operation || 'LIST';
+      var opColor = OP_COLORS[op] || '#888';
+      var hasMK = !!METRIC_HIGHLIGHT_MAP[r.metricKey];
+      var mk = (r.metricKey || '').replace(/"/g,'');
+      var dt = (r.dashboardTab || '').replace(/"/g,'');
+
+      parts.push('<div class="dmcard" id="dmc-' + i + '">');
+      parts.push('<div style="height:3px;background:' + opColor + '"></div>');
+
+      // Top
+      parts.push('<div class="dmcard-top">');
+      parts.push('<div class="dmcard-name-row">'
+        + '<input class="dci" style="font-size:14px;font-weight:700;background:transparent;border-color:transparent;padding:0;flex:1"'
+        + ' value="' + _escAttr(r.displayName || '') + '" placeholder="Metric name..."'
+        + ' data-idx="' + i + '" data-field="displayName" onchange="dmcUpdateField(this)">'
+        + '<span class="dmcard-key">' + _escHtml(r.metricKey || '—') + '</span>'
+        + '</div>');
+      parts.push('<div class="dmcard-tags">'
+        + '<span class="dmcard-op" style="background:' + opColor + '">' + op + '</span>'
+        + (hasMK ? '<button style="font-size:10px;color:var(--orange);cursor:pointer;font-weight:600;background:none;border:none;font-family:inherit;text-decoration:underline" data-mk="' + mk + '" data-dt="' + dt + '" onclick="var el=this;navToTabForRow(el.dataset.mk,el.dataset.dt)">&#8599; View on Dashboard</button>' : '')
+        + '</div>');
+      parts.push('</div>');
+
+      // Body
+      parts.push('<div class="dmcard-body">');
+
+      parts.push('<div class="dmcard-field">'
+        + '<div class="dmcard-lbl" title="Which spreadsheet tab to read">Data Source</div>'
+        + '<input class="dci" value="' + _escAttr(r.sheetTab||'') + '" placeholder="Sheet tab name..." data-idx="' + i + '" data-field="sheetTab" onchange="dmcUpdateField(this)">'
+        + '</div>');
+
+      var opOptions = ops.map(function(o){ return '<option value="' + o + '"' + (op === o ? ' selected' : '') + '>' + o + '</option>'; }).join('');
+      parts.push('<div style="display:grid;grid-template-columns:120px 1fr 1fr;gap:6px;align-items:start">'
+        + '<div class="dmcard-lbl" style="padding-top:7px" title="Which cells to read">Cell Range</div>'
+        + '<input class="dci mono" value="' + _escAttr(r.range||'') + '" placeholder="e.g. A2:Z500" data-idx="' + i + '" data-field="range" onchange="dmcUpdateField(this)">'
+        + '<select class="dci" data-idx="' + i + '" data-field="operation" onchange="dmcUpdateField(this)">' + opOptions + '</select>'
+        + '</div>');
+
+      parts.push('<div style="display:grid;grid-template-columns:120px 1fr 1fr 1fr 1fr;gap:6px;align-items:start">'
+        + '<div class="dmcard-lbl" style="padding-top:7px" title="Filter rows to keep">Row Filters</div>'
+        + '<input class="dci mono" value="' + _escAttr(r.filterCol||'') + '" placeholder="Col (e.g. A)" title="Filter column" data-idx="' + i + '" data-field="filterCol" onchange="dmcUpdateField(this)">'
+        + '<input class="dci mono" value="' + _escAttr(r.filterValue||'') + '" placeholder="Rule (e.g. !)" title="Filter rule" data-idx="' + i + '" data-field="filterValue" onchange="dmcUpdateField(this)">'
+        + '<input class="dci mono" value="' + _escAttr(r.filterCol2||'') + '" placeholder="Col 2" title="2nd filter column" data-idx="' + i + '" data-field="filterCol2" onchange="dmcUpdateField(this)">'
+        + '<input class="dci mono" value="' + _escAttr(r.filterValue2||'') + '" placeholder="Rule 2" title="2nd filter rule" data-idx="' + i + '" data-field="filterValue2" onchange="dmcUpdateField(this)">'
+        + '</div>');
+
+      parts.push('<div class="dmcard-field">'
+        + '<div class="dmcard-lbl" title="Map column positions to named fields (JSON)">Column Mapping</div>'
+        + '<textarea class="dci mono" rows="2" data-idx="' + i + '" data-field="columnMapping" onchange="dmcUpdateField(this)">' + _escHtml(r.columnMapping||'') + '</textarea>'
+        + '</div>');
+
+      parts.push('<details><summary style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--gray-dark);cursor:pointer;padding:2px 0">Advanced Options</summary>'
+        + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">'
+        + '<div class="dmcard-field"><div class="dmcard-lbl" title="Extra filter rules as JSON">Advanced Filters</div>'
+        + '<textarea class="dci mono" rows="2" data-idx="' + i + '" data-field="filtersJSON" onchange="dmcUpdateField(this)">' + _escHtml(r.filtersJSON||'') + '</textarea></div>'
+        + '<div class="dmcard-field"><div class="dmcard-lbl" title="Extra options as JSON">Options</div>'
+        + '<input class="dci mono" value="' + _escAttr(r.options||'') + '" data-idx="' + i + '" data-field="options" onchange="dmcUpdateField(this)"></div>'
+        + '<div style="display:grid;grid-template-columns:120px 1fr 1fr 1fr;gap:6px;align-items:start">'
+        + '<div class="dmcard-lbl" style="padding-top:7px">Calc Columns</div>'
+        + '<input class="dci mono" value="' + _escAttr(r.valueCol||'') + '" placeholder="Value col" title="Column to sum or return" data-idx="' + i + '" data-field="valueCol" onchange="dmcUpdateField(this)">'
+        + '<input class="dci mono" value="' + _escAttr(r.groupCol||'') + '" placeholder="Group by" title="Column to group rows by" data-idx="' + i + '" data-field="groupCol" onchange="dmcUpdateField(this)">'
+        + '<input class="dci mono" value="' + _escAttr(r.seriesCol||'') + '" placeholder="Series" title="Series/pivot column" data-idx="' + i + '" data-field="seriesCol" onchange="dmcUpdateField(this)">'
+        + '</div></div></details>');
+
+      parts.push('<div class="dmcard-field">'
+        + '<div class="dmcard-lbl">Notes</div>'
+        + '<input class="dci" value="' + _escAttr(r.notes||'') + '" placeholder="Notes about this metric..." data-idx="' + i + '" data-field="notes" onchange="dmcUpdateField(this)">'
+        + '</div>');
+
+      parts.push('</div>'); // body
+
+      parts.push('<div class="dmcard-footer">'
+        + '<span style="font-size:11px;color:var(--gray-dark);font-style:italic">' + _escHtml(r.dashboardTab ? 'Tab: ' + r.dashboardTab : 'No tab assigned') + '</span>'
+        + '<button onclick="deleteMappingRow(' + i + ')" style="font-size:10px;color:var(--gray-dark);cursor:pointer;background:none;border:none;font-family:inherit;padding:0" title="Remove this metric">&#x1F5D1; Remove</button>'
+        + '</div>');
+
+      parts.push('</div>'); // card
+    });
+
+    parts.push('</div></div>'); // grid + section
+  });
+
+  // Dirty banner
+  parts.push('<div id="dm-dirty" style="display:none;position:sticky;bottom:0;background:#1A1A1A;color:white;padding:12px 24px;align-items:center;justify-content:space-between;gap:12px;z-index:50;border-top:2px solid var(--orange)">'
+    + '<span style="font-size:13px;font-weight:600">You have unsaved changes</span>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button onclick="dmDiscard()" style="padding:7px 16px;font-size:12px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:#444;color:white;font-family:inherit">Discard</button>'
+    + '<button onclick="dmSaveAll()" style="padding:7px 16px;font-size:12px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:var(--orange);color:white;font-family:inherit">Save to Sheet</button>'
+    + '</div></div>');
+
+  el.innerHTML = parts.join('');
+}
+
+function _escAttr(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Update a row field from card-view element using data-idx / data-field
+function dmcUpdateField(el) {
+  var idx = parseInt(el.dataset.idx);
+  var field = el.dataset.field;
+  if (!_configRows[idx]) return;
+  _configRows[idx][field] = el.value;
+  dmMarkDirty();
+}
+
+function _esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// Update a config row from card view inputs
+function dmcUpdate(idx, field, val) {
+  if (!_configRows[idx]) return;
+  _configRows[idx][field] = val;
+  dmMarkDirty();
 }
 
 function addMappingRow() {
