@@ -422,6 +422,7 @@ document.addEventListener("DOMContentLoaded", function() {
           <tbody id="cwHCByLoc"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--gray-dark)">Loading…</td></tr></tbody>
         </table>
       </div>
+      <div id="cwLocDebug" style="margin-top:8px;padding:10px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:6px;font-size:11px;font-family:monospace;color:#E65100;white-space:pre-wrap"></div>
     </div>
   </div>
 </div>
@@ -1011,26 +1012,24 @@ function applyOperation(cfg, rows) {
       let mapping = null;
       try { mapping = cfg.columnMapping ? JSON.parse(cfg.columnMapping) : null; } catch(e) {}
 
+      // Column projection takes priority — works even with no columnMapping
+      if (opts._projectCols && Array.isArray(opts._projectCols)) {
+        return filtered.map(r => opts._projectCols.map(ci => (r[ci] !== undefined ? r[ci] : '')));
+      }
+
       // No columnMapping → return raw filtered arrays (hc-ee, hc-cw)
       if (!mapping) return filtered;
 
       // Detect old documentation-only format: {"0":"SMT Leader","1":"Start HC",...}
       // Keys are numeric strings, values are label strings (not column indices).
-      // This was used for display in the old Data Mapping UI but not as field defs.
       // If detected, treat as no mapping and return raw filtered arrays.
       const allEntries = Object.entries(mapping);
       const isOldDocFormat = allEntries.length > 0 && allEntries.every(([key, def]) => {
         if (key.startsWith('$')) return true;  // skip derived fields
         if (typeof def === 'object') return false; // new format
-        // Old format: key is a numeric string ("0","1",...) AND value is a label string
         return !isNaN(parseInt(key)) && typeof def === 'string' && isNaN(parseInt(def));
       });
       if (isOldDocFormat) return filtered;
-
-      // Column projection: options._projectCols → [[col0, col2], ...] (hc-ee-loc, hc-cw-loc)
-      if (opts._projectCols && Array.isArray(opts._projectCols)) {
-        return filtered.map(r => opts._projectCols.map(ci => (r[ci] !== undefined ? r[ci] : '')));
-      }
 
       // Named object mapping with optional $derived fields and numeric conversion
       const fieldDefs = Object.entries(mapping);
@@ -1232,6 +1231,7 @@ async function loadAllData() {
           // Old GROUP_BY_SUM returned an object {loc: count}
           val = Object.entries(val).filter(([k]) => k).map(([k, v]) => [k, v]);
         }
+        console.log('['+key+'] sample:', JSON.stringify(val.slice(0,3)));
         // Already correct array format — keep as-is
       }
 
@@ -1522,6 +1522,10 @@ function renderCWTab() {
 
   // By Location
   const locData = D.cwLoc || cw.map(r=>[r[0],r[4]]);
+  // Debug: show raw data so we can see what the engine is producing
+  const dbg = document.getElementById('cwLocDebug');
+  if (dbg) dbg.innerHTML = '<strong>Raw cwLoc data (first 5 rows):</strong><br>'
+    + (locData.slice(0,5).map(r=>JSON.stringify(r)).join('<br>') || '(empty)');
   const locTotal = locData.reduce((s,r)=>s+n(r[1]),0)||1;
   const locMax   = Math.max(...locData.map(r=>n(r[1])),1);
   document.getElementById('cwHCByLoc').innerHTML = [...locData].sort((a,b)=>n(b[1])-n(a[1])).map(r =>
