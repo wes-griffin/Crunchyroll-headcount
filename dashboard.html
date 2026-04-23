@@ -1203,9 +1203,21 @@ async function loadAllData() {
       D[cfg.metricKey] = den > 0 ? (num / den * 100).toFixed(1) + '%' : '—';
     });
 
-    // 7. Alias D[metricKey] → legacy D property names so render functions work unchanged
+    // 7. Alias D[metricKey] → legacy D property names so render functions work unchanged.
+    // Also normalise formats so old sheet config (GROUP_BY_SUM for locs) still works.
     Object.entries(D_PROPERTY_MAP).forEach(([key, prop]) => {
-      if (D[key] !== undefined) D[prop] = D[key];
+      if (D[key] === undefined) return;
+      let val = D[key];
+      // Location rows need [[loc, count], ...] — convert object if old GROUP_BY_SUM ran
+      if ((prop === 'eeLoc' || prop === 'cwLoc') && val && !Array.isArray(val)) {
+        val = Object.entries(val).filter(([k]) => k).map(([k, v]) => [k, v]);
+      }
+      // SINGLE_CELL combined totals come back as strings from the sheet
+      if (prop === 'eeCurrTotal' || prop === 'eeFutureTotal' ||
+          prop === 'cwCurrTotal' || prop === 'cwFutureTotal') {
+        val = parseFloat(String(val || '0').replace(/,/g, '')) || 0;
+      }
+      D[prop] = val;
     });
 
     renderAll();
