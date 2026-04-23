@@ -415,7 +415,6 @@ document.addEventListener("DOMContentLoaded", function() {
       </div>
     </div>
     <div>
-      <div id="cwLocDiag" style="display:none;margin-bottom:12px;padding:10px 14px;background:#E3F2FD;border:1px solid #90CAF9;border-radius:6px;font-size:11px;font-family:monospace;color:#1565C0;line-height:1.6"></div>
       <div class="section-header"><h3>Headcount by Location</h3><span class="pill">Click to drill</span></div>
       <div class="table-wrap">
         <table>
@@ -745,9 +744,7 @@ function parseConfigRow(raw) {
 // ── Generic sheet access (any spreadsheet) ───────────────────
 async function fetchFromAnySheet(spreadsheetId, sheet, range) {
   const token = await getToken();
-  // UNFORMATTED_VALUE ensures formula cells returning 0 are included rather than
-  // being treated as empty and truncated from the response
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("'"+sheet+"'!"+range)}?valueRenderOption=UNFORMATTED_VALUE`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("'"+sheet+"'!"+range)}`;
   const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
   if (!r.ok) throw new Error(`${sheet}!${range}: ${r.status}`);
   return (await r.json()).values || [];
@@ -863,17 +860,6 @@ async function executeFetches(plan) {
     const { spreadsheetId, tab, range } = plan[key];
     try {
       results[key] = await fetchFromAnySheet(spreadsheetId, tab, range);
-      // Diagnostic: log raw rows for CW location fetch
-      if (range === 'E38:G80') {
-        const raw = results[key];
-        const el = document.getElementById('cwLocDiag');
-        if (el) {
-          el.style.display = 'block';
-          el.innerHTML = '<strong>Raw API response for E38:G80 (first 5 rows):</strong><br>'
-            + raw.slice(0,5).map(r => JSON.stringify(r)).join('<br>')
-            + '<br><strong>Total rows returned:</strong> ' + raw.length;
-        }
-      }
     } catch(e) {
       console.warn(`Fetch failed [${tab}!${range}]:`, e.message);
       results[key] = [];
