@@ -1455,17 +1455,10 @@ function renderEETab() {
     <td class="num">${fmt(tot.tl)}</td><td class="num">+${fmt(tot.avail)}</td>
     <td>${bar(tot.curr,tot.tl)}</td></tr>`;
 
-  // By Location — filter out header/global rows, fall back to Workday if counts empty
-  const _eeLocRaw = (D.eeLoc || []).filter(r => r && r[0]
+  // By Location — read directly from D.eeLoc (projected [location, count] pairs)
+  const locData = (D.eeLoc || []).filter(r => r && r[0]
     && !r[0].toString().toLowerCase().includes('global')
-    && !r[0].toString().toLowerCase().includes('location')
-    && n(r[1]) > 0);
-  const _eeWdLoc = !_eeLocRaw.length
-    ? Object.entries((D.workdayWorkers||[]).filter(w=>w.isEE&&w.location)
-        .reduce((a,w)=>{a[w.location]=(a[w.location]||0)+1;return a;},{}))
-        .map(([l,c])=>[l,c])
-    : [];
-  const locData = _eeLocRaw.length ? _eeLocRaw : _eeWdLoc.length ? _eeWdLoc : ee.map(r=>[r[0],r[4]]);
+    && !r[0].toString().toLowerCase().includes('location'));
   const locTotal = locData.reduce((s,r)=>s+n(r[1]),0)||1;
   const locMax   = Math.max(...locData.map(r=>n(r[1])),1);
   document.getElementById('eeHCByLoc').innerHTML = [...locData].sort((a,b)=>n(b[1])-n(a[1])).map(r =>
@@ -1541,17 +1534,10 @@ function renderCWTab() {
     <td class="num">${fmt(tot.futAttr)}</td><td class="num">${fmt(tot.futHires)}</td>
     <td class="num">${fmt(tot.futHC)}</td></tr>`;
 
-  // By Location — filter global rows; if sheet counts are empty fall back to Workday
-  const _cwLocRaw = (D.cwLoc || []).filter(r => r && r[0]
+  // By Location — read directly from D.cwLoc (projected [location, count] pairs)
+  const locData = (D.cwLoc || []).filter(r => r && r[0]
     && !r[0].toString().toLowerCase().includes('global')
-    && !r[0].toString().toLowerCase().includes('location')
-    && n(r[1]) > 0);
-  const _cwWdLoc = !_cwLocRaw.length
-    ? Object.entries((D.workdayWorkers||[]).filter(w=>w.isCW&&w.location)
-        .reduce((a,w)=>{a[w.location]=(a[w.location]||0)+1;return a;},{}))
-        .map(([l,c])=>[l,c])
-    : [];
-  const locData = _cwLocRaw.length ? _cwLocRaw : _cwWdLoc.length ? _cwWdLoc : cw.map(r=>[r[0],r[4]]);
+    && !r[0].toString().toLowerCase().includes('location'));
   const locTotal = locData.reduce((s,r)=>s+n(r[1]),0)||1;
   const locMax   = Math.max(...locData.map(r=>n(r[1])),1);
   document.getElementById('cwHCByLoc').innerHTML = [...locData].sort((a,b)=>n(b[1])-n(a[1])).map(r =>
