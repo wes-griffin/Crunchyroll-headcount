@@ -647,39 +647,39 @@ const CONFIG_DEFAULTS = [
   ['data-as-of','Data As Of Date',HR,'[IMPORT] Workday Data','B1:B1','','','','','','','','SINGLE_CELL','all','','Workday export timestamp from cell B1','',''],
 
   // ── EE HEADCOUNT SUMMARY (A5:M13) A=SMT B=StartHC C=Attr D=Hires E=CurrHC F=FutAttr G=FutHires H=FutHC I=OpenReqs J=ProjHC K=TopLine L=Avail M=PendReqs ──
-  ['hc-ee','EE Headcount Rows (all SMTs)',HR,'Headcount Summary by SMT','A5:M13','A','!','','','','A','','LIST','employees','','Raw rows — render functions use col indexes (E=currHC etc.)','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-ee-current','EE Current Headcount',HR,'Headcount Summary by SMT','A5:M13','A','!','','','E','','','SUM','summary,employees','','Sum col E (Current HC)','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-ee-hires','EE Hires (YTD)',HR,'Headcount Summary by SMT','A5:M13','A','!','','','D','','','SUM','summary,employees','','Sum col D (Hires)','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-ee-attrition','EE Attrition (YTD)',HR,'Headcount Summary by SMT','A5:M13','A','!','','','C','','','SUM','summary,employees','','Sum col C (Attrition)','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-ee-future-attr','EE Future Attrition',HR,'Headcount Summary by SMT','A5:M13','A','!','','','F','','','SUM','summary,employees','','Sum col F','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-ee-topline','EE Top Line Target',HR,'Headcount Summary by SMT','A5:M13','A','!','','','K','','','SUM','summary,employees','','Sum col K (Top Line)','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-ee-headroom','EE Headroom / Available',HR,'Headcount Summary by SMT','A5:M13','A','!','','','L','','','SUM','summary,employees','','Sum col L (Available)','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-ee-open-reqs','EE Open Reqs (HC Summary)',HR,'Headcount Summary by SMT','A5:M13','A','!','','','I','','','SUM','employees','','Sum col I','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-ee-pend-reqs','EE Pending Reqs',HR,'Headcount Summary by SMT','A5:M13','A','!','','','M','','','SUM','employees','','Sum col M','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['hc-ee','Employee Roster Data (All SMTs)',HR,'Headcount Summary by SMT','A5:M13','A','!','','','','A','','LIST','employees','','Raw rows — render functions use col indexes (E=currHC etc.)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-current','Total Employees',HR,'Headcount Summary by SMT','A5:M13','A','!','','','E','','','SUM','summary,employees','','Sum col E (Current HC)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-hires','Hires Since April 1',HR,'Headcount Summary by SMT','A5:M13','A','!','','','D','','','SUM','summary,employees','','Sum col D (Hires)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-attrition','Attrition Since April 1',HR,'Headcount Summary by SMT','A5:M13','A','!','','','C','','','SUM','summary,employees','','Sum col C (Attrition)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-future-attr','Future Attrition (EE)',HR,'Headcount Summary by SMT','A5:M13','A','!','','','F','','','SUM','summary,employees','','Sum col F','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-topline','Top Line Target',HR,'Headcount Summary by SMT','A5:M13','A','!','','','K','','','SUM','summary,employees','','Sum col K (Top Line)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-headroom','Headroom / Available to Hire',HR,'Headcount Summary by SMT','A5:M13','A','!','','','L','','','SUM','summary,employees','','Sum col L (Available)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-open-reqs','Employee Open Reqs',HR,'Headcount Summary by SMT','A5:M13','A','!','','','I','','','SUM','employees','','Sum col I','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-pend-reqs','Employee Pending Reqs',HR,'Headcount Summary by SMT','A5:M13','A','!','','','M','','','SUM','employees','','Sum col M','[{"col":"A","op":"!~","val":"total"}]',''],
 
   // ── CW HEADCOUNT SUMMARY (A20:J28) ──
-  ['hc-cw','CW Headcount Rows (all SMTs)',HR,'Headcount Summary by SMT','A20:J28','A','!','','','','A','','LIST','contingent','','Raw rows — render functions use col indexes','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-cw-current','CW Current Headcount',HR,'Headcount Summary by SMT','A20:J28','A','!','','','E','','','SUM','summary,contingent','','Sum col E','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-cw-hires','CW Hires (YTD)',HR,'Headcount Summary by SMT','A20:J28','A','!','','','D','','','SUM','summary,contingent','','Sum col D','[{"col":"A","op":"!~","val":"total"}]',''],
-  ['summary-cw-attrition','CW Attrition (YTD)',HR,'Headcount Summary by SMT','A20:J28','A','!','','','C','','','SUM','summary,contingent','','Sum col C','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['hc-cw','CW Roster Data (All SMTs)',HR,'Headcount Summary by SMT','A20:J28','A','!','','','','A','','LIST','contingent','','Raw rows — render functions use col indexes','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-cw-current','Total Contingent Workers',HR,'Headcount Summary by SMT','A20:J28','A','!','','','E','','','SUM','summary,contingent','','Sum col E','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-cw-hires','CW Hires Since April 1',HR,'Headcount Summary by SMT','A20:J28','A','!','','','D','','','SUM','summary,contingent','','Sum col D','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-cw-attrition','CW Attrition Since April 1',HR,'Headcount Summary by SMT','A20:J28','A','!','','','C','','','SUM','summary,contingent','','Sum col C','[{"col":"A","op":"!~","val":"total"}]',''],
   ['summary-cw-future-attr','CW Future Attrition',HR,'Headcount Summary by SMT','A20:J28','A','!','','','F','','','SUM','summary,contingent','','Sum col F','[{"col":"A","op":"!~","val":"total"}]',''],
   ['summary-cw-future-hires','CW Future Hires',HR,'Headcount Summary by SMT','A20:J28','A','!','','','G','','','SUM','contingent','','Sum col G','[{"col":"A","op":"!~","val":"total"}]',''],
 
   // ── COMBINED TOTALS (hc-comb removed — replaced by 4 SINGLE_CELL rows) ──
-  ['combined-ee-current','EE Total Current HC (E14)',HR,'Headcount Summary by SMT','E14:E14','','','','','A','','','SINGLE_CELL','summary','','Cell E14','',''],
-  ['combined-ee-future','EE Total Future HC (H14)',HR,'Headcount Summary by SMT','H14:H14','','','','','A','','','SINGLE_CELL','summary','','Cell H14','',''],
-  ['combined-cw-current','CW Total Current HC (E29)',HR,'Headcount Summary by SMT','E29:E29','','','','','A','','','SINGLE_CELL','summary','','Cell E29','',''],
-  ['combined-cw-future','CW Total Future HC (H29)',HR,'Headcount Summary by SMT','H29:H29','','','','','A','','','SINGLE_CELL','summary','','Cell H29','',''],
+  ['combined-ee-current','Combined Workforce — EE (Current)',HR,'Headcount Summary by SMT','E14:E14','','','','','A','','','SINGLE_CELL','summary','','Cell E14','',''],
+  ['combined-ee-future','Combined Workforce — EE (Future)',HR,'Headcount Summary by SMT','H14:H14','','','','','A','','','SINGLE_CELL','summary','','Cell H14','',''],
+  ['combined-cw-current','Combined Workforce — CW (Current)',HR,'Headcount Summary by SMT','E29:E29','','','','','A','','','SINGLE_CELL','summary','','Cell E29','',''],
+  ['combined-cw-future','Combined Workforce — CW (Future)',HR,'Headcount Summary by SMT','H29:H29','','','','','A','','','SINGLE_CELL','summary','','Cell H29','',''],
 
   // ── LOCATION (LIST + _projectCols produces [[location,count],...] for render fns) ──
-  ['hc-ee-loc','EE by Location',HR,'Headcount Summary by SMT','A38:C65','','','','','','','','LIST','employees','','A=location col0, C=count col2. Engine projects to [col0,col2] pairs.','[{"col":"A","op":"!"},{"col":"A","op":"!~","val":"global"},{"col":"A","op":"!~","val":"location"},{"col":"C","op":"!"}]','{"_projectCols":[0,2]}'],
+  ['hc-ee-loc','Employees by Location',HR,'Headcount Summary by SMT','A38:C65','','','','','','','','LIST','employees','','A=location col0, C=count col2. Engine projects to [col0,col2] pairs.','[{"col":"A","op":"!"},{"col":"A","op":"!~","val":"global"},{"col":"A","op":"!~","val":"location"},{"col":"C","op":"!"}]','{"_projectCols":[0,2]}'],
   ['hc-cw-loc','CW by Location',HR,'Headcount Summary by SMT','E38:G80','','','','','','','','LIST','contingent','','E→col0=location, G→col2=count. Engine projects to [col0,col2] pairs.','[{"col":"A","op":"!"},{"col":"A","op":"!~","val":"global"},{"col":"A","op":"!~","val":"location"},{"col":"C","op":"!"}]','{"_projectCols":[0,2]}'],
 
   // ── GREENHOUSE OPEN REQS (A4:AN2000) Z=25=type AB=27=backfill AD=29=title AI=34=loc AJ=35=hireDate AL=37=SMT AM=38=PBP ──
-  ['gh-reqs','Open Reqs — All Roles (GH)',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','','','LIST','reqs','{"title":29,"type":25,"backfill":27,"location":34,"hireDate":35,"smt":37,"pbp":38,"$isEE":{"col":25,"regex":"^(ee|employee|full.?time|fte)$","flags":"i"},"$isCW":{"col":25,"regex":"^(cw|contingent.*|contractor|contract)$","flags":"i"}}','Row 0=header skipped; title+hireDate not blank; hireDate >= today. $isEE/$isCW derived.','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
-  ['gh-total','Total Open Reqs Count',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','','','COUNT_ROWS','reqs','','Active reqs: non-blank title, future hire date','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
-  ['gh-ee-count','Open EE Reqs Count',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','Z','~/^(ee|employee|full.?time|fte)$/i','AJ','>=today','','','','FILTER_COUNT','reqs','','EE type regex + active date filter','[{"col":"AD","op":"!"},{"col":"AJ","op":"!"}]','{"skipRows":1}'],
-  ['gh-cw-count','Open CW Reqs Count',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','Z','~/^(cw|contingent.*|contractor|contract)$/i','AJ','>=today','','','','FILTER_COUNT','reqs','','CW type regex + active date filter','[{"col":"AD","op":"!"},{"col":"AJ","op":"!"}]','{"skipRows":1}'],
+  ['gh-reqs','All Open Roles (Greenhouse)',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','','','LIST','reqs','{"title":29,"type":25,"backfill":27,"location":34,"hireDate":35,"smt":37,"pbp":38,"$isEE":{"col":25,"regex":"^(ee|employee|full.?time|fte)$","flags":"i"},"$isCW":{"col":25,"regex":"^(cw|contingent.*|contractor|contract)$","flags":"i"}}','Row 0=header skipped; title+hireDate not blank; hireDate >= today. $isEE/$isCW derived.','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
+  ['gh-total','Total Open Roles',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','','','COUNT_ROWS','reqs','','Active reqs: non-blank title, future hire date','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
+  ['gh-ee-count','Employee Roles Count',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','Z','~/^(ee|employee|full.?time|fte)$/i','AJ','>=today','','','','FILTER_COUNT','reqs','','EE type regex + active date filter','[{"col":"AD","op":"!"},{"col":"AJ","op":"!"}]','{"skipRows":1}'],
+  ['gh-cw-count','CW Roles Count',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','Z','~/^(cw|contingent.*|contractor|contract)$/i','AJ','>=today','','','','FILTER_COUNT','reqs','','CW type regex + active date filter','[{"col":"AD","op":"!"},{"col":"AJ","op":"!"}]','{"skipRows":1}'],
   ['gh-by-smt','Open Reqs by SMT Leader',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','AL','','GROUP_BY_COUNT','reqs','','Col AL (idx 37) = SMT','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
   ['gh-by-pbp','Open Reqs by PBP',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','AM','','GROUP_BY_COUNT','reqs','','Col AM (idx 38) = PBP','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
   ['gh-by-location','Open Reqs by Location',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','AI','','GROUP_BY_COUNT','reqs','','Col AI (idx 34) = Location','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
@@ -692,12 +692,12 @@ const CONFIG_DEFAULTS = [
   ['pa-hires-loc','Pending Hires by Location',HR,'Pending Hires & Attrition','F5:I20','A','!','','','','A','','LIST','pa','{"smt":0,"loc":0,"ee":{"col":1,"number":true},"cw":{"col":2,"number":true},"total":{"col":3,"number":true}}','Skip blank and total rows; numeric ee/cw/total fields','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
   ['pa-attrition-smt','Pending Attrition by SMT',HR,'Pending Hires & Attrition','A28:D45','A','!','','','','A','','LIST','pa','{"smt":0,"loc":0,"ee":{"col":1,"number":true},"cw":{"col":2,"number":true},"total":{"col":3,"number":true}}','Skip blank and total rows; numeric ee/cw/total fields','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
   ['pa-attrition-loc','Pending Attrition by Location',HR,'Pending Hires & Attrition','F28:I45','A','!','','','','A','','LIST','pa','{"smt":0,"loc":0,"ee":{"col":1,"number":true},"cw":{"col":2,"number":true},"total":{"col":3,"number":true}}','Skip blank and total rows; numeric ee/cw/total fields','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
-  ['pa-hires-total','Total Pending Hires',HR,'Pending Hires & Attrition','A5:D20','A','!','','','D','','','SUM','pa','','Sum col D (Grand Total)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
-  ['pa-hires-ee','Pending EE Hires',HR,'Pending Hires & Attrition','A5:D20','A','!','','','B','','','SUM','pa','','Sum col B (Employee)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
-  ['pa-hires-cw','Pending CW Hires',HR,'Pending Hires & Attrition','A5:D20','A','!','','','C','','','SUM','pa','','Sum col C (Contingent)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
-  ['pa-attrition-total','Total Pending Attrition',HR,'Pending Hires & Attrition','A28:D45','A','!','','','D','','','SUM','pa','','Sum col D (Grand Total)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
-  ['pa-attrition-ee','Pending EE Attrition',HR,'Pending Hires & Attrition','A28:D45','A','!','','','B','','','SUM','pa','','Sum col B (Employee)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
-  ['pa-attrition-cw','Pending CW Attrition',HR,'Pending Hires & Attrition','A28:D45','A','!','','','C','','','SUM','pa','','Sum col C (Contingent)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-hires-total','Pending Hires — Total',HR,'Pending Hires & Attrition','A5:D20','A','!','','','D','','','SUM','pa','','Sum col D (Grand Total)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-hires-ee','Pending Hires — Employees',HR,'Pending Hires & Attrition','A5:D20','A','!','','','B','','','SUM','pa','','Sum col B (Employee)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-hires-cw','Pending Hires — Contingent',HR,'Pending Hires & Attrition','A5:D20','A','!','','','C','','','SUM','pa','','Sum col C (Contingent)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-attrition-total','Pending Attrition — Total',HR,'Pending Hires & Attrition','A28:D45','A','!','','','D','','','SUM','pa','','Sum col D (Grand Total)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-attrition-ee','Pending Attrition — Employees',HR,'Pending Hires & Attrition','A28:D45','A','!','','','B','','','SUM','pa','','Sum col B (Employee)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-attrition-cw','Pending Attrition — Contingent',HR,'Pending Hires & Attrition','A28:D45','A','!','','','C','','','SUM','pa','','Sum col C (Contingent)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
 ];
 
 // ── Operation definitions (used in dropdown + tooltips) ──────
@@ -2813,8 +2813,8 @@ function renderDmCardView() {
     return;
   }
 
-  var TAB_LABELS = { all:'All Tabs', summary:'Summary', employees:'Employees',
-    contingent:'Contingent Workers', reqs:'Open Reqs', pa:'Pending Actions' };
+  var TAB_LABELS = { all:'All Tabs', summary:'Headcount Summary', employees:'Employees',
+    contingent:'Contingent Workers', reqs:'Open & Pending Reqs', pa:'Pending Hires & Attrition' };
   var OP_COLORS  = { LIST:'var(--blue)', SINGLE_CELL:'var(--green)', SUM:'var(--amber)',
     COUNT_ROWS:'var(--orange)', GROUP_BY_SUM:'#6A1B9A', GROUP_BY_COUNT:'#6A1B9A' };
 
@@ -2974,13 +2974,21 @@ function renderDmCardView() {
           +   'data-idx="' + i + '" data-field="filterValue2" onchange="dmcUpdateField(this)">'
           + '</div>');
 
-        // Column Mapping
-        var cmTip = colMapTip || 'No mapping — rows returned as raw arrays.';
+        // Column Mapping — with visible plain-language explanation box
+        var cmTip = colMapTip || 'No column mapping — rows are kept as raw arrays.';
+        var cmBoxStyle = 'font-size:11px;line-height:1.6;color:#444;background:#F0F4FF;'
+          + 'border:1px solid #C5D3F0;border-radius:6px;padding:8px 10px;'
+          + 'white-space:pre-line;font-family:inherit;margin-top:4px;';
         parts.push('<div class="dmcard-field">'
-          + '<div class="dmcard-lbl tip-right" data-dm-tip="' + _escAttr(cmTip) + '" '
-          +   'title="' + _escAttr(cmTip) + '">Col Mapping</div>'
-          + '<textarea class="dci mono" rows="2" data-idx="' + i + '" data-field="columnMapping" '
-          +   'onchange="dmcUpdateField(this)">' + _escHtml(r.columnMapping||'') + '</textarea>'
+          + '<div class="dmcard-lbl">Col Mapping</div>'
+          + '<div>'
+          +   '<textarea class="dci mono" rows="2" '
+          +     'data-idx="' + i + '" data-field="columnMapping" '
+          +     'oninput="dmcUpdateField(this);dmcRefreshColMapBox(this)" '
+          +     'onchange="dmcUpdateField(this);dmcRefreshColMapBox(this)">'
+          +   _escHtml(r.columnMapping||'') + '</textarea>'
+          +   '<div class="dmc-colmap-box" id="cmbox-' + i + '" style="' + cmBoxStyle + '">' + _escHtml(cmTip) + '</div>'
+          + '</div>'
           + '</div>');
 
         // Advanced
@@ -3064,6 +3072,15 @@ function _escAttr(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'
 function _escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // Update a row field from card-view element using data-idx / data-field
+
+function dmcRefreshColMapBox(textarea) {
+  var idx = parseInt(textarea.dataset.idx);
+  var box = document.getElementById('cmbox-' + idx);
+  if (!box) return;
+  var tip = _dmColMapTip(textarea.value || '');
+  box.textContent = tip;
+}
+
 function dmcUpdateField(el) {
   var idx = parseInt(el.dataset.idx);
   var field = el.dataset.field;
