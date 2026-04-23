@@ -150,7 +150,7 @@
   /* MODAL */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
   .modal-overlay.open { opacity: 1; pointer-events: all; }
-  .modal { background: white; border-radius: 16px; width: 100%; max-width: 900px; max-height: 88vh; overflow: hidden; display: flex; flex-direction: column; transform: translateY(20px); transition: transform 0.2s; }
+  .modal { background: white; border-radius: 16px; width: 96%; max-width: 1100px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; transform: translateY(20px); transition: transform 0.2s; }
   .modal-overlay.open .modal { transform: translateY(0); }
   .modal-header { background: var(--black); padding: 18px 26px; display: flex; align-items: center; justify-content: space-between; }
   .modal-title { color: white; font-size: 15px; font-weight: 700; }
@@ -178,6 +178,53 @@
 <script src="nav.js"></script>
 </head>
 <body>
+<!-- Report an Issue FAB (dashboard) -->
+<button onclick="openDashIssueModal()"
+  style="position:fixed;bottom:28px;right:28px;z-index:300;
+    background:#FF5E00;color:white;border:none;border-radius:50px;
+    padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;
+    font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+    box-shadow:0 4px 16px rgba(0,0,0,0.18);
+    display:flex;align-items:center;gap:8px;transition:transform 0.15s"
+  onmouseenter="this.style.transform='scale(1.05)'"
+  onmouseleave="this.style.transform=''">
+  🐛 Report an Issue
+</button>
+
+<!-- Issue overlay -->
+<div id="dashIssueOverlay" onclick="if(event.target===this)closeDashIssueModal()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:400;
+    align-items:center;justify-content:center;flex-direction:column">
+  <div style="background:white;border-radius:16px;width:96%;max-width:520px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.25)">
+    <div style="padding:22px 26px 16px;border-bottom:1px solid #eee;display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div style="font-size:18px;font-weight:700">Report an Issue</div>
+        <div style="font-size:13px;color:#888;margin-top:2px">Your feedback goes to the Master Admin for review</div>
+      </div>
+      <button onclick="closeDashIssueModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888;padding:0">✕</button>
+    </div>
+    <div style="padding:20px 26px">
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Issue Title <span style="color:var(--red)">*</span></label>
+        <input id="dash-issue-title" type="text" placeholder="Short description of the problem…"
+          style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"
+          onfocus="this.style.borderColor='#FF5E00'" onblur="this.style.borderColor='#ddd'">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Details <span style="color:var(--red)">*</span></label>
+        <textarea id="dash-issue-desc" placeholder="What happened? What did you expect?" rows="4"
+          style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;resize:vertical;outline:none"
+          onfocus="this.style.borderColor='#FF5E00'" onblur="this.style.borderColor='#ddd'"></textarea>
+      </div>
+      <div id="dash-issue-err" style="color:#d32f2f;font-size:12px;margin-bottom:10px;display:none">Please fill in both fields.</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="closeDashIssueModal()" style="padding:9px 18px;font-size:13px;font-weight:600;border:1px solid #ddd;border-radius:7px;cursor:pointer;background:white;font-family:inherit">Cancel</button>
+        <button onclick="submitDashIssue()" style="padding:9px 18px;font-size:13px;font-weight:600;border:none;border-radius:7px;cursor:pointer;background:#FF5E00;color:white;font-family:inherit">Submit Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   const user = crGetUser();
@@ -619,6 +666,45 @@ async function fetchRange(sheet, range) {
 // ============================================================
 const REQUESTS_SHEET_ID = '1YDCy3nR1WKukL-y-Xt4xBBhhNdq2amYlA0YYckCnSdM';
 const CONFIG_TAB = '[Config] Dashboard Mapping';
+
+const ISSUES_SHEET_ID = '1YDCy3nR1WKukL-y-Xt4xBBhhNdq2amYlA0YYckCnSdM';
+
+async function dashApiAppend(sheetId, range, values) {
+  const token = crGetAccessToken ? crGetAccessToken() : null;
+  if (!token) return;
+  const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + encodeURIComponent(range) + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS';
+  await fetch(url, { method:'POST', headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'}, body: JSON.stringify({ values }) });
+}
+
+function openDashIssueModal() {
+  document.getElementById('dash-issue-title').value = '';
+  document.getElementById('dash-issue-desc').value = '';
+  document.getElementById('dash-issue-err').style.display = 'none';
+  const ov = document.getElementById('dashIssueOverlay');
+  ov.style.display = 'flex';
+  setTimeout(() => document.getElementById('dash-issue-title').focus(), 100);
+}
+function closeDashIssueModal() {
+  document.getElementById('dashIssueOverlay').style.display = 'none';
+}
+async function submitDashIssue() {
+  const title = document.getElementById('dash-issue-title').value.trim();
+  const desc  = document.getElementById('dash-issue-desc').value.trim();
+  if (!title || !desc) { document.getElementById('dash-issue-err').style.display='block'; return; }
+  document.getElementById('dash-issue-err').style.display = 'none';
+  const eu  = crGetUser ? crGetUser() : { name:'Unknown', email:'' };
+  const now = new Date().toISOString();
+  const id  = 'ISS-' + Date.now();
+  try {
+    await dashApiAppend(ISSUES_SHEET_ID, 'Issues!A2', [[id, now, eu.name||'Dashboard User', eu.email||'', 'Global Headcount Dashboard', title, desc, 'Open']]);
+    closeDashIssueModal();
+    alert('Issue reported — thank you! The admin team will review it.');
+  } catch(e) {
+    closeDashIssueModal();
+    alert('Issue reported locally. If you see this message frequently, let the admin team know.');
+  }
+}
+
 const HR = SHEET_ID; // Headcount Report sheet — shorthand for config rows
 
 // Config tab columns A-P (0-based index):
@@ -2779,58 +2865,50 @@ function _dmTipAttr(tip) {
 }
 
 function _dmColMapTip(json) {
-  if (!json || !json.trim()) return 'No column mapping. Rows will come back as plain arrays like ["Alice", "Engineering", 42]. Add a mapping to give each value a name.';
+  if (!json || !json.trim()) return 'No mapping set — skip this if the dashboard code already knows how to read the rows.';
   try {
     var m = JSON.parse(json);
-    var lines = [];
-    var colNames = Object.entries(m);
+    var entries = Object.entries(m);
+    if (!entries.length) return 'Empty mapping.';
 
-    // Figure out the total columns to show human-readable ordinals
-    function ordinal(n) {
-      var s = ['1st','2nd','3rd'];
-      return (n < 3 ? s[n] : (n+1)+'th') + ' column (index ' + n + ')';
+    // Simple column name: col 0 = A, col 1 = B, etc. up to ZZ
+    function colName(n) {
+      if (n < 26) return String.fromCharCode(65+n);
+      return String.fromCharCode(64+Math.floor(n/26)) + String.fromCharCode(65+(n%26));
     }
 
-    colNames.forEach(function(e) {
+    var lines = ['Each row from the sheet gets these labels:'];
+    entries.forEach(function(e) {
       var k = e[0], v = e[1];
 
       if (k.startsWith('$')) {
-        // Auto-calculated yes/no field
         var label = k.slice(1);
         if (typeof v === 'object' && v.exact)
-          lines.push('• "' + label + '" → YES/NO flag: YES when the ' + ordinal(v.col) + ' equals "' + v.exact + '"');
+          lines.push('  ' + label + ': automatically set to true/false — true if column ' + colName(v.col) + ' says "' + v.exact + '"');
         else if (typeof v === 'object' && v.regex)
-          lines.push('• "' + label + '" → YES/NO flag: YES when the ' + ordinal(v.col) + ' matches the pattern "' + v.regex + '"');
+          lines.push('  ' + label + ': automatically set to true/false based on a pattern in column ' + colName(v.col));
         else
-          lines.push('• "' + label + '" → an automatically calculated YES/NO flag');
+          lines.push('  ' + label + ': a true/false value calculated automatically');
 
       } else if (typeof v === 'number') {
-        // {"fieldName": columnIndex} — the standard format
-        lines.push('• "' + k + '" = value from the ' + ordinal(v));
+        lines.push('  ' + k + ': the value in column ' + colName(v) + ' of the spreadsheet');
 
       } else if (typeof v === 'object' && v.col !== undefined) {
-        // {"fieldName": {"col": N, "number": true}} — typed column
-        var extra = v.number ? ' (treated as a number)' : '';
-        lines.push('• "' + k + '" = value from the ' + ordinal(v.col) + extra);
+        var extra = v.number ? ' (read as a number)' : '';
+        lines.push('  ' + k + ': the value in column ' + colName(v.col) + extra);
 
       } else if (typeof v === 'string') {
-        // Could be {"columnName": "Display Label"} or {"fieldName": "fixedValue"}
-        var kIsNum = /^\d+$/.test(k);
-        if (kIsNum) {
-          // Keys are column indices, values are display labels — common alternate format
-          lines.push('• ' + ordinal(parseInt(k)) + ' → labeled "' + v + '"');
+        if (/^\d+$/.test(k)) {
+          lines.push('  Column ' + colName(parseInt(k)) + ' gets the label "' + v + '"');
         } else {
-          lines.push('• "' + k + '" = the fixed text "' + v + '"');
+          lines.push('  ' + k + ': always the fixed value "' + v + '"');
         }
-      } else {
-        lines.push('• "' + k + '" → ' + JSON.stringify(v));
       }
     });
 
-    if (!lines.length) return 'Empty mapping — rows will come back as raw arrays.';
-    return 'What this mapping does:\n' + lines.join('\n');
+    return lines.join('\n');
   } catch(ex) {
-    return 'This mapping has a formatting error — check for missing quotes, commas, or brackets.';
+    return 'There is a typo in this mapping — look for a missing quote, comma, or bracket.';
   }
 }
 

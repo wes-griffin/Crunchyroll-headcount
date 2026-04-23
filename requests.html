@@ -126,6 +126,12 @@ td { padding:10px 14px; vertical-align:middle; }
 .tag-cw{background:#FFF3E0;color:#BF6000} .tag-new{background:#E8F5EE;color:var(--green)}
 .tag-backfill{background:#F3E5F5;color:var(--purple)} .tag-recruited{background:#E8F5EE;color:var(--green)}
 
+.sort-btn { display:inline-flex; align-items:center; gap:4px; cursor:pointer; user-select:none; }
+.sort-arrow { display:inline-block; width:14px; height:14px; text-align:center; line-height:14px;
+  font-size:9px; color:#aaa; border:1px solid #ddd; border-radius:3px; background:#f5f5f5; }
+.sort-arrow.active { color:var(--orange); border-color:var(--orange); background:#FFF3E0; font-weight:700; }
+th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
+th.sortable:hover .sort-arrow { color:#666; border-color:#bbb; }
 /* MODAL */
 .modal-tabs { display:flex; gap:0; border-bottom:2px solid var(--gray-mid); margin-bottom:18px; }
 .modal-tab-btn { padding:10px 18px; background:none; border:none; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-dark); border-bottom:3px solid transparent; margin-bottom:-2px; font-family:inherit; transition:color 0.15s; }
@@ -631,7 +637,12 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
   <div class="table-wrap">
     <div class="table-header"><h3>Cost Centers (<span id="mxCount">—</span>)</h3></div>
-    <table><thead><tr><th style="cursor:pointer;user-select:none" onclick="sortMatrix('cc')">Cost Center <span id="mx-sort-cc">▲</span></th><th style="cursor:pointer;user-select:none" onclick="sortMatrix('pbp')">PBP <span id="mx-sort-pbp"></span></th><th style="cursor:pointer;user-select:none" onclick="sortMatrix('smt')">SMT or Delegate <span id="mx-sort-smt"></span></th><th>Notes</th><th>Actions</th></tr></thead>
+    <table><thead><tr>
+  <th class="sortable" onclick="sortMatrix('cc')">Cost Center <span id="mx-sort-cc" class="sort-arrow active">▲</span></th>
+  <th class="sortable" onclick="sortMatrix('pbp')">PBP <span id="mx-sort-pbp" class="sort-arrow">↕</span></th>
+  <th class="sortable" onclick="sortMatrix('smt')">SMT or Delegate <span id="mx-sort-smt" class="sort-arrow">↕</span></th>
+  <th>Notes</th><th>Actions</th>
+</tr></thead>
     <tbody id="matrixTable"><tr><td colspan="5"><div class="empty-state"><div class="icon">📊</div><p>Loading…</p></div></td></tr></tbody></table>
   </div>
 </div>
@@ -683,15 +694,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
   <div class="filter-row">
     <input type="text" id="puSearch" placeholder="Search name or email…" oninput="renderPeopleTable()">
-    <select id="puPBPF" onchange="renderPeopleTable()">
-      <option value="">All — PBP Status</option>
-      <option value="Y">PBPs Only</option>
-      <option value="N">Non-PBPs Only</option>
-    </select>
-    <select id="puSMTF" onchange="renderPeopleTable()">
-      <option value="">All — SMT Status</option>
-      <option value="Y">SMT / Delegates Only</option>
-      <option value="N">Non-SMT Only</option>
+    <select id="puRoleF" onchange="renderPeopleTable()">
+      <option value="">All Roles</option>
+      <option value="pbp">PBP Only</option>
+      <option value="smt">SMT or Delegate Only</option>
     </select>
     <select id="puSGF" onchange="renderPeopleTable()">
       <option value="">All Security Groups</option>
@@ -708,19 +714,79 @@ document.addEventListener("DOMContentLoaded", function() {
   <div class="table-wrap">
     <div class="table-header"><h3>All Users (<span id="peopleCount">—</span>)</h3></div>
     <table><thead><tr>
-      <th style="cursor:pointer;user-select:none" onclick="sortPeople('name')">Name <span id="pu-sort-name">▲</span></th>
-      <th style="cursor:pointer;user-select:none" onclick="sortPeople('email')">Email <span id="pu-sort-email"></span></th>
-      <th style="cursor:pointer;user-select:none" onclick="sortPeople('pbp')">PBP <span id="pu-sort-pbp"></span></th>
-      <th style="cursor:pointer;user-select:none" onclick="sortPeople('smt')">SMT <span id="pu-sort-smt"></span></th>
-      <th style="cursor:pointer;user-select:none" onclick="sortPeople('sg')">Security Groups <span id="pu-sort-sg"></span></th>
-      <th style="cursor:pointer;user-select:none" onclick="sortPeople('login')">Last Login <span id="pu-sort-login"></span></th>
+      <th class="sortable" onclick="sortPeople('name')">Name <span id="pu-sort-name" class="sort-arrow active">▲</span></th>
+      <th class="sortable" onclick="sortPeople('email')">Email <span id="pu-sort-email" class="sort-arrow">↕</span></th>
+      <th class="sortable" onclick="sortPeople('pbp')">PBP <span id="pu-sort-pbp" class="sort-arrow">↕</span></th>
+      <th class="sortable" onclick="sortPeople('smt')">SMT <span id="pu-sort-smt" class="sort-arrow">↕</span></th>
+      <th class="sortable" onclick="sortPeople('sg')">Security Groups <span id="pu-sort-sg" class="sort-arrow">↕</span></th>
+      <th class="sortable" onclick="sortPeople('login')">Last Login <span id="pu-sort-login" class="sort-arrow">↕</span></th>
       <th>Actions</th>
     </tr></thead>
     <tbody id="peopleTable"><tr><td colspan="7"><div class="empty-state"><div class="icon">👤</div><p>Loading…</p></div></td></tr></tbody></table>
   </div>
+
+  <!-- Reported Issues section (master admin only) -->
+  <div id="issuesSection" style="display:none;margin-top:32px">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h3>Reported Issues (<span id="issueCount">—</span>)</h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="issueStatusF" onchange="renderIssuesTable()">
+          <option value="">All Statuses</option>
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Resolved">Resolved</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>Submitted</th><th>Reporter</th><th>Page</th><th>Title</th><th>Description</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="issuesTable"><tr><td colspan="7"><div class="empty-state"><div class="icon">🐛</div><p>No issues reported.</p></div></td></tr></tbody></table>
+    </div>
+  </div>
 </div>
 
 </div><!-- /content -->
+
+<!-- Report an Issue FAB button (visible on all views) -->
+<button id="reportIssueFAB" onclick="openIssueModal()"
+  style="position:fixed;bottom:28px;right:28px;z-index:300;
+    background:var(--orange);color:white;border:none;border-radius:50px;
+    padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;
+    font-family:inherit;box-shadow:0 4px 16px rgba(0,0,0,0.18);
+    display:flex;align-items:center;gap:8px;transition:transform 0.15s,box-shadow 0.15s"
+  onmouseenter="this.style.transform='scale(1.05)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.22)'"
+  onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.18)'">
+  🐛 Report an Issue
+</button>
+
+<!-- Report Issue Modal -->
+<div class="modal-overlay" id="issueModalOverlay" onclick="if(event.target===this)closeIssueModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:400;align-items:center;justify-content:center;flex-direction:column">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div><h2 class="modal-title">Report an Issue</h2><div class="modal-sub">Your feedback goes to the Master Admin for review</div></div>
+      <button class="modal-close" onclick="closeIssueModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Issue Title <span class="req">*</span></label>
+          <input type="text" id="issue-title" placeholder="Short description of the problem…">
+        </div>
+        <div class="form-group full">
+          <label>Details <span class="req">*</span></label>
+          <textarea id="issue-desc" placeholder="What happened? What did you expect? What page were you on?" style="min-height:100px"></textarea>
+        </div>
+      </div>
+      <div id="issueFormErr" style="color:var(--red);font-size:12px;margin-top:8px;display:none">Please fill in both fields.</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-secondary" onclick="closeIssueModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitIssue()">Submit Report</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 // ============================================================
@@ -732,7 +798,7 @@ const SCOPES    = 'https://www.googleapis.com/auth/spreadsheets';
 const MASTER_ADMIN_EMAIL = 'wes.griffin@crunchyroll.com';
 
 // Sheet tabs
-const T = { requests:'Requests', matrix:'Approval Matrix', people:'People', comments:'Comments' };
+const T = { requests:'Requests', matrix:'Approval Matrix', people:'People', comments:'Comments', issues:'Issues' };
 
 // People table columns (0-based): A=Name B=Email C=IsPBP D=IsSMT E=SecurityGroups F=LastLogin
 // Requests cols: A=ID B=Submitted C=ReqName D=ReqEmail E=Type F=Title G=Category H=CostCenter
@@ -746,6 +812,7 @@ let realUser   = null;   // actual logged-in user { name, email }
 let proxyUser  = null;   // { name, email, groups, isPBP, isSMT } or null
 let userToken  = null;
 let allRequests= [];
+let issuesData  = [];
 let matrixData = [];
 let peopleData = [];     // array of row arrays [name,email,isPBP,isSMT,groups,lastLogin]
 let editingMatrix = null;
@@ -993,6 +1060,7 @@ async function ensureHeaders() {
     [T.matrix+'!A1',   [['CostCenter','PBP','SMT_Delegate','Notes']]],
     [T.people+'!A1',   [['Name','Email','IsPBP','IsSMT','SecurityGroups','LastLogin']]],
     [T.comments+'!A1', [['RequestID','Timestamp','Author','AuthorEmail','Stage','Comment']]],
+    [T.issues+'!A1',   [['ID','Submitted','ReporterName','ReporterEmail','Page','Title','Description','Status']]],
   ];
   for (const [range, headers] of checks) {
     try { const v=await apiGet(range); if (!v.length) await apiAppend(range, headers); } catch(e){}
@@ -1040,6 +1108,10 @@ async function recordLogin() {
     const row = [realUser.name, realUser.email, 'N', 'N', 'normal', now];
     try { await apiAppend(T.people+'!A2', [row]); peopleData.push(row); } catch(e){}
   }
+}
+
+async function loadIssues() {
+  try { issuesData = await apiGet(T.issues+'!A2:H2000'); } catch(e){ issuesData=[]; }
 }
 
 async function refreshData() {
@@ -1155,10 +1227,11 @@ function renderComp() {
     : `<tr><td colspan="9"><div class="empty-state"><div class="icon">💰</div><p>No requests match the current filters.</p></div></td></tr>`;
 }
 
-function renderAll() {
+async function renderAll() {
   renderMyRequests(); renderReviewTable(); renderComp();
   renderAdminEE(); renderAdminCW();
-  renderMatrix(); renderPeopleTable();
+  await loadIssues();
+  renderMatrix(); renderPeopleTable(); renderIssuesTable();
 }
 
 // ============================================================
@@ -2428,14 +2501,95 @@ async function submitApproval(reqId, decision, commentOverride) {
 // ============================================================
 // MATRIX CRUD
 // ============================================================
+
+// ============================================================
+// ISSUES (Report an Issue)
+// ============================================================
+function openIssueModal() {
+  document.getElementById('issue-title').value = '';
+  document.getElementById('issue-desc').value  = '';
+  document.getElementById('issueFormErr').style.display = 'none';
+  const overlay = document.getElementById('issueModalOverlay');
+  overlay.style.display = 'flex';
+  setTimeout(() => document.getElementById('issue-title').focus(), 100);
+}
+function closeIssueModal() {
+  document.getElementById('issueModalOverlay').style.display = 'none';
+}
+async function submitIssue() {
+  const title = document.getElementById('issue-title').value.trim();
+  const desc  = document.getElementById('issue-desc').value.trim();
+  if (!title || !desc) {
+    document.getElementById('issueFormErr').style.display = 'block';
+    return;
+  }
+  document.getElementById('issueFormErr').style.display = 'none';
+  const eu  = effectiveUser();
+  const now = new Date().toISOString();
+  const id  = 'ISS-' + Date.now();
+  const page = document.title || 'Headcount Requests';
+  try {
+    await apiAppend(T.issues+'!A2', [[id, now, eu.name, eu.email, page, title, desc, 'Open']]);
+    issuesData.push([id, now, eu.name, eu.email, page, title, desc, 'Open']);
+    closeIssueModal();
+    toast('Issue reported — thank you!', 'success');
+    if (canManagePeople()) renderIssuesTable();
+  } catch(e) { toast('Error submitting issue: '+e.message, 'error'); }
+}
+
+function renderIssuesTable() {
+  const section = document.getElementById('issuesSection');
+  if (!section) return;
+  if (!canManagePeople()) { section.style.display='none'; return; }
+  section.style.display = 'block';
+
+  const statusF = document.getElementById('issueStatusF')?.value || '';
+  const rows = issuesData.filter(r => !statusF || (r[7]||'')=== statusF);
+  set('issueCount', rows.length);
+
+  document.getElementById('issuesTable').innerHTML = rows.length
+    ? [...rows].reverse().map((r,i) => {
+        const idx = issuesData.lastIndexOf(r);
+        const status = r[7] || 'Open';
+        const statusColors = { Open:'var(--amber)', 'In Progress':'var(--blue)', Resolved:'var(--green)' };
+        return `<tr>
+          <td style="font-size:11px;color:var(--gray-dark);white-space:nowrap">${fd(r[1])}</td>
+          <td style="font-size:12px">${r[2]||'—'}<br><span style="font-size:10px;color:var(--gray-dark)">${r[3]||''}</span></td>
+          <td style="font-size:11px">${r[4]||'—'}</td>
+          <td style="font-weight:600">${r[5]||'—'}</td>
+          <td style="font-size:12px;max-width:300px;word-break:break-word">${r[6]||'—'}</td>
+          <td><span class="tag" style="background:${statusColors[status]||'var(--gray-mid)'};color:white">${status}</span></td>
+          <td><div class="row-actions">
+            <select onchange="updateIssueStatus(${idx}, this.value)" style="font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid var(--gray-mid)">
+              <option value="Open" ${status==='Open'?'selected':''}>Open</option>
+              <option value="In Progress" ${status==='In Progress'?'selected':''}>In Progress</option>
+              <option value="Resolved" ${status==='Resolved'?'selected':''}>Resolved</option>
+            </select>
+          </div></td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="7"><div class="empty-state"><div class="icon">🐛</div><p>No issues match this filter.</p></div></td></tr>`;
+}
+
+async function updateIssueStatus(idx, newStatus) {
+  try {
+    await apiUpdate(T.issues+'!H'+(idx+2), [[newStatus]]);
+    issuesData[idx][7] = newStatus;
+    renderIssuesTable();
+    toast('Status updated', 'success');
+  } catch(e) { toast('Error: '+e.message, 'error'); }
+}
+
 var _mxSortCol = 'cc', _mxSortAsc = true;
 function sortMatrix(col) {
   if (_mxSortCol === col) { _mxSortAsc = !_mxSortAsc; }
   else { _mxSortCol = col; _mxSortAsc = true; }
   // Update indicators
-  ['cc','pbp','smt'].forEach(c => {
-    const el = document.getElementById('mx-sort-'+c);
-    if (el) el.textContent = c===_mxSortCol ? (_mxSortAsc?'▲':'▼') : '';
+  ['cc','pbp','smt'].forEach(k => {
+    const el = document.getElementById('mx-sort-'+k);
+    if (!el) return;
+    if (k === _mxSortCol) { el.textContent = _mxSortAsc?'▲':'▼'; el.className='sort-arrow active'; }
+    else { el.textContent = '↕'; el.className='sort-arrow'; }
   });
   renderMatrix();
 }
@@ -2444,15 +2598,17 @@ var _puSortCol = 'name', _puSortAsc = true;
 function sortPeople(col) {
   if (_puSortCol === col) { _puSortAsc = !_puSortAsc; }
   else { _puSortCol = col; _puSortAsc = true; }
-  ['name','email','pbp','smt','sg','login'].forEach(c => {
-    const el = document.getElementById('pu-sort-'+c);
-    if (el) el.textContent = c===_puSortCol ? (_puSortAsc?'▲':'▼') : '';
+  ['name','email','pbp','smt','sg','login'].forEach(k => {
+    const el = document.getElementById('pu-sort-'+k);
+    if (!el) return;
+    if (k === _puSortCol) { el.textContent = _puSortAsc?'▲':'▼'; el.className='sort-arrow active'; }
+    else { el.textContent = '↕'; el.className='sort-arrow'; }
   });
   renderPeopleTable();
 }
 
 function clearPeopleFilters() {
-  ['puSearch','puPBPF','puSMTF','puSGF'].forEach(id=>{const el=document.getElementById(id);if(el){if(el.tagName==='INPUT')el.value='';else el.selectedIndex=0;}});
+  ['puSearch','puRoleF','puSGF'].forEach(id=>{const el=document.getElementById(id);if(el){if(el.tagName==='INPUT')el.value='';else el.selectedIndex=0;}});
   _puSortCol='name'; _puSortAsc=true;
   sortPeople('name');
 }
@@ -2558,15 +2714,20 @@ function getSelectedSGs() { return [...document.querySelectorAll('#sgChips .sg-c
 function renderPeopleTable() {
   const search=(document.getElementById('puSearch')?.value||'').toLowerCase();
   const sgf=document.getElementById('puSGF')?.value||'';
+  const roleF=document.getElementById('puRoleF')?.value||'';
   const rows=peopleData.filter(r=>{
     if(!r[0]&&!r[1])return false;
+    if(roleF==='pbp' && (r[2]||'N')!=='Y') return false;
+    if(roleF==='smt' && (r[3]||'N')!=='Y') return false;
     if(sgf&&!(r[4]||'').includes(sgf))return false;
     if(search&&!(r[0]+' '+r[1]).toLowerCase().includes(search))return false;
     return true;
   }).sort((a,b) => {
-    const colMap = {name:0, email:1, login:5};
-    const ci = colMap[_puSortCol] || 0;
-    const cmp = (a[ci]||'').localeCompare(b[ci]||'');
+    const colMap = {name:0, email:1, pbp:2, smt:3, sg:4, login:5};
+    const ci = colMap[_puSortCol] !== undefined ? colMap[_puSortCol] : 0;
+    // For Y/N columns, sort Y first when ascending
+    const av = a[ci]||'', bv = b[ci]||'';
+    const cmp = av.localeCompare(bv);
     return _puSortAsc ? cmp : -cmp;
   });
   set('peopleCount',rows.length);
