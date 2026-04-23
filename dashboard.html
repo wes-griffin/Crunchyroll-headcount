@@ -69,6 +69,8 @@
   .kpi.amber::before { background: var(--amber); }
   .kpi.blue::before { background: var(--blue); }
   .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-dark); margin-bottom: 6px; }
+  .kpi.kpi-clickable:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); transform: translateY(-1px); transition: box-shadow 0.15s, transform 0.15s; }
+  .kpi.kpi-clickable:hover .kpi-label::after { content: " ▸"; color: var(--orange); }
   .kpi-value { font-size: 34px; font-weight: 800; color: var(--black); letter-spacing: -1px; line-height: 1; }
   .kpi-sub { font-size: 11px; color: var(--gray-dark); margin-top: 5px; }
   .kpi-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-top: 5px; }
@@ -267,11 +269,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
   <!-- EE KPIs -->
   <div class="kpi-row kpi-row-5">
-    <div class="kpi"><div class="kpi-label">Total Employees</div><div class="kpi-value" id="s-totalEE">—</div><div class="kpi-sub">Current headcount</div></div>
-    <div class="kpi green"><div class="kpi-label">Hires Since April 1</div><div class="kpi-value" id="s-hiresEE">—</div><div class="kpi-sub">New employees</div></div>
-    <div class="kpi red"><div class="kpi-label">Attrition Since April 1</div><div class="kpi-value" id="s-attrEE">—</div><div class="kpi-sub">Departed employees</div></div>
-    <div class="kpi amber"><div class="kpi-label">Future Attrition</div><div class="kpi-value" id="s-futureAttrEE">—</div><div class="kpi-sub">Projected departures</div></div>
-    <div class="kpi"><div class="kpi-label">Top Line Target</div><div class="kpi-value" id="s-tlEE">—</div><div class="kpi-sub"><span class="kpi-badge badge-green" id="s-headroomEE">…</span></div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('summary','ee','total')" style="cursor:pointer"><div class="kpi-label">Total Employees</div><div class="kpi-value" id="s-totalEE">—</div><div class="kpi-sub">Current headcount</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('summary','ee','hires')" style="cursor:pointer"><div class="kpi-label">Hires Since April 1</div><div class="kpi-value" id="s-hiresEE">—</div><div class="kpi-sub">New employees</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('summary','ee','attr')" style="cursor:pointer"><div class="kpi-label">Attrition Since April 1</div><div class="kpi-value" id="s-attrEE">—</div><div class="kpi-sub">Departed employees</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('summary','ee','futureAttr')" style="cursor:pointer"><div class="kpi-label">Future Attrition</div><div class="kpi-value" id="s-futureAttrEE">—</div><div class="kpi-sub">Projected departures</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('summary','ee','topline')" style="cursor:pointer"><div class="kpi-label">Top Line Target</div><div class="kpi-value" id="s-tlEE">—</div><div class="kpi-sub"><span class="kpi-badge badge-green" id="s-headroomEE">…</span></div></div>
   </div>
 
   <div class="section-header"><h3>Employee Activity</h3><span class="pill">FTE · Click row to drill</span></div>
@@ -289,11 +291,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
   <!-- CW KPIs -->
   <div class="kpi-row kpi-row-5" style="margin-top:8px;">
-    <div class="kpi"><div class="kpi-label">Total Contingent Workers</div><div class="kpi-value" id="s-totalCW">—</div><div class="kpi-sub">Current headcount</div></div>
-    <div class="kpi green"><div class="kpi-label">CW Hires Since April 1</div><div class="kpi-value" id="s-hiresCW">—</div><div class="kpi-sub">New CW</div></div>
-    <div class="kpi red"><div class="kpi-label">CW Attrition Since April 1</div><div class="kpi-value" id="s-attrCW">—</div><div class="kpi-sub">Departed CW</div></div>
-    <div class="kpi blue"><div class="kpi-label">Current Combined Workforce</div><div class="kpi-value" id="s-combined">—</div><div class="kpi-sub">FTE + CW (E14 + E29)</div></div>
-    <div class="kpi amber"><div class="kpi-label">Future Combined Workforce</div><div class="kpi-value" id="s-futureCombined">—</div><div class="kpi-sub">Future FTE + CW (H14 + H29)</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('summary','cw','total')" style="cursor:pointer"><div class="kpi-label">Total Contingent Workers</div><div class="kpi-value" id="s-totalCW">—</div><div class="kpi-sub">Current headcount</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('summary','cw','hires')" style="cursor:pointer"><div class="kpi-label">CW Hires Since April 1</div><div class="kpi-value" id="s-hiresCW">—</div><div class="kpi-sub">New CW</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('summary','cw','attr')" style="cursor:pointer"><div class="kpi-label">CW Attrition Since April 1</div><div class="kpi-value" id="s-attrCW">—</div><div class="kpi-sub">Departed CW</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('summary','combined','current')" style="cursor:pointer"><div class="kpi-label">Current Combined Workforce</div><div class="kpi-value" id="s-combined">—</div><div class="kpi-sub">FTE + CW (E14 + E29)</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('summary','combined','future')" style="cursor:pointer"><div class="kpi-label">Future Combined Workforce</div><div class="kpi-value" id="s-futureCombined">—</div><div class="kpi-sub">Future FTE + CW (H14 + H29)</div></div>
   </div>
 
   <div class="section-header"><h3>Contingent Worker Activity</h3><span class="pill">CW · Click row to drill</span></div>
@@ -324,11 +326,11 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
 
   <div class="kpi-row kpi-row-5">
-    <div class="kpi"><div class="kpi-label">Total Employees</div><div class="kpi-value" id="ee-total">—</div><div class="kpi-sub">Current headcount</div></div>
-    <div class="kpi green"><div class="kpi-label">Hires Since April 1</div><div class="kpi-value" id="ee-hires">—</div><div class="kpi-sub">New employees</div></div>
-    <div class="kpi red"><div class="kpi-label">Attrition Since April 1</div><div class="kpi-value" id="ee-attr">—</div><div class="kpi-sub">Departed</div></div>
-    <div class="kpi amber"><div class="kpi-label">Future Attrition</div><div class="kpi-value" id="ee-futureAttr">—</div><div class="kpi-sub">Projected departures</div></div>
-    <div class="kpi"><div class="kpi-label">Net Change Since April 1</div><div class="kpi-value" id="ee-netChange">—</div><div class="kpi-sub">Hires minus attrition</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('employees','ee','total')" style="cursor:pointer"><div class="kpi-label">Total Employees</div><div class="kpi-value" id="ee-total">—</div><div class="kpi-sub">Current headcount</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('employees','ee','hires')" style="cursor:pointer"><div class="kpi-label">Hires Since April 1</div><div class="kpi-value" id="ee-hires">—</div><div class="kpi-sub">New employees</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('employees','ee','attr')" style="cursor:pointer"><div class="kpi-label">Attrition Since April 1</div><div class="kpi-value" id="ee-attr">—</div><div class="kpi-sub">Departed</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('employees','ee','futureAttr')" style="cursor:pointer"><div class="kpi-label">Future Attrition</div><div class="kpi-value" id="ee-futureAttr">—</div><div class="kpi-sub">Projected departures</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('employees','ee','net')" style="cursor:pointer"><div class="kpi-label">Net Change Since April 1</div><div class="kpi-value" id="ee-netChange">—</div><div class="kpi-sub">Hires minus attrition</div></div>
   </div>
 
   <div class="two-col">
@@ -385,11 +387,11 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
 
   <div class="kpi-row kpi-row-5">
-    <div class="kpi"><div class="kpi-label">Total CW</div><div class="kpi-value" id="cw-total">—</div><div class="kpi-sub">Current headcount</div></div>
-    <div class="kpi green"><div class="kpi-label">Hires Since April 1</div><div class="kpi-value" id="cw-hires">—</div><div class="kpi-sub">New CW</div></div>
-    <div class="kpi red"><div class="kpi-label">Attrition Since April 1</div><div class="kpi-value" id="cw-attr">—</div><div class="kpi-sub">Departed CW</div></div>
-    <div class="kpi amber"><div class="kpi-label">Future Attrition</div><div class="kpi-value" id="cw-futureAttr">—</div><div class="kpi-sub">Projected departures</div></div>
-    <div class="kpi green"><div class="kpi-label">Future Hires</div><div class="kpi-value" id="cw-futureHires">—</div><div class="kpi-sub">Incoming CW</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('contingent','cw','total')" style="cursor:pointer"><div class="kpi-label">Total CW</div><div class="kpi-value" id="cw-total">—</div><div class="kpi-sub">Current headcount</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('contingent','cw','hires')" style="cursor:pointer"><div class="kpi-label">Hires Since April 1</div><div class="kpi-value" id="cw-hires">—</div><div class="kpi-sub">New CW</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('contingent','cw','attr')" style="cursor:pointer"><div class="kpi-label">Attrition Since April 1</div><div class="kpi-value" id="cw-attr">—</div><div class="kpi-sub">Departed CW</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('contingent','cw','futureAttr')" style="cursor:pointer"><div class="kpi-label">Future Attrition</div><div class="kpi-value" id="cw-futureAttr">—</div><div class="kpi-sub">Projected departures</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('contingent','cw','futureHires')" style="cursor:pointer"><div class="kpi-label">Future Hires</div><div class="kpi-value" id="cw-futureHires">—</div><div class="kpi-sub">Incoming CW</div></div>
   </div>
 
   <div class="two-col">
@@ -436,11 +438,11 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
 
   <div class="kpi-row kpi-row-5">
-    <div class="kpi"><div class="kpi-label">Total Open Roles</div><div class="kpi-value" id="r-total">—</div><div class="kpi-sub">Active requisitions</div></div>
-    <div class="kpi blue"><div class="kpi-label">Employee Roles</div><div class="kpi-value" id="r-eeRoles">—</div><div class="kpi-sub">FTE openings</div></div>
-    <div class="kpi amber"><div class="kpi-label">CW Roles</div><div class="kpi-value" id="r-cwRoles">—</div><div class="kpi-sub">Contingent openings</div></div>
-    <div class="kpi green"><div class="kpi-label">New Headcount</div><div class="kpi-value" id="r-newHC">—</div><div class="kpi-sub">Net-new roles</div></div>
-    <div class="kpi"><div class="kpi-label">Backfills</div><div class="kpi-value" id="r-backfill">—</div><div class="kpi-sub">Replacement roles</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('reqs','reqs','total')" style="cursor:pointer"><div class="kpi-label">Total Open Roles</div><div class="kpi-value" id="r-total">—</div><div class="kpi-sub">Active requisitions</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('reqs','reqs','ee')" style="cursor:pointer"><div class="kpi-label">Employee Roles</div><div class="kpi-value" id="r-eeRoles">—</div><div class="kpi-sub">FTE openings</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('reqs','reqs','cw')" style="cursor:pointer"><div class="kpi-label">CW Roles</div><div class="kpi-value" id="r-cwRoles">—</div><div class="kpi-sub">Contingent openings</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('reqs','reqs','new')" style="cursor:pointer"><div class="kpi-label">New Headcount</div><div class="kpi-value" id="r-newHC">—</div><div class="kpi-sub">Net-new roles</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('reqs','reqs','backfill')" style="cursor:pointer"><div class="kpi-label">Backfills</div><div class="kpi-value" id="r-backfill">—</div><div class="kpi-sub">Replacement roles</div></div>
   </div>
 
   <!-- By SMT -->
@@ -509,9 +511,9 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
 
   <div class="kpi-row kpi-row-3">
-    <div class="kpi green"><div class="kpi-label">Pending Hires</div><div class="kpi-value" id="pa-hires">—</div><div class="kpi-sub" id="pa-hiresSub">EE + CW</div></div>
-    <div class="kpi red"><div class="kpi-label">Pending Attrition</div><div class="kpi-value" id="pa-attr">—</div><div class="kpi-sub" id="pa-attrSub">EE + CW</div></div>
-    <div class="kpi amber"><div class="kpi-label">Net Movement</div><div class="kpi-value" id="pa-net">—</div><div class="kpi-sub">Hires vs Departures</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('pa','hires','total')" style="cursor:pointer"><div class="kpi-label">Pending Hires</div><div class="kpi-value" id="pa-hires">—</div><div class="kpi-sub" id="pa-hiresSub">EE + CW</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('pa','attr','total')" style="cursor:pointer"><div class="kpi-label">Pending Attrition</div><div class="kpi-value" id="pa-attr">—</div><div class="kpi-sub" id="pa-attrSub">EE + CW</div></div>
+    <div class="kpi kpi-clickable" onclick="drillKpi('pa','net','total')" style="cursor:pointer"><div class="kpi-label">Net Movement</div><div class="kpi-value" id="pa-net">—</div><div class="kpi-sub">Hires vs Departures</div></div>
   </div>
 
   <!-- PENDING HIRES -->
@@ -1760,6 +1762,224 @@ function openModal(title, subtitle, body) {
 function closeModal(e) { if (e.target===document.getElementById('modalOverlay')) closeModalDirect(); }
 function closeModalDirect() { document.getElementById('modalOverlay').classList.remove('open'); }
 
+
+// ── KPI card drill-down ────────────────────────────────────────────────────
+function drillKpi(tabId, type, metric) {
+  var D_loc  = D || {};
+  var gh     = D_loc.ghRows || [];
+  var wd     = D_loc.workdayWorkers || [];
+  var ee     = D_loc.eeData || [];
+  var cw     = D_loc.cwData || [];
+  var hSMT   = D_loc.hiresSMT || [];
+  var aSMT   = D_loc.attrSMT  || [];
+
+  // ── Helpers ──
+  function workerTable(workers, title) {
+    if (!workers.length) return '<p style="padding:16px;color:var(--gray-dark);font-size:13px;">No records found.</p>';
+    return '<div class="table-wrap" style="margin-top:12px">'
+      + '<div style="padding:10px 14px;border-bottom:1px solid var(--gray-mid);font-size:12px;font-weight:700;">' + title + ' (' + workers.length + ')</div>'
+      + '<div class="table-scroll"><table><thead><tr>'
+      + '<th>Name</th><th>Title</th><th>SMT</th><th>Location</th><th>Hire Date</th><th>Type</th>'
+      + '</tr></thead><tbody>'
+      + workers.map(function(w) {
+          return '<tr>'
+            + '<td style="font-weight:600;white-space:nowrap">' + (w.name||'—') + '</td>'
+            + '<td style="font-size:12px">' + (w.title||'—') + '</td>'
+            + '<td style="font-size:11px">' + (w.smt||'—') + '</td>'
+            + '<td style="font-size:11px">' + (w.location||'—') + '</td>'
+            + '<td style="font-size:11px;white-space:nowrap">' + (w.hireDate||'—') + '</td>'
+            + '<td><span class="status-tag ' + (w.isEE?'tag-ee':'tag-cw') + '">' + (w.isEE?'Employee':'CW') + '</span></td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table></div></div>';
+  }
+
+  function reqTable(rows, title) {
+    if (!rows.length) return '<p style="padding:16px;color:var(--gray-dark);font-size:13px;">No open roles found.</p>';
+    return '<div class="table-wrap" style="margin-top:12px">'
+      + '<div style="padding:10px 14px;border-bottom:1px solid var(--gray-mid);font-size:12px;font-weight:700;">' + title + ' (' + rows.length + ')</div>'
+      + '<div class="table-scroll"><table><thead><tr>'
+      + '<th>Role</th><th>SMT</th><th>Location</th><th>Type</th><th>Req Type</th><th>Target Start</th>'
+      + '</tr></thead><tbody>'
+      + rows.map(function(r) {
+          var bfTag = /new/i.test(r.backfill||'') ? 'tag-new' : 'tag-backfill';
+          return '<tr>'
+            + '<td style="font-weight:600">' + (r.title||'—') + '</td>'
+            + '<td style="font-size:11px">' + (r.smt||'—') + '</td>'
+            + '<td style="font-size:11px">' + (r.location||'—') + '</td>'
+            + '<td><span class="status-tag ' + (r.isEE?'tag-ee':'tag-cw') + '">' + (r.isEE?'EE':'CW') + '</span></td>'
+            + '<td><span class="status-tag ' + bfTag + '">' + (r.backfill||'—') + '</span></td>'
+            + '<td style="font-size:11px;white-space:nowrap">' + (r.hireDate||'—') + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table></div></div>';
+  }
+
+  function smtSummaryTable(data, valueKey, title) {
+    var sorted = data.slice().sort(function(a,b){ return (n(b[valueKey])||0)-(n(a[valueKey])||0); });
+    if (!sorted.length) return '<p style="padding:16px;color:var(--gray-dark);font-size:13px;">No data.</p>';
+    var maxV = Math.max.apply(null, sorted.map(function(r){ return n(r[valueKey])||0; })) || 1;
+    return '<div class="table-wrap" style="margin-top:12px">'
+      + '<div style="padding:10px 14px;border-bottom:1px solid var(--gray-mid);font-size:12px;font-weight:700;">' + title + '</div>'
+      + '<div class="table-scroll"><table><thead><tr><th>SMT</th><th class="num">EE</th><th class="num">CW</th><th class="num">Total</th><th></th></tr></thead><tbody>'
+      + sorted.map(function(r) {
+          var total = n(r.total)||0, eeV = n(r.ee)||0, cwV = n(r.cw)||0;
+          var pct = maxV>0 ? (total/maxV*100).toFixed(0) : 0;
+          return '<tr>'
+            + '<td style="font-weight:600">' + (r.smt||'—') + '</td>'
+            + '<td class="num">' + fmt(eeV) + '</td>'
+            + '<td class="num">' + fmt(cwV) + '</td>'
+            + '<td class="num"><strong>' + fmt(total) + '</strong></td>'
+            + '<td><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:var(--orange)"></div></div></div></td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table></div></div>';
+  }
+
+  var title, subtitle, body;
+
+  if (type === 'ee' || type === 'cw') {
+    var isEE = type === 'ee';
+    var label = isEE ? 'Employees' : 'Contingent Workers';
+    var data  = isEE ? ee : cw;
+    var total = data.reduce(function(s,r){ return s+n(r[4]); }, 0);
+    var hiresTotal = data.reduce(function(s,r){ return s+n(r[3]); }, 0);
+    var attrTotal  = data.reduce(function(s,r){ return s+n(r[2]); }, 0);
+    var futAttr    = data.reduce(function(s,r){ return s+n(r[5]); }, 0);
+    var futHires   = isEE ? 0 : data.reduce(function(s,r){ return s+n(r[6]); }, 0);
+
+    var metricLabel = {
+      total:'Total Headcount', hires:'Hires Since April 1', attr:'Attrition Since April 1',
+      futureAttr:'Future Attrition', net:'Net Change', topline:'Top Line Target',
+      futureHires:'Future Hires'
+    }[metric] || metric;
+
+    var workers;
+    if (metric === 'hires') {
+      // Show recently hired workers (hireDate >= April 1 current year)
+      var cutoff = new Date(new Date().getFullYear(), 3, 1); // April 1
+      workers = wd.filter(function(w){ return (isEE?w.isEE:w.isCW) && w.hireDate && new Date(w.hireDate)>=cutoff; })
+                  .sort(function(a,b){ return new Date(b.hireDate)-new Date(a.hireDate); });
+      subtitle = metricLabel + ' — ' + workers.length + ' worker' + (workers.length!==1?'s':'') + ' hired since April 1';
+      body = '<div class="modal-kpis">'
+        + '<div class="modal-kpi"><div class="modal-kpi-label">Hires</div><div class="modal-kpi-value" style="color:var(--green)">+' + fmt(hiresTotal) + '</div></div>'
+        + '<div class="modal-kpi"><div class="modal-kpi-label">Current ' + label + '</div><div class="modal-kpi-value">' + fmt(total) + '</div></div>'
+        + '</div>' + workerTable(workers, 'New Hires');
+    } else if (metric === 'attr') {
+      subtitle = metricLabel + ' — breakdown by SMT';
+      body = '<div class="modal-kpis">'
+        + '<div class="modal-kpi"><div class="modal-kpi-label">Attrition</div><div class="modal-kpi-value" style="color:var(--red)">' + fmt(attrTotal) + '</div></div>'
+        + '<div class="modal-kpi"><div class="modal-kpi-label">Current ' + label + '</div><div class="modal-kpi-value">' + fmt(total) + '</div></div>'
+        + '</div>'
+        + '<div class="table-wrap" style="margin-top:12px"><div class="table-scroll"><table><thead><tr><th>SMT</th><th class="num">Attrition</th><th class="num">Hires</th><th class="num">Current HC</th></tr></thead><tbody>'
+        + data.sort(function(a,b){ return n(b[2])-n(a[2]); }).map(function(r){
+            return '<tr><td style="font-weight:600">' + (r[0]||'—') + '</td>'
+              + '<td class="num" style="color:var(--red)">' + fmt(n(r[2])) + '</td>'
+              + '<td class="num" style="color:var(--green)">+' + fmt(n(r[3])) + '</td>'
+              + '<td class="num">' + fmt(n(r[4])) + '</td></tr>';
+          }).join('')
+        + '</tbody></table></div></div>';
+    } else if (metric === 'futureAttr') {
+      subtitle = metricLabel + ' — breakdown by SMT';
+      body = '<div class="modal-kpis">'
+        + '<div class="modal-kpi"><div class="modal-kpi-label">Future Attrition</div><div class="modal-kpi-value" style="color:var(--amber)">' + fmt(futAttr) + '</div></div>'
+        + '</div>'
+        + '<div class="table-wrap" style="margin-top:12px"><div class="table-scroll"><table><thead><tr><th>SMT</th><th class="num">Future Attrition</th><th class="num">Current HC</th></tr></thead><tbody>'
+        + data.sort(function(a,b){ return n(b[5])-n(a[5]); }).map(function(r){
+            return '<tr><td style="font-weight:600">' + (r[0]||'—') + '</td>'
+              + '<td class="num" style="color:var(--amber)">' + fmt(n(r[5])) + '</td>'
+              + '<td class="num">' + fmt(n(r[4])) + '</td></tr>';
+          }).join('')
+        + '</tbody></table></div></div>';
+    } else if (metric === 'futureHires') {
+      subtitle = metricLabel + ' — breakdown by SMT';
+      body = '<div class="modal-kpis">'
+        + '<div class="modal-kpi"><div class="modal-kpi-label">Future Hires</div><div class="modal-kpi-value" style="color:var(--green)">+' + fmt(futHires) + '</div></div>'
+        + '</div>'
+        + '<div class="table-wrap" style="margin-top:12px"><div class="table-scroll"><table><thead><tr><th>SMT</th><th class="num">Future Hires</th><th class="num">Current HC</th></tr></thead><tbody>'
+        + data.sort(function(a,b){ return n(b[6])-n(a[6]); }).map(function(r){
+            return '<tr><td style="font-weight:600">' + (r[0]||'—') + '</td>'
+              + '<td class="num" style="color:var(--green)">+' + fmt(n(r[6])) + '</td>'
+              + '<td class="num">' + fmt(n(r[4])) + '</td></tr>';
+          }).join('')
+        + '</tbody></table></div></div>';
+    } else {
+      // total, topline, net
+      subtitle = metricLabel + ' — full breakdown by SMT';
+      workers = wd.filter(function(w){ return isEE?w.isEE:w.isCW; }).sort(function(a,b){ return (a.smt||'').localeCompare(b.smt||''); });
+      body = '<div class="modal-kpis">'
+        + '<div class="modal-kpi"><div class="modal-kpi-label">Total ' + label + '</div><div class="modal-kpi-value">' + fmt(total) + '</div></div>'
+        + '<div class="modal-kpi"><div class="modal-kpi-label">Hires</div><div class="modal-kpi-value" style="color:var(--green)">+' + fmt(hiresTotal) + '</div></div>'
+        + '<div class="modal-kpi"><div class="modal-kpi-label">Attrition</div><div class="modal-kpi-value" style="color:var(--red)">' + fmt(attrTotal) + '</div></div>'
+        + '<div class="modal-kpi"><div class="modal-kpi-label">Future Attrition</div><div class="modal-kpi-value" style="color:var(--amber)">' + fmt(futAttr) + '</div></div>'
+        + '</div>'
+        + workerTable(workers, 'All Active ' + label);
+    }
+    title = metricLabel;
+
+  } else if (type === 'combined') {
+    var eeC = n(D_loc.eeCurrTotal)||0, cwC = n(D_loc.cwCurrTotal)||0;
+    var eeF = n(D_loc.eeFutureTotal)||0, cwF = n(D_loc.cwFutureTotal)||0;
+    title   = metric === 'current' ? 'Current Combined Workforce' : 'Future Combined Workforce';
+    subtitle = 'Employees + Contingent Workers';
+    var currOrFut = metric === 'current';
+    body = '<div class="modal-kpis">'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">Total</div><div class="modal-kpi-value">' + fmt(currOrFut?eeC+cwC:eeF+cwF) + '</div></div>'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">Employees</div><div class="modal-kpi-value">' + fmt(currOrFut?eeC:eeF) + '</div></div>'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">Contingent</div><div class="modal-kpi-value">' + fmt(currOrFut?cwC:cwF) + '</div></div>'
+      + '</div>';
+
+  } else if (type === 'reqs') {
+    var metricLabel2 = {
+      total:'All Open Roles', ee:'Employee Roles', cw:'CW Roles', new:'New Headcount Roles', backfill:'Backfill Roles'
+    }[metric] || metric;
+    title    = metricLabel2;
+    var rows;
+    if (metric === 'ee')       rows = gh.filter(function(r){ return r.isEE; });
+    else if (metric === 'cw')  rows = gh.filter(function(r){ return r.isCW; });
+    else if (metric === 'new') rows = gh.filter(function(r){ return /new/i.test(r.backfill||''); });
+    else if (metric === 'backfill') rows = gh.filter(function(r){ return /backfill|replace/i.test(r.backfill||''); });
+    else rows = gh;
+    subtitle = metricLabel2 + ' — ' + rows.length + ' open role' + (rows.length!==1?'s':'');
+    body = '<div class="modal-kpis">'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">Open Roles</div><div class="modal-kpi-value">' + fmt(rows.length) + '</div></div>'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">EE</div><div class="modal-kpi-value" style="color:var(--blue)">' + fmt(rows.filter(function(r){ return r.isEE; }).length) + '</div></div>'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">CW</div><div class="modal-kpi-value" style="color:var(--amber)">' + fmt(rows.filter(function(r){ return r.isCW; }).length) + '</div></div>'
+      + '</div>'
+      + reqTable(rows, metricLabel2);
+
+  } else if (type === 'hires' || type === 'attr') {
+    var isHires = type === 'hires';
+    var smtData = isHires ? hSMT : aSMT;
+    title    = isHires ? 'Pending Hires' : 'Pending Attrition';
+    var tot  = smtData.reduce(function(s,r){ return s+n(r.total); }, 0);
+    var eeV2 = smtData.reduce(function(s,r){ return s+n(r.ee); }, 0);
+    var cwV2 = smtData.reduce(function(s,r){ return s+n(r.cw); }, 0);
+    subtitle = title + ' — ' + fmt(tot) + ' total';
+    body = '<div class="modal-kpis">'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">Total</div><div class="modal-kpi-value">' + fmt(tot) + '</div></div>'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">Employees</div><div class="modal-kpi-value">' + fmt(eeV2) + '</div></div>'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">Contingent</div><div class="modal-kpi-value">' + fmt(cwV2) + '</div></div>'
+      + '</div>'
+      + smtSummaryTable(smtData, 'total', title + ' by SMT');
+
+  } else if (type === 'net') {
+    var totH = (D_loc.hiresSMT||[]).reduce(function(s,r){ return s+n(r.total); },0);
+    var totA = (D_loc.attrSMT||[]).reduce(function(s,r){ return s+n(r.total); },0);
+    title    = 'Net Movement';
+    subtitle = 'Pending Hires minus Pending Attrition';
+    body = '<div class="modal-kpis">'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">Pending Hires</div><div class="modal-kpi-value" style="color:var(--green)">+' + fmt(totH) + '</div></div>'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">Pending Attrition</div><div class="modal-kpi-value" style="color:var(--red)">' + fmt(totA) + '</div></div>'
+      + '<div class="modal-kpi"><div class="modal-kpi-label">Net</div><div class="modal-kpi-value" style="color:' + (totH-totA>=0?'var(--green)':'var(--red)') + '">' + (totH-totA>=0?'+':'') + fmt(totH-totA) + '</div></div>'
+      + '</div>';
+  } else {
+    return;
+  }
+
+  openModal(title || '', subtitle || '', body || '');
+}
+
 function drillSMT(type, name) {
   const data = type==='ee' ? (D.eeData||[]) : (D.cwData||[]);
   const r = data.find(x=>(x[0]||'')===name);
@@ -1986,20 +2206,24 @@ function _dmHighlightEl(el) {
   var target = found ? ancestor : el;
   target.scrollIntoView({ behavior:'smooth', block:'center' });
   var prev = { outline: target.style.outline, background: target.style.background,
-                transition: target.style.transition, borderRadius: target.style.borderRadius };
-  target.style.transition = 'background 0.15s, outline 0.15s';
+                transition: target.style.transition, borderRadius: target.style.borderRadius,
+                boxShadow: target.style.boxShadow };
+  target.style.transition = 'background 0.2s, outline 0.2s, box-shadow 0.2s';
   target.style.outline = '3px solid #FB8C00';
   target.style.background = '#FFF3E0';
-  target.style.borderRadius = '6px';
+  target.style.borderRadius = '8px';
+  target.style.boxShadow = '0 0 0 6px rgba(251,140,0,0.15)';
   setTimeout(function() {
-    target.style.transition = 'background 0.6s, outline 0.6s';
+    target.style.transition = 'background 1s, outline 1s, box-shadow 1s';
     target.style.outline = prev.outline || '';
     target.style.background = prev.background || '';
+    target.style.boxShadow = '';
     setTimeout(function() {
       target.style.transition = prev.transition || '';
       target.style.borderRadius = prev.borderRadius || '';
-    }, 700);
-  }, 1800);
+      target.style.boxShadow = prev.boxShadow || '';
+    }, 1100);
+  }, 3000);
 }
 
 function navToTabForRow(metricKey, dashboardTab) {
@@ -2522,17 +2746,79 @@ function setDmView(mode) {
 }
 
 // ── CARD VIEW renderer ─────────────────────────────────────────────────────
+var DM_OP_TIPS = {
+  'LIST': 'Returns all matching rows as a list — used for tables, rosters, and charts that need every row.',
+  'SINGLE_CELL': 'Grabs the value from the very first cell in the range — used for a single pre-calculated total.',
+  'SUM': 'Adds up every value in the Value Column for matching rows — gives you a running total.',
+  'COUNT_ROWS': 'Counts how many rows pass the filter — useful for headcounts and role tallies.',
+  'COUNT_DISTINCT': 'Counts unique values in the Value Column — e.g. number of distinct locations.',
+  'GROUP_BY_COUNT': 'Groups rows by the Group Column and counts how many are in each group.',
+  'GROUP_BY_SUM': 'Groups rows by the Group Column and sums the Value Column within each group.',
+  'FILTER_COUNT': 'Counts rows where two filter conditions are both true at once.',
+  'PERCENTAGE': 'Divides one metric by another and returns a percentage. Put "numeratorKey/denominatorKey" in Value Column.',
+  'DELTA': 'Subtracts one metric from another. Put the two metric IDs separated by a comma in Value Column.',
+  'FIRST_VALUE': 'Returns the value from the Value Column in the first row that passes the filter.',
+  'CROSS_TAB': 'Groups rows by Group Column, then sub-groups by Series Column — like a pivot table.',
+  'MULTI_SERIES': 'Merges several GROUP_BY operations sharing a common dimension. Define the series in Column Mapping JSON.'
+};
+var DM_FILTER_TIPS = {
+  '!': "Keep rows where this cell is <strong>not blank</strong>",
+  '=': "Keep rows where this cell <strong>exactly equals</strong> the value you enter",
+  '!=': "Keep rows where this cell <strong>does not equal</strong> the value you enter",
+  '~': "Keep rows where this cell <strong>contains</strong> the text you enter",
+  '!~': "Keep rows where this cell <strong>does not contain</strong> the text you enter",
+  '>=today': "Keep rows where the date in this cell is <strong>today or in the future</strong>",
+  '<=today': "Keep rows where the date in this cell is <strong>today or in the past</strong>",
+  '>=N': "Keep rows where the number in this cell is <strong>greater than or equal to N</strong>",
+  '<=N': "Keep rows where the number in this cell is <strong>less than or equal to N</strong>"
+};
+
+function _dmTipAttr(tip) {
+  if (!tip) return '';
+  return ' data-dm-tip="' + tip.replace(/"/g,'&quot;') + '"';
+}
+
+function _dmColMapTip(json) {
+  if (!json || !json.trim()) return 'No column mapping — rows are kept as raw arrays.';
+  try {
+    var m = JSON.parse(json);
+    var lines = [];
+    Object.entries(m).forEach(function(e) {
+      var k = e[0], v = e[1];
+      if (k.startsWith('$')) {
+        // Derived boolean
+        if (typeof v === 'object' && v.exact) lines.push('"' + k.slice(1) + '" = true when column ' + (v.col) + ' exactly equals "' + v.exact + '"');
+        else if (typeof v === 'object' && v.regex) lines.push('"' + k.slice(1) + '" = true when column ' + (v.col) + ' matches regex ' + v.regex);
+        else lines.push('"' + k.slice(1) + '" is a derived flag');
+      } else if (typeof v === 'number') {
+        lines.push('"' + k + '" ← column ' + v);
+      } else if (typeof v === 'object') {
+        var note = v.number ? ' (as a number)' : '';
+        lines.push('"' + k + '" ← column ' + v.col + note);
+      } else {
+        lines.push('"' + k + '" ← ' + v);
+      }
+    });
+    return lines.length ? lines.join('\n') : 'Column mapping found — hover shows parsed fields';
+  } catch(ex) {
+    return 'Mapping JSON: ' + json;
+  }
+}
+
 function renderDmCardView() {
   var el = document.getElementById('mappingTable');
   if (!el) return;
   if (!_configRows.length) {
-    el.innerHTML = '<p style="padding:32px;color:#999;text-align:center;">No rows configured yet. Switch to Spreadsheet View and click + Add Row to get started.</p>';
+    el.innerHTML = '<p style="padding:32px;color:#999;text-align:center;">No rows configured yet.</p>';
     return;
   }
 
-  var TAB_LABELS = { all:'All Tabs', summary:'Summary', employees:'Employees', contingent:'Contingent Workers', reqs:'Open Reqs', pa:'Pending Actions' };
-  var OP_COLORS  = { LIST:'var(--blue)', SINGLE_CELL:'var(--green)', SUM:'var(--amber)', COUNT_ROWS:'var(--orange)', GROUP_BY_SUM:'#6A1B9A', GROUP_BY_COUNT:'#6A1B9A' };
+  var TAB_LABELS = { all:'All Tabs', summary:'Summary', employees:'Employees',
+    contingent:'Contingent Workers', reqs:'Open Reqs', pa:'Pending Actions' };
+  var OP_COLORS  = { LIST:'var(--blue)', SINGLE_CELL:'var(--green)', SUM:'var(--amber)',
+    COUNT_ROWS:'var(--orange)', GROUP_BY_SUM:'#6A1B9A', GROUP_BY_COUNT:'#6A1B9A' };
 
+  // Group by dashboardTab (first value if comma-separated)
   var tabOrder = ['all','summary','employees','contingent','reqs','pa'];
   var groups = {};
   _configRows.forEach(function(r, i) {
@@ -2544,128 +2830,234 @@ function renderDmCardView() {
     .concat(Object.keys(groups).filter(function(t){ return tabOrder.indexOf(t) < 0; }));
   var ops = Object.keys(OPERATION_DEFS);
 
+  var collapsed = window._dmCardCollapsed || {};
+  window._dmCardCollapsed = collapsed;
+
   var parts = [];
   parts.push('<style>'
-    + '.dmcard-section{margin-bottom:32px}'
-    + '.dmcard-section-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;margin-top:24px}'
-    + '.dmcard-section-hdr h3{font-size:15px;font-weight:700;color:var(--black)}'
-    + '.dmcard-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:14px}'
-    + '.dmcard{background:white;border-radius:12px;border:1px solid var(--gray-mid);overflow:hidden;transition:box-shadow 0.15s}'
-    + '.dmcard:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08)}'
-    + '.dmcard-top{padding:14px 18px 10px;border-bottom:1px solid var(--gray-mid)}'
-    + '.dmcard-name-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}'
-    + '.dmcard-key{font-size:10px;font-family:monospace;color:var(--gray-dark);background:var(--gray);padding:2px 7px;border-radius:4px;flex-shrink:0}'
-    + '.dmcard-tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center}'
-    + '.dmcard-op{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;color:white;letter-spacing:0.3px;flex-shrink:0}'
-    + '.dmcard-body{padding:12px 18px;display:flex;flex-direction:column;gap:10px}'
-    + '.dmcard-field{display:grid;grid-template-columns:120px 1fr;gap:6px;align-items:start}'
-    + '.dmcard-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--gray-dark);padding-top:7px}'
-    + '.dci{font-size:12px;font-family:inherit;color:var(--text);background:var(--gray);border:1px solid transparent;border-radius:6px;padding:5px 9px;width:100%;outline:none;transition:border-color 0.15s;resize:vertical}'
-    + '.dci:focus{border-color:var(--orange);background:white}'
-    + '.dci.mono{font-family:monospace;font-size:11px}'
-    + '.dmcard-footer{padding:8px 18px 12px;display:flex;align-items:center;justify-content:space-between;background:var(--gray);border-top:1px solid var(--gray-mid)}'
+    + '.dmc-wrap { font-family:inherit; }'
+    + '.dmc-section { margin-bottom:8px; }'
+    + '.dmc-section-hdr { display:flex;align-items:center;justify-content:space-between;'
+    +   'background:#1A1A1A;color:white;padding:12px 18px;border-radius:10px;cursor:pointer;'
+    +   'user-select:none;gap:12px; }'
+    + '.dmc-section-hdr:hover { background:#222; }'
+    + '.dmc-section-title { font-size:13px;font-weight:700;letter-spacing:-0.2px; }'
+    + '.dmc-section-meta { display:flex;gap:8px;align-items:center; }'
+    + '.dmc-count { font-size:11px;background:var(--orange);color:white;padding:2px 8px;border-radius:20px;font-weight:700; }'
+    + '.dmc-chevron { font-size:11px;transition:transform 0.2s; }'
+    + '.dmc-section-hdr.collapsed .dmc-chevron { transform:rotate(-90deg); }'
+    + '.dmc-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:12px;padding:12px 0; }'
+    + '.dmcard { background:white;border-radius:10px;border:1px solid var(--gray-mid);overflow:hidden;'
+    +   'transition:box-shadow 0.15s; }'
+    + '.dmcard:hover { box-shadow:0 4px 16px rgba(0,0,0,0.08); }'
+    + '.dmcard-top { padding:12px 16px 10px;border-bottom:1px solid var(--gray-mid); }'
+    + '.dmcard-name-row { display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px; }'
+    + '.dmcard-key { font-size:10px;font-family:monospace;color:var(--gray-dark);background:var(--gray);'
+    +   'padding:2px 7px;border-radius:4px;flex-shrink:0; }'
+    + '.dmcard-tags { display:flex;gap:6px;flex-wrap:wrap;align-items:center; }'
+    + '.dmcard-op { font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;color:white;'
+    +   'cursor:help;letter-spacing:0.2px; }'
+    + '.dmcard-body { padding:10px 16px;display:flex;flex-direction:column;gap:8px; }'
+    + '.dmcard-field { display:grid;grid-template-columns:108px 1fr;gap:6px;align-items:start; }'
+    + '.dmcard-lbl { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;'
+    +   'color:var(--gray-dark);padding-top:7px;cursor:help; }'
+    + '.dci { font-size:12px;font-family:inherit;color:var(--text);background:var(--gray);'
+    +   'border:1px solid transparent;border-radius:6px;padding:5px 9px;width:100%;outline:none;'
+    +   'transition:border-color 0.15s;resize:vertical; }'
+    + '.dci:focus { border-color:var(--orange);background:white; }'
+    + '.dci.mono { font-family:monospace;font-size:11px; }'
+    + '.dmcard-footer { padding:8px 16px 10px;display:flex;align-items:center;'
+    +   'justify-content:space-between;background:var(--gray);border-top:1px solid var(--gray-mid); }'
+    /* Tooltip */
+    + '[data-dm-tip] { position:relative; }'
+    + '[data-dm-tip]:hover::after { content:attr(data-dm-tip);position:absolute;bottom:calc(100% + 6px);'
+    +   'left:0;width:260px;background:#1A1A1A;color:#fff;font-size:11px;font-weight:400;line-height:1.5;'
+    +   'padding:8px 11px;border-radius:7px;z-index:9999;pointer-events:none;'
+    +   'white-space:pre-line;font-family:inherit;letter-spacing:0; }'
+    + '[data-dm-tip].tip-right:hover::after { left:auto;right:0; }'
+    + '[data-dm-tip]:hover::before { content:"";position:absolute;bottom:calc(100% + 1px);left:14px;'
+    +   'border:5px solid transparent;border-top-color:#1A1A1A;z-index:9999; }'
+    + '#dm-dirty { display:none;position:sticky;bottom:0;background:#1A1A1A;color:white;'
+    +   'padding:12px 24px;align-items:center;justify-content:space-between;gap:12px;'
+    +   'z-index:50;border-top:2px solid var(--orange); }'
     + '</style>');
 
+  parts.push('<div class="dmc-wrap">');
   allTabs.forEach(function(tab) {
     var indices = groups[tab] || [];
     var label = TAB_LABELS[tab] || tab;
-    parts.push('<div class="dmcard-section">');
-    parts.push('<div class="dmcard-section-hdr"><h3>' + label + '</h3><span class="pill">' + indices.length + '</span></div>');
-    parts.push('<div class="dmcard-grid">');
+    var isCollapsed = collapsed[tab];
+    parts.push('<div class="dmc-section" id="dmcs-' + tab + '">');
+    parts.push('<div class="dmc-section-hdr' + (isCollapsed ? ' collapsed' : '') + '" '
+      + 'data-dmc-tab="' + tab + '" onclick="dmcToggleSection(this.dataset.dmcTab)">'
+      + '<span class="dmc-section-title">' + label + '</span>'
+      + '<span class="dmc-section-meta">'
+      + '<span class="dmc-count">' + indices.length + ' metric' + (indices.length !== 1 ? 's' : '') + '</span>'
+      + '<span class="dmc-chevron">▼</span>'
+      + '</span></div>');
 
-    indices.forEach(function(i) {
-      var r = _configRows[i];
-      var op = r.operation || 'LIST';
-      var opColor = OP_COLORS[op] || '#888';
-      var hasMK = !!METRIC_HIGHLIGHT_MAP[r.metricKey];
-      var mk = (r.metricKey || '').replace(/"/g,'');
-      var dt = (r.dashboardTab || '').replace(/"/g,'');
+    if (!isCollapsed) {
+      parts.push('<div class="dmc-grid">');
+      indices.forEach(function(i) {
+        var r = _configRows[i];
+        var op = r.operation || 'LIST';
+        var opColor = OP_COLORS[op] || '#888';
+        var hasMK = !!METRIC_HIGHLIGHT_MAP[r.metricKey];
+        var mk = (r.metricKey || '').replace(/"/g,'');
+        var dt = (r.dashboardTab || '').replace(/"/g,'');
+        var opTip = (DM_OP_TIPS[op] || op).replace(/'/g,'&#39;');
+        var colMapTip = _dmColMapTip(r.columnMapping||'').replace(/'/g,'&#39;').replace(/\n/g,'&#10;');
+        var opSelect = ops.map(function(o) {
+          return '<option value="' + o + '"' + (op===o?' selected':'') + '>' + o + '</option>';
+        }).join('');
 
-      parts.push('<div class="dmcard" id="dmc-' + i + '">');
-      parts.push('<div style="height:3px;background:' + opColor + '"></div>');
+        parts.push('<div class="dmcard" id="dmc-' + i + '">');
+        parts.push('<div style="height:3px;background:' + opColor + '"></div>');
 
-      // Top
-      parts.push('<div class="dmcard-top">');
-      parts.push('<div class="dmcard-name-row">'
-        + '<input class="dci" style="font-size:14px;font-weight:700;background:transparent;border-color:transparent;padding:0;flex:1"'
-        + ' value="' + _escAttr(r.displayName || '') + '" placeholder="Metric name..."'
-        + ' data-idx="' + i + '" data-field="displayName" onchange="dmcUpdateField(this)">'
-        + '<span class="dmcard-key">' + _escHtml(r.metricKey || '—') + '</span>'
-        + '</div>');
-      parts.push('<div class="dmcard-tags">'
-        + '<span class="dmcard-op" style="background:' + opColor + '">' + op + '</span>'
-        + (hasMK ? '<button style="font-size:10px;color:var(--orange);cursor:pointer;font-weight:600;background:none;border:none;font-family:inherit;text-decoration:underline" data-mk="' + mk + '" data-dt="' + dt + '" onclick="var el=this;navToTabForRow(el.dataset.mk,el.dataset.dt)">&#8599; View on Dashboard</button>' : '')
-        + '</div>');
-      parts.push('</div>');
+        // Top
+        parts.push('<div class="dmcard-top">');
+        parts.push('<div class="dmcard-name-row">'
+          + '<input class="dci" style="font-size:13px;font-weight:700;background:transparent;'
+          +   'border-color:transparent;padding:2px 0;flex:1" value="' + _escAttr(r.displayName||'') + '" '
+          +   'placeholder="Metric name..." data-idx="' + i + '" data-field="displayName" '
+          +   'onchange="dmcUpdateField(this)">'
+          + '<span class="dmcard-key">' + _escHtml(r.metricKey||'—') + '</span>'
+          + '</div>');
+        parts.push('<div class="dmcard-tags">'
+          + '<span class="dmcard-op" style="background:' + opColor + '"'
+          +   ' data-dm-tip="' + opTip + '" title="' + opTip + '">' + op + '</span>'
+          + (hasMK ? '<button style="font-size:10px;color:var(--orange);cursor:pointer;font-weight:600;'
+              + 'background:none;border:none;font-family:inherit;text-decoration:underline" '
+              + 'data-mk="' + mk + '" data-dt="' + dt + '" '
+              + 'onclick="var el=this;navToTabForRow(el.dataset.mk,el.dataset.dt)">'
+              + '&#8599; View on Dashboard</button>' : '')
+          + '</div>');
+        parts.push('</div>');
 
-      // Body
-      parts.push('<div class="dmcard-body">');
+        // Body
+        parts.push('<div class="dmcard-body">');
 
-      parts.push('<div class="dmcard-field">'
-        + '<div class="dmcard-lbl" title="Which spreadsheet tab to read">Data Source</div>'
-        + '<input class="dci" value="' + _escAttr(r.sheetTab||'') + '" placeholder="Sheet tab name..." data-idx="' + i + '" data-field="sheetTab" onchange="dmcUpdateField(this)">'
-        + '</div>');
+        // Data source
+        parts.push('<div class="dmcard-field">'
+          + '<div class="dmcard-lbl" data-dm-tip="The exact name of the Google Sheets tab where this data lives.">Data Source</div>'
+          + '<input class="dci" value="' + _escAttr(r.sheetTab||'') + '" placeholder="Sheet tab name..." '
+          + 'data-idx="' + i + '" data-field="sheetTab" onchange="dmcUpdateField(this)">'
+          + '</div>');
 
-      var opOptions = ops.map(function(o){ return '<option value="' + o + '"' + (op === o ? ' selected' : '') + '>' + o + '</option>'; }).join('');
-      parts.push('<div style="display:grid;grid-template-columns:120px 1fr 1fr;gap:6px;align-items:start">'
-        + '<div class="dmcard-lbl" style="padding-top:7px" title="Which cells to read">Cell Range</div>'
-        + '<input class="dci mono" value="' + _escAttr(r.range||'') + '" placeholder="e.g. A2:Z500" data-idx="' + i + '" data-field="range" onchange="dmcUpdateField(this)">'
-        + '<select class="dci" data-idx="' + i + '" data-field="operation" onchange="dmcUpdateField(this)">' + opOptions + '</select>'
-        + '</div>');
+        // Range + Operation
+        parts.push('<div style="display:grid;grid-template-columns:108px 1fr 1fr;gap:6px;align-items:start">'
+          + '<div class="dmcard-lbl" style="padding-top:7px" '
+          +   'data-dm-tip="Which cells to read (e.g. A2:Z500). Blank trailing rows are ignored.">Cell Range</div>'
+          + '<input class="dci mono" value="' + _escAttr(r.range||'') + '" placeholder="e.g. A2:Z500" '
+          +   'data-idx="' + i + '" data-field="range" onchange="dmcUpdateField(this)">'
+          + '<select class="dci" data-idx="' + i + '" data-field="operation" onchange="dmcUpdateField(this)">'
+          +   opSelect + '</select>'
+          + '</div>');
 
-      parts.push('<div style="display:grid;grid-template-columns:120px 1fr 1fr 1fr 1fr;gap:6px;align-items:start">'
-        + '<div class="dmcard-lbl" style="padding-top:7px" title="Filter rows to keep">Row Filters</div>'
-        + '<input class="dci mono" value="' + _escAttr(r.filterCol||'') + '" placeholder="Col (e.g. A)" title="Filter column" data-idx="' + i + '" data-field="filterCol" onchange="dmcUpdateField(this)">'
-        + '<input class="dci mono" value="' + _escAttr(r.filterValue||'') + '" placeholder="Rule (e.g. !)" title="Filter rule" data-idx="' + i + '" data-field="filterValue" onchange="dmcUpdateField(this)">'
-        + '<input class="dci mono" value="' + _escAttr(r.filterCol2||'') + '" placeholder="Col 2" title="2nd filter column" data-idx="' + i + '" data-field="filterCol2" onchange="dmcUpdateField(this)">'
-        + '<input class="dci mono" value="' + _escAttr(r.filterValue2||'') + '" placeholder="Rule 2" title="2nd filter rule" data-idx="' + i + '" data-field="filterValue2" onchange="dmcUpdateField(this)">'
-        + '</div>');
+        // Filters
+        var fv1tip = (DM_FILTER_TIPS[r.filterValue] || 'Filter rule for this column. Examples: ! = not blank, ~Active = contains Active, <=today = past or current dates.').replace(/"/g,'&quot;');
+        var fv2tip = (DM_FILTER_TIPS[r.filterValue2] || 'Second filter rule. Both conditions must be true.').replace(/"/g,'&quot;');
+        parts.push('<div style="display:grid;grid-template-columns:108px 1fr 1fr 1fr 1fr;gap:6px;align-items:start">'
+          + '<div class="dmcard-lbl" style="padding-top:7px" '
+          +   'data-dm-tip="Filters control which rows to keep. Both conditions must be true if you use two filters.">Row Filters</div>'
+          + '<input class="dci mono" value="' + _escAttr(r.filterCol||'') + '" '
+          +   'placeholder="Col (A)" title="Column letter or 0-based index to filter by" '
+          +   'data-idx="' + i + '" data-field="filterCol" onchange="dmcUpdateField(this)">'
+          + '<input class="dci mono" value="' + _escAttr(r.filterValue||'') + '" '
+          +   'placeholder="Rule (e.g. !)" title="' + fv1tip + '" '
+          +   'data-idx="' + i + '" data-field="filterValue" onchange="dmcUpdateField(this)">'
+          + '<input class="dci mono" value="' + _escAttr(r.filterCol2||'') + '" '
+          +   'placeholder="Col 2" title="Second filter column" '
+          +   'data-idx="' + i + '" data-field="filterCol2" onchange="dmcUpdateField(this)">'
+          + '<input class="dci mono" value="' + _escAttr(r.filterValue2||'') + '" '
+          +   'placeholder="Rule 2" title="' + fv2tip + '" '
+          +   'data-idx="' + i + '" data-field="filterValue2" onchange="dmcUpdateField(this)">'
+          + '</div>');
 
-      parts.push('<div class="dmcard-field">'
-        + '<div class="dmcard-lbl" title="Map column positions to named fields (JSON)">Column Mapping</div>'
-        + '<textarea class="dci mono" rows="2" data-idx="' + i + '" data-field="columnMapping" onchange="dmcUpdateField(this)">' + _escHtml(r.columnMapping||'') + '</textarea>'
-        + '</div>');
+        // Column Mapping
+        var cmTip = colMapTip || 'No mapping — rows returned as raw arrays.';
+        parts.push('<div class="dmcard-field">'
+          + '<div class="dmcard-lbl tip-right" data-dm-tip="' + _escAttr(cmTip) + '" '
+          +   'title="' + _escAttr(cmTip) + '">Col Mapping</div>'
+          + '<textarea class="dci mono" rows="2" data-idx="' + i + '" data-field="columnMapping" '
+          +   'onchange="dmcUpdateField(this)">' + _escHtml(r.columnMapping||'') + '</textarea>'
+          + '</div>');
 
-      parts.push('<details><summary style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--gray-dark);cursor:pointer;padding:2px 0">Advanced Options</summary>'
-        + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">'
-        + '<div class="dmcard-field"><div class="dmcard-lbl" title="Extra filter rules as JSON">Advanced Filters</div>'
-        + '<textarea class="dci mono" rows="2" data-idx="' + i + '" data-field="filtersJSON" onchange="dmcUpdateField(this)">' + _escHtml(r.filtersJSON||'') + '</textarea></div>'
-        + '<div class="dmcard-field"><div class="dmcard-lbl" title="Extra options as JSON">Options</div>'
-        + '<input class="dci mono" value="' + _escAttr(r.options||'') + '" data-idx="' + i + '" data-field="options" onchange="dmcUpdateField(this)"></div>'
-        + '<div style="display:grid;grid-template-columns:120px 1fr 1fr 1fr;gap:6px;align-items:start">'
-        + '<div class="dmcard-lbl" style="padding-top:7px">Calc Columns</div>'
-        + '<input class="dci mono" value="' + _escAttr(r.valueCol||'') + '" placeholder="Value col" title="Column to sum or return" data-idx="' + i + '" data-field="valueCol" onchange="dmcUpdateField(this)">'
-        + '<input class="dci mono" value="' + _escAttr(r.groupCol||'') + '" placeholder="Group by" title="Column to group rows by" data-idx="' + i + '" data-field="groupCol" onchange="dmcUpdateField(this)">'
-        + '<input class="dci mono" value="' + _escAttr(r.seriesCol||'') + '" placeholder="Series" title="Series/pivot column" data-idx="' + i + '" data-field="seriesCol" onchange="dmcUpdateField(this)">'
-        + '</div></div></details>');
+        // Advanced
+        parts.push('<details><summary style="font-size:10px;font-weight:700;text-transform:uppercase;'
+          +   'letter-spacing:0.5px;color:var(--gray-dark);cursor:pointer;padding:2px 0">'
+          +   'Advanced Options</summary>'
+          +   '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">'
+          +   '<div class="dmcard-field">'
+          +   '<div class="dmcard-lbl" data-dm-tip="Extra filter rules written as JSON for complex conditions. '
+          +     'Format: [{&quot;col&quot;:&quot;A&quot;,&quot;op&quot;:&quot;!~&quot;,&quot;val&quot;:&quot;total&quot;}]">Adv Filters</div>'
+          +   '<textarea class="dci mono" rows="2" data-idx="' + i + '" data-field="filtersJSON" '
+          +     'onchange="dmcUpdateField(this)">' + _escHtml(r.filtersJSON||'') + '</textarea></div>'
+          +   '<div class="dmcard-field"><div class="dmcard-lbl" '
+          +   'data-dm-tip="Extra settings as JSON. skipRows:1 skips the header row. _projectCols:[0,2] keeps only those columns.">Options</div>'
+          +   '<input class="dci mono" value="' + _escAttr(r.options||'') + '" data-idx="' + i + '" data-field="options" onchange="dmcUpdateField(this)"></div>'
+          +   '<div style="display:grid;grid-template-columns:108px 1fr 1fr 1fr;gap:6px;align-items:start">'
+          +   '<div class="dmcard-lbl" style="padding-top:7px" '
+          +     'data-dm-tip="Value Col = column to sum or return. Group By = column to group rows by. Series = secondary grouping.">Calc Cols</div>'
+          +   '<input class="dci mono" value="' + _escAttr(r.valueCol||'') + '" placeholder="Value col" '
+          +     'title="Column to sum or return" data-idx="' + i + '" data-field="valueCol" onchange="dmcUpdateField(this)">'
+          +   '<input class="dci mono" value="' + _escAttr(r.groupCol||'') + '" placeholder="Group by" '
+          +     'title="Column to group rows by" data-idx="' + i + '" data-field="groupCol" onchange="dmcUpdateField(this)">'
+          +   '<input class="dci mono" value="' + _escAttr(r.seriesCol||'') + '" placeholder="Series" '
+          +     'title="Series/pivot column" data-idx="' + i + '" data-field="seriesCol" onchange="dmcUpdateField(this)">'
+          +   '</div></div></details>');
 
-      parts.push('<div class="dmcard-field">'
-        + '<div class="dmcard-lbl">Notes</div>'
-        + '<input class="dci" value="' + _escAttr(r.notes||'') + '" placeholder="Notes about this metric..." data-idx="' + i + '" data-field="notes" onchange="dmcUpdateField(this)">'
-        + '</div>');
+        // Notes
+        parts.push('<div class="dmcard-field">'
+          + '<div class="dmcard-lbl">Notes</div>'
+          + '<input class="dci" value="' + _escAttr(r.notes||'') + '" '
+          +   'placeholder="Internal notes..." data-idx="' + i + '" data-field="notes" onchange="dmcUpdateField(this)">'
+          + '</div>');
 
-      parts.push('</div>'); // body
+        parts.push('</div>'); // body
 
-      parts.push('<div class="dmcard-footer">'
-        + '<span style="font-size:11px;color:var(--gray-dark);font-style:italic">' + _escHtml(r.dashboardTab ? 'Tab: ' + r.dashboardTab : 'No tab assigned') + '</span>'
-        + '<button onclick="deleteMappingRow(' + i + ')" style="font-size:10px;color:var(--gray-dark);cursor:pointer;background:none;border:none;font-family:inherit;padding:0" title="Remove this metric">&#x1F5D1; Remove</button>'
-        + '</div>');
+        // Footer
+        parts.push('<div class="dmcard-footer">'
+          + '<span style="font-size:11px;color:var(--gray-dark);font-style:italic">'
+          +   _escHtml(r.dashboardTab ? 'Tab: ' + r.dashboardTab : 'No tab assigned') + '</span>'
+          + '<button onclick="deleteMappingRow(' + i + ')" '
+          +   'style="font-size:11px;color:var(--red);cursor:pointer;background:none;border:none;'
+          +   'font-family:inherit;padding:0;font-weight:600" title="Remove this metric">🗑 Remove</button>'
+          + '</div>');
+        parts.push('</div>'); // card
+      });
+      parts.push('</div>'); // grid
+    }
 
-      parts.push('</div>'); // card
-    });
-
-    parts.push('</div></div>'); // grid + section
+    parts.push('</div>'); // section
   });
+  parts.push('</div>'); // wrap
 
   // Dirty banner
-  parts.push('<div id="dm-dirty" style="display:none;position:sticky;bottom:0;background:#1A1A1A;color:white;padding:12px 24px;align-items:center;justify-content:space-between;gap:12px;z-index:50;border-top:2px solid var(--orange)">'
+  parts.push('<div id="dm-dirty" style="display:none;position:sticky;bottom:0;background:#1A1A1A;'
+    + 'color:white;padding:12px 24px;align-items:center;justify-content:space-between;gap:12px;'
+    + 'z-index:50;border-top:2px solid var(--orange)">'
     + '<span style="font-size:13px;font-weight:600">You have unsaved changes</span>'
     + '<div style="display:flex;gap:8px">'
-    + '<button onclick="dmDiscard()" style="padding:7px 16px;font-size:12px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:#444;color:white;font-family:inherit">Discard</button>'
-    + '<button onclick="dmSaveAll()" style="padding:7px 16px;font-size:12px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:var(--orange);color:white;font-family:inherit">Save to Sheet</button>'
+    + '<button onclick="dmDiscard()" style="padding:7px 16px;font-size:12px;font-weight:700;'
+    +   'border:none;border-radius:6px;cursor:pointer;background:#444;color:white;font-family:inherit">Discard</button>'
+    + '<button onclick="dmSaveAll()" style="padding:7px 16px;font-size:12px;font-weight:700;'
+    +   'border:none;border-radius:6px;cursor:pointer;background:var(--orange);color:white;font-family:inherit">Save to Sheet</button>'
     + '</div></div>');
 
   el.innerHTML = parts.join('');
+}
+
+function dmcToggleSection(tab) {
+  if (!window._dmCardCollapsed) window._dmCardCollapsed = {};
+  window._dmCardCollapsed[tab] = !window._dmCardCollapsed[tab];
+  // Flush any card inputs before re-rendering
+  document.querySelectorAll('[data-idx][data-field]').forEach(function(inp) {
+    var idx = parseInt(inp.dataset.idx);
+    var field = inp.dataset.field;
+    if (_configRows[idx]) _configRows[idx][field] = inp.value;
+  });
+  renderDataMapping();
 }
 
 function _escAttr(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -2710,11 +3102,52 @@ function addMappingRow() {
 }
 
 async function deleteMappingRow(i) {
-  var name = _configRows[i].displayName || _configRows[i].metricKey || 'this row';
-  if (!confirm('Delete "'+name+'"? This cannot be undone.')) return;
-  _configRows.splice(i, 1);
-  renderDataMapping();
-  try { await saveMappingAllToSheet(); } catch(e) {}
+  var r = _configRows[i];
+  if (!r) return;
+  var name    = r.displayName || r.metricKey || 'this row';
+  var mk      = r.metricKey || '';
+  var tab     = r.dashboardTab || 'unknown tab';
+  var usedIn  = METRIC_HIGHLIGHT_MAP[mk] ? METRIC_HIGHLIGHT_MAP[mk].join(', ') : 'none tracked';
+  var d_alias = (function(){
+    var map = Object.entries(D_PROPERTY_MAP||{}).find(function(e){ return e[0]===mk; });
+    return map ? 'D.'+map[1] : 'D[' + JSON.stringify(mk) + ']';
+  })();
+
+  // Build a rich confirmation modal
+  var body = '<div style="background:#FDECEA;border:1px solid var(--red);border-radius:8px;padding:16px 20px;margin-bottom:18px">'
+    + '<strong style="font-size:14px;color:var(--red)">⚠ This cannot be undone</strong>'
+    + '</div>'
+    + '<p style="font-size:13px;margin-bottom:14px">You are about to permanently remove <strong>' + _escHtml(name) + '</strong> from the data mapping config and from Google Sheets.</p>'
+    + '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px;margin-bottom:18px">'
+    + '<div style="background:var(--gray);border-radius:6px;padding:10px 14px"><strong>📊 Dashboard tab:</strong> ' + _escHtml(tab) + '</div>'
+    + '<div style="background:var(--gray);border-radius:6px;padding:10px 14px"><strong>🔑 Metric ID:</strong> <code>' + _escHtml(mk||'(none)') + '</code></div>'
+    + '<div style="background:var(--gray);border-radius:6px;padding:10px 14px"><strong>📌 Dashboard elements that reference this metric:</strong> ' + _escHtml(usedIn) + '</div>'
+    + '<div style="background:#FFF3E0;border-radius:6px;padding:10px 14px"><strong>💥 What breaks if you delete this:</strong><ul style="margin:6px 0 0 16px;padding:0;line-height:1.7">'
+    + '<li>The dashboard element(s) above will show <em>"—"</em> or fail to render</li>'
+    + '<li>Any charts, tables, or KPIs that read <code>' + _escHtml(d_alias) + '</code> will display empty data</li>'
+    + '<li>The row is immediately deleted from Google Sheets — a Refresh will not restore it</li>'
+    + '</ul></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;justify-content:flex-end">'
+    + '<button onclick="closeModalDirect()" style="padding:9px 20px;font-size:13px;font-weight:600;border:1px solid var(--gray-mid);border-radius:7px;cursor:pointer;background:white;font-family:inherit">Cancel</button>'
+    + '<button id="dm-confirm-del" style="padding:9px 20px;font-size:13px;font-weight:600;border:none;border-radius:7px;cursor:pointer;background:var(--red);color:white;font-family:inherit">Delete Permanently</button>'
+    + '</div>';
+
+  document.getElementById('modalTitle').textContent    = 'Delete "' + name + '"?';
+  document.getElementById('modalSubtitle').textContent = 'Review all consequences before confirming';
+  document.getElementById('modalBody').innerHTML       = body;
+  document.getElementById('modalOverlay').classList.add('open');
+
+  // Wire up the confirm button
+  var confirmBtn = document.getElementById('dm-confirm-del');
+  if (confirmBtn) {
+    confirmBtn.onclick = async function() {
+      closeModalDirect();
+      _configRows.splice(i, 1);
+      renderDataMapping();
+      try { await saveMappingAllToSheet(); } catch(e) { console.warn('Save after delete failed:', e.message); }
+    };
+  }
 }
 
 
