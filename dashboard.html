@@ -2213,7 +2213,7 @@ function renderDataMapping() {
   DM_COLS.forEach(function(c, ci) {
     var isDivider = COL_DIVIDERS[ci + 1]; // +1 for del column
     var cls = (ci === 0 ? 'dm-sticky ' : '') + (isDivider ? 'cg-divider' : '');
-    var tip = c[6] ? ' title="'+c[6].replace(/"/g,'&quot;')+'"' : '';
+    var tip = c[6] ? ' title="'+c[6].replace(/"/g,'&quot;')+'\"' : '';
     colHdr += '<th class="'+cls+'" style="min-width:'+c[2]+';max-width:'+c[2]+'"'+tip+'>'+c[1]+'</th>';
   });
   colHdr += '</tr>';
@@ -2244,7 +2244,7 @@ function renderDataMapping() {
         var isDivider = COL_DIVIDERS[ci + 1];
         var tdCls = (ci === 0 ? 'dm-sticky ' : '') + (isDivider ? 'cg-divider' : '');
         var tdStyle = 'min-width:'+w+';max-width:'+w+';';
-        var tipAttr = tip ? ' title="'+tip.replace(/"/g,'&quot;")+'"' : '';
+        var tipAttr = tip ? ' title="'+tip.replace(/"/g,'&quot;')+'"' : '';
 
         // ── Name column: nav button + hidden real input ──────────────────────
         if (field === 'displayName') {
