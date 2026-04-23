@@ -43,18 +43,32 @@ function crInjectNav(currentPage, extraNavHTML = '') {
   <style>
     .cr-header { background:#000; height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 40px; position:sticky; top:0; z-index:200; }
     .cr-header-left { display:flex; align-items:center; gap:14px; }
-    .cr-logo-img { width:34px; height:34px; border-radius:50%; object-fit:cover; animation:crLogoWinkBounce 5s ease-in-out infinite; cursor:pointer; transform-style:preserve-3d; }
+    .cr-logo-img { width:34px; height:34px; border-radius:50%; object-fit:cover; animation:crLogoBounce 3.2s linear infinite; cursor:pointer; transform-origin:center bottom; }
     .cr-logo-img:hover { animation:crLogoSpin 0.7s linear forwards; }
-    @keyframes crLogoWinkBounce {
-      0%,100% { transform:perspective(120px) rotateX(0deg)   scale(1)    translateY(0); }
-      8%      { transform:perspective(120px) rotateX(-72deg)  scale(1.05) translateY(-2px); }
-      18%     { transform:perspective(120px) rotateX(0deg)   scale(1.08) translateY(0); }
-      33%     { transform:perspective(120px) rotateX(0deg)   scale(1)    translateY(-9px); }
-      45%     { transform:perspective(120px) rotateX(0deg)   scale(0.95) translateY(0); }
-      55%     { transform:perspective(120px) rotateX(0deg)   scale(1)    translateY(-4px); }
-      65%     { transform:perspective(120px) rotateX(0deg)   scale(1)    translateY(0); }
+    @keyframes crLogoBounce {
+      /* ── Rest & wind-up ── */
+      0%   { transform: translateY(0)     scale(1);                   animation-timing-function: ease-in; }
+      5%   { transform: translateY(0)     scaleX(1.08) scaleY(0.92); animation-timing-function: cubic-bezier(0.215,0.61,0.355,1); }
+      /* ── Bounce 1 (big) ── */
+      15%  { transform: translateY(-25px) scaleX(0.93) scaleY(1.07); animation-timing-function: cubic-bezier(0.55,0.055,0.675,0.19); }
+      26%  { transform: translateY(0)     scaleX(1.1)  scaleY(0.9);  animation-timing-function: cubic-bezier(0.215,0.61,0.355,1); }
+      /* ── Bounce 2 ── */
+      35%  { transform: translateY(-17px) scaleX(0.95) scaleY(1.05); animation-timing-function: cubic-bezier(0.55,0.055,0.675,0.19); }
+      44%  { transform: translateY(0)     scaleX(1.08) scaleY(0.92); animation-timing-function: cubic-bezier(0.215,0.61,0.355,1); }
+      /* ── Bounce 3 ── */
+      51%  { transform: translateY(-9px)  scaleX(0.96) scaleY(1.04); animation-timing-function: cubic-bezier(0.55,0.055,0.675,0.19); }
+      58%  { transform: translateY(0)     scaleX(1.06) scaleY(0.94); animation-timing-function: cubic-bezier(0.215,0.61,0.355,1); }
+      /* ── Bounce 4 ── */
+      63%  { transform: translateY(-4px)  scaleX(0.98) scaleY(1.02); animation-timing-function: cubic-bezier(0.55,0.055,0.675,0.19); }
+      67%  { transform: translateY(0)     scaleX(1.04) scaleY(0.96); animation-timing-function: cubic-bezier(0.215,0.61,0.355,1); }
+      /* ── Bounce 5 (tiny) ── */
+      70%  { transform: translateY(-1px)  scale(1);                   animation-timing-function: ease-in; }
+      72%  { transform: translateY(0)     scaleX(1.01) scaleY(0.99); }
+      /* ── Settle & rest ── */
+      75%  { transform: translateY(0)     scale(1); }
+      100% { transform: translateY(0)     scale(1); }
     }
-    @keyframes crLogoSpin { from{transform:perspective(120px) rotate(0deg) scale(1.1)} to{transform:perspective(120px) rotate(360deg) scale(1.1)} }
+    @keyframes crLogoSpin { from{transform:rotate(0deg) scale(1.1)} to{transform:rotate(360deg) scale(1.1)} }
     .cr-logo-text { color:#fff; font-size:18px; font-weight:700; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; text-decoration:none; display:inline-block; }
     .cr-logo-text span { color:#FF5E00; }
     .cr-logo-text:hover { animation:crTextPop 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
