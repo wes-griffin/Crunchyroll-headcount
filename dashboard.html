@@ -2779,29 +2779,58 @@ function _dmTipAttr(tip) {
 }
 
 function _dmColMapTip(json) {
-  if (!json || !json.trim()) return 'No column mapping set. Each row will come back as a plain list of values (like ["Alice", "Engineering", 42]).';
+  if (!json || !json.trim()) return 'No column mapping. Rows will come back as plain arrays like ["Alice", "Engineering", 42]. Add a mapping to give each value a name.';
   try {
     var m = JSON.parse(json);
-    var lines = ['This column mapping gives each value in a row a friendly name:'];
-    Object.entries(m).forEach(function(e) {
+    var lines = [];
+    var colNames = Object.entries(m);
+
+    // Figure out the total columns to show human-readable ordinals
+    function ordinal(n) {
+      var s = ['1st','2nd','3rd'];
+      return (n < 3 ? s[n] : (n+1)+'th') + ' column (index ' + n + ')';
+    }
+
+    colNames.forEach(function(e) {
       var k = e[0], v = e[1];
+
       if (k.startsWith('$')) {
-        var realKey = k.slice(1);
-        if (typeof v === 'object' && v.exact)  lines.push('• "' + realKey + '" is automatically set to YES when column ' + v.col + ' says exactly "' + v.exact + '"');
-        else if (typeof v === 'object' && v.regex) lines.push('• "' + realKey + '" is automatically set to YES when column ' + v.col + ' matches a pattern');
-        else lines.push('• "' + realKey + '" is a yes/no flag that gets calculated automatically');
+        // Auto-calculated yes/no field
+        var label = k.slice(1);
+        if (typeof v === 'object' && v.exact)
+          lines.push('• "' + label + '" → YES/NO flag: YES when the ' + ordinal(v.col) + ' equals "' + v.exact + '"');
+        else if (typeof v === 'object' && v.regex)
+          lines.push('• "' + label + '" → YES/NO flag: YES when the ' + ordinal(v.col) + ' matches the pattern "' + v.regex + '"');
+        else
+          lines.push('• "' + label + '" → an automatically calculated YES/NO flag');
+
       } else if (typeof v === 'number') {
-        lines.push('• Column ' + v + ' in the spreadsheet becomes the "' + k + '" field');
-      } else if (typeof v === 'object') {
-        var extra = v.number ? ' (read as a number, not text)' : '';
-        lines.push('• Column ' + v.col + ' in the spreadsheet becomes the "' + k + '" field' + extra);
+        // {"fieldName": columnIndex} — the standard format
+        lines.push('• "' + k + '" = value from the ' + ordinal(v));
+
+      } else if (typeof v === 'object' && v.col !== undefined) {
+        // {"fieldName": {"col": N, "number": true}} — typed column
+        var extra = v.number ? ' (treated as a number)' : '';
+        lines.push('• "' + k + '" = value from the ' + ordinal(v.col) + extra);
+
+      } else if (typeof v === 'string') {
+        // Could be {"columnName": "Display Label"} or {"fieldName": "fixedValue"}
+        var kIsNum = /^\d+$/.test(k);
+        if (kIsNum) {
+          // Keys are column indices, values are display labels — common alternate format
+          lines.push('• ' + ordinal(parseInt(k)) + ' → labeled "' + v + '"');
+        } else {
+          lines.push('• "' + k + '" = the fixed text "' + v + '"');
+        }
       } else {
-        lines.push('• "' + k + '" comes from ' + v);
+        lines.push('• "' + k + '" → ' + JSON.stringify(v));
       }
     });
-    return lines.join('\n');
+
+    if (!lines.length) return 'Empty mapping — rows will come back as raw arrays.';
+    return 'What this mapping does:\n' + lines.join('\n');
   } catch(ex) {
-    return 'The mapping JSON looks like it has a typo — check for missing quotes or brackets.';
+    return 'This mapping has a formatting error — check for missing quotes, commas, or brackets.';
   }
 }
 
@@ -2955,19 +2984,18 @@ function renderDmCardView() {
           + '</div>');
 
         // Filters
-        var fv1tip = (DM_FILTER_TIPS[r.filterValue] || 'Filter rule for this column. Examples: ! = not blank, ~Active = contains Active, <=today = past or current dates.').replace(/"/g,'&quot;');
-        var fv2tip = (DM_FILTER_TIPS[r.filterValue2] || 'Second filter rule. Both conditions must be true.').replace(/"/g,'&quot;');
+
         parts.push('<div style="display:grid;grid-template-columns:108px 1fr 1fr 1fr 1fr;gap:6px;align-items:start">'
           + '<div class="dmcard-lbl" style="padding-top:7px" '
           +   'data-dm-tip="Filters let you keep only the rows you want. Pick a column and then pick a rule.">Row Filters</div>'
           + '<input class="dci mono" value="' + _escAttr(r.filterCol||'') + '" '
           +   'placeholder="Col (e.g. A)" title="Which column to filter by" '
           +   'data-idx="' + i + '" data-field="filterCol" onchange="dmcUpdateField(this)">'
-          + dmcFilterSelect(i, 'filterValue', r.filterValue||'')
+          + dmcFilterWidget(i, 'filterValue', r.filterValue||'')
           + '<input class="dci mono" value="' + _escAttr(r.filterCol2||'') + '" '
           +   'placeholder="Col 2 (optional)" title="A second column to filter by (optional)" '
           +   'data-idx="' + i + '" data-field="filterCol2" onchange="dmcUpdateField(this)">'
-          + dmcFilterSelect(i, 'filterValue2', r.filterValue2||'')
+          + dmcFilterWidget(i, 'filterValue2', r.filterValue2||'')
           + '</div>');
 
         // Column Mapping — with visible plain-language explanation box
@@ -3079,32 +3107,108 @@ function dmcRefreshColMapBox(textarea) {
 
 
 // Build the filter rule select options, with the current value pre-selected
-function dmcFilterSelect(idx, field, currentVal) {
-  var opts = [
-    ['', 'Pick a rule...'],
-    ['!', '! — Not empty (cell has something in it)'],
-    ['=', '= — Equals a specific value'],
-    ['!=', '!= — Does NOT equal a value'],
-    ['~', '~ — Contains some text'],
-    ['!~', '!~ — Does NOT contain some text'],
-    ['>=today', '>=today — Future dates only'],
-    ['<=today', '<=today — Past or current dates only'],
-    ['>=', '>= — Number is at least N  (e.g. >=10)'],
-    ['<=', '<= — Number is at most N  (e.g. <=5)'],
-  ];
-  var html = '<select class="dci mono" data-idx="' + idx + '" data-field="' + field + '" '
-    + 'onchange="dmcUpdateField(this)">';
-  opts.forEach(function(opt) {
-    var val = opt[0], label = opt[1];
-    var sel = (currentVal === val) || (val && val !== '' && currentVal && currentVal !== val && currentVal.startsWith(val) && ['>=','<='].indexOf(val) >= 0) ? ' selected' : '';
-    html += '<option value="' + val + '"' + sel + '>' + label + '</option>';
+// Operators that need no value — just the operator itself is the whole stored string
+var DM_OP_NO_VALUE = ['', '!', '>=today', '<=today'];
+
+// Operator options: [stored_prefix, label, needs_value, value_placeholder]
+var DM_OP_OPTIONS = [
+  ['',        'Pick a rule…',                                          false,  ''],
+  ['!',       '! — Cell is not empty',                                 false,  ''],
+  ['=',       '= — Cell exactly equals…',                              true,   'e.g. Active'],
+  ['!=',      '!= — Cell does NOT equal…',                             true,   'e.g. Inactive'],
+  ['~',       '~ — Cell contains…',                                    true,   'e.g. Engineer'],
+  ['!~',      '!~ — Cell does NOT contain…',                           true,   'e.g. Total'],
+  ['>=today', '>=today — Date is today or in the future',              false,  ''],
+  ['<=today', '<=today — Date is today or in the past',                false,  ''],
+  ['>=',      '>= — Number is at least… (type the number)',            true,   'e.g. 10'],
+  ['<=',      '<= — Number is at most… (type the number)',             true,   'e.g. 5'],
+];
+
+// Parse a stored filter value like "!~Total" into {op:'!~', val:'Total'}
+function _dmParseFilter(stored) {
+  if (!stored) return {op:'', val:''};
+  if (stored === '!'   )        return {op:'!',        val:''};
+  if (stored === '>=today')     return {op:'>=today',  val:''};
+  if (stored === '<=today')     return {op:'<=today',  val:''};
+  if (stored.startsWith('!~'))  return {op:'!~',       val: stored.slice(2)};
+  if (stored.startsWith('!'))   return {op:'!=',       val: stored.slice(1)};
+  if (stored.startsWith('>='))  return {op:'>=',       val: stored.slice(2)};
+  if (stored.startsWith('<='))  return {op:'<=',       val: stored.slice(2)};
+  if (stored.startsWith('~'))   return {op:'~',        val: stored.slice(1)};
+  // No prefix → exact equals
+  return {op:'=', val: stored};
+}
+
+// Combine op + val back into the stored format
+function _dmBuildFilter(op, val) {
+  if (!op) return '';
+  if (op === '!')         return '!';
+  if (op === '>=today')   return '>=today';
+  if (op === '<=today')   return '<=today';
+  if (op === '=')         return val;          // no prefix for exact equals
+  if (op === '!=')        return '!' + val;    // ! prefix
+  if (op === '~')         return '~' + val;
+  if (op === '!~')        return '!~' + val;
+  if (op === '>=')        return '>=' + val;
+  if (op === '<=')        return '<=' + val;
+  return val;
+}
+
+// Returns the full operator+value widget HTML for a filter field
+function dmcFilterWidget(idx, field, stored) {
+  var parsed  = _dmParseFilter(stored);
+  var selId   = 'dfw-op-' + idx + '-' + field;
+  var valId   = 'dfw-val-' + idx + '-' + field;
+
+  // Build select
+  var selHtml = '<select id="' + selId + '" class="dci mono" style="flex:0 0 auto;width:auto;min-width:100px" '
+    + 'data-idx="' + idx + '" data-field="' + field + '" onchange="dmcFilterChange(this.dataset.idx,this.dataset.field)">';
+  DM_OP_OPTIONS.forEach(function(opt) {
+    var prefix = opt[0], label = opt[1];
+    var sel = (prefix === parsed.op) ? ' selected' : '';
+    selHtml += '<option value="' + prefix + '"' + sel + '>' + label + '</option>';
   });
-  var knownVals = opts.map(function(o){ return o[0]; });
-  if (currentVal && knownVals.indexOf(currentVal) < 0) {
-    html += '<option value="' + currentVal.replace(/"/g,'&quot;') + '" selected>' + currentVal + ' (custom)</option>';
+  selHtml += '</select>';
+
+  // Decide if value input should be visible
+  var curOpt   = DM_OP_OPTIONS.find(function(o){ return o[0] === parsed.op; }) || DM_OP_OPTIONS[0];
+  var needsVal = curOpt[2];
+  var pholder  = curOpt[3] || 'value…';
+  var valStyle = needsVal ? 'flex:1;min-width:60px' : 'display:none;flex:1;min-width:60px';
+
+  var valHtml = '<input id="' + valId + '" class="dci mono" style="' + valStyle + '" '
+    + 'placeholder="' + _escAttr(pholder) + '" '
+    + 'value="' + _escAttr(parsed.val) + '" '
+    + 'data-idx="' + idx + '" data-field="' + field + '" oninput="dmcFilterChange(this.dataset.idx,this.dataset.field)">';
+
+  return '<div style="display:flex;gap:4px;align-items:center">' + selHtml + valHtml + '</div>';
+}
+
+// Called when operator OR value changes — combine and store
+function dmcFilterChange(idxOrStr, field) {
+  var idx = parseInt(idxOrStr);
+  var selId = 'dfw-op-' + idx + '-' + field;
+  var valId = 'dfw-val-' + idx + '-' + field;
+  var opEl  = document.getElementById(selId);
+  var valEl = document.getElementById(valId);
+  if (!opEl) return;
+  var op = opEl.value;
+  var val = valEl ? valEl.value : '';
+
+  // Show/hide value input based on selected operator
+  var curOpt = DM_OP_OPTIONS.find(function(o){ return o[0] === op; }) || DM_OP_OPTIONS[0];
+  var needsVal = curOpt[2];
+  if (valEl) {
+    valEl.style.display = needsVal ? '' : 'none';
+    valEl.placeholder   = curOpt[3] || 'value…';
+    if (!needsVal) val = ''; // no value when not needed
   }
-  html += '</select>';
-  return html;
+
+  var stored = _dmBuildFilter(op, val);
+  if (_configRows[idx]) {
+    _configRows[idx][field] = stored;
+    dmMarkDirty();
+  }
 }
 
 function dmcUpdateField(el) {

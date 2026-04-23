@@ -624,8 +624,10 @@ document.addEventListener("DOMContentLoaded", function() {
     </div>
   </div>
   <div class="filter-row">
-    <input type="text" id="mxSearch" placeholder="Search…" oninput="renderMatrix()">
+    <input type="text" id="mxSearch" placeholder="Search cost center, PBP, or SMT…" oninput="renderMatrix()">
     <select id="mxPBPF" onchange="renderMatrix()"><option value="">All PBPs</option></select>
+    <select id="mxSMTF" onchange="renderMatrix()"><option value="">All SMT or Delegates</option></select>
+    <button class="btn btn-secondary btn-sm" onclick="clearMatrixFilters()">Clear</button>
   </div>
   <div class="table-wrap">
     <div class="table-header"><h3>Cost Centers (<span id="mxCount">—</span>)</h3></div>
@@ -681,8 +683,18 @@ document.addEventListener("DOMContentLoaded", function() {
 
   <div class="filter-row">
     <input type="text" id="puSearch" placeholder="Search name or email…" oninput="renderPeopleTable()">
+    <select id="puPBPF" onchange="renderPeopleTable()">
+      <option value="">All — PBP Status</option>
+      <option value="Y">PBPs Only</option>
+      <option value="N">Non-PBPs Only</option>
+    </select>
+    <select id="puSMTF" onchange="renderPeopleTable()">
+      <option value="">All — SMT Status</option>
+      <option value="Y">SMT / Delegates Only</option>
+      <option value="N">Non-SMT Only</option>
+    </select>
     <select id="puSGF" onchange="renderPeopleTable()">
-      <option value="">All Groups</option>
+      <option value="">All Security Groups</option>
       <option value="master_admin">Master Admin</option>
       <option value="admin_ee">Admin — Employee</option>
       <option value="admin_cw">Admin — CW</option>
@@ -690,13 +702,19 @@ document.addEventListener("DOMContentLoaded", function() {
       <option value="compensation">Compensation</option>
       <option value="normal">Normal User</option>
     </select>
+    <button class="btn btn-secondary btn-sm" onclick="clearPeopleFilters()">Clear</button>
   </div>
 
   <div class="table-wrap">
     <div class="table-header"><h3>All Users (<span id="peopleCount">—</span>)</h3></div>
     <table><thead><tr>
-      <th style="cursor:pointer;user-select:none" onclick="sortPeople('name')">Name <span id="pu-sort-name">▲</span></th><th style="cursor:pointer;user-select:none" onclick="sortPeople('email')">Email <span id="pu-sort-email"></span></th><th>PBP</th><th>SMT or Delegate</th>
-      <th>Security Groups</th><th>Last Login</th><th>Actions</th>
+      <th style="cursor:pointer;user-select:none" onclick="sortPeople('name')">Name <span id="pu-sort-name">▲</span></th>
+      <th style="cursor:pointer;user-select:none" onclick="sortPeople('email')">Email <span id="pu-sort-email"></span></th>
+      <th style="cursor:pointer;user-select:none" onclick="sortPeople('pbp')">PBP <span id="pu-sort-pbp"></span></th>
+      <th style="cursor:pointer;user-select:none" onclick="sortPeople('smt')">SMT <span id="pu-sort-smt"></span></th>
+      <th style="cursor:pointer;user-select:none" onclick="sortPeople('sg')">Security Groups <span id="pu-sort-sg"></span></th>
+      <th style="cursor:pointer;user-select:none" onclick="sortPeople('login')">Last Login <span id="pu-sort-login"></span></th>
+      <th>Actions</th>
     </tr></thead>
     <tbody id="peopleTable"><tr><td colspan="7"><div class="empty-state"><div class="icon">👤</div><p>Loading…</p></div></td></tr></tbody></table>
   </div>
@@ -1925,21 +1943,40 @@ function adminActionSteps(reqId, isCW, adminSt, compSt, recruitSt) {
 // ============================================================
 // REQUEST MODAL
 // ============================================================
-function openReqModal(reqId, canApprove=false, isAdmin=false) {
+async function openReqModal(reqId, canApprove=false, isAdmin=false) {
   const r=allRequests.find(x=>x[0]===reqId); if(!r)return;
   const eu=effectiveUser();
   const status=r[16]||'';
   const isCW=r[4]==='CW';
-  const pbpDone=!!(r[17]&&r[17]!=='');
-  const smtDone=!!(r[20]&&r[20]!=='');
   const ro=isReadOnly();
   const isFinished = r[23]==='Hired' || r[23]==='Engaged';
-  // isReopened: set by reopenReq() which writes a timestamp to col AL (index 37)
-  // and prior approval data JSON to col AM (index 38)
-  const isReopened = !!(r[37]);
-  const priorApproval = (() => {
-    try { return r[38] ? JSON.parse(r[38]) : null; } catch(e) { return null; }
-  })();
+
+  // Check if req was ever reopened — first try in-memory cols (AL/AM),
+  // then fall back to comments tab (used when sheet grid was too small for AL/AM)
+  let isReopened = !!(r[37]);
+  let priorApproval = null;
+  try { if (r[38]) priorApproval = JSON.parse(r[38]); } catch(e) {}
+
+  if (!isReopened || !priorApproval) {
+    // Load comments to check for Reopened stage
+    const allCmts = await loadCommentsForReq(reqId);
+    // Find ALL reopen events (there may be multiple if reopened more than once)
+    const reopenCmts = allCmts.filter(c => c[4]==='Reopened');
+    if (reopenCmts.length > 0) {
+      isReopened = true;
+      // Use the first reopen event for prior approval data
+      if (!priorApproval) {
+        try { priorApproval = JSON.parse(reopenCmts[0][5]); } catch(e) {}
+      }
+      if (!r[37]) r[37] = reopenCmts[0][1]; // cache in memory
+      if (!r[38]) r[38] = reopenCmts[0][5];
+    }
+  }
+
+  // These must be computed AFTER potential reopen data is loaded,
+  // so they reflect the CURRENT round, not prior
+  const pbpDone=!!(r[17]&&r[17]!=='');
+  const smtDone=!!(r[20]&&r[20]!=='');
 
   // Determine if this user can act
   const normM = s => (s||'').replace(/\s+/g,' ').trim().toLowerCase();
@@ -2052,6 +2089,16 @@ function openReqModal(reqId, canApprove=false, isAdmin=false) {
                 <div class="step-meta">${meta}</div>${actBtns}
               </div>`;
             })()}
+          </div>
+          <div class="timeline-step">
+            <div class="step-dot ${['Approved','Rejected'].includes(status)?((status==='Approved'?'done':'rejected')):'pending'}">
+              ${status==='Approved'?'✓':status==='Rejected'?'✕':'4'}
+            </div>
+            <div class="step-info">
+              <div class="step-label">Final Decision</div>
+              <div class="step-meta">${['Approved','Rejected'].includes(status)?status+' · '+toPT(r[22]||r[19]||r[1]):'Pending'}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>` : `
@@ -2270,8 +2317,7 @@ async function loadAndRenderAudit(reqId) {
   // Reopen timestamp (col 37) — only if it exists
   if (r[37]) push(r[37], '🔄', '#FFF3E0', 'Reopened', 'Prior approval history preserved', null);
 
-  // ALL comments go in as-is — they each have real timestamps
-  // This includes: approval comments, admin status changes, cancellations, reopens stored as comments
+  // ALL comments — parse Reopened JSON nicely and extract prior events
   comments.forEach(cm => {
     const stage = cm[4] || 'Note';
     const stageColors = {
@@ -2283,13 +2329,50 @@ async function loadAndRenderAudit(reqId) {
       'PBP': '✓', 'SMT': '✓', 'Admin': '🔧',
       'Cancelled': '🚫', 'Reopened': '🔄', 'Compensation': '💰'
     };
-    push(cm[1],
-      icons[stage] || '💬',
-      stageColors[stage] || '#F3E5F5',
-      stage === 'Note' ? 'Comment' : stage + ' Comment',
-      'By ' + (cm[2]||'—'),
-      cm[5]
-    );
+
+    if (stage === 'Reopened') {
+      // Parse the stored JSON and surface prior approvals as real timeline events
+      let prior = null;
+      try { prior = JSON.parse(cm[5]); } catch(e) {}
+
+      if (prior) {
+        // Add prior PBP decision as its own event if it has a real timestamp
+        if (prior.pbpAction && prior.pbpDate) {
+          push(prior.pbpDate,
+            prior.pbpAction === 'Approved' ? '✓' : '✕',
+            prior.pbpAction === 'Approved' ? '#E8F5EE' : '#FDECEA',
+            'PBP Stage: ' + prior.pbpAction + ' (prior round)',
+            'By ' + (prior.pbpBy || '—'),
+            null
+          );
+        }
+        // Add prior SMT decision
+        if (prior.smtAction && prior.smtDate) {
+          push(prior.smtDate,
+            prior.smtAction === 'Approved' ? '✓' : '✕',
+            prior.smtAction === 'Approved' ? '#E8F5EE' : '#FDECEA',
+            'SMT Stage: ' + prior.smtAction + ' (prior round)',
+            'By ' + (prior.smtBy || '—'),
+            null
+          );
+        }
+        // Build a human-readable note for the reopen event itself
+        let note = 'Req reopened — approval progress reset for a new round.';
+        if (prior.pbpAction) note += '\nPrior PBP: ' + prior.pbpAction + ' by ' + (prior.pbpBy||'—') + (prior.pbpDate ? ' · ' + toPT(prior.pbpDate) : '');
+        if (prior.smtAction) note += '\nPrior SMT: ' + prior.smtAction + ' by ' + (prior.smtBy||'—') + (prior.smtDate ? ' · ' + toPT(prior.smtDate) : '');
+        push(cm[1], '🔄', '#FFF3E0', 'Reopened', 'By ' + (cm[2]||'—'), note);
+      } else {
+        push(cm[1], '🔄', '#FFF3E0', 'Reopened', 'By ' + (cm[2]||'—'), 'Approval progress reset for a new round.');
+      }
+    } else {
+      push(cm[1],
+        icons[stage] || '💬',
+        stageColors[stage] || '#F3E5F5',
+        stage === 'Note' ? 'Comment' : stage + ' Comment',
+        'By ' + (cm[2]||'—'),
+        cm[5]
+      );
+    }
   });
 
   // Sort strictly by timestamp — no manipulation
@@ -2361,24 +2444,36 @@ var _puSortCol = 'name', _puSortAsc = true;
 function sortPeople(col) {
   if (_puSortCol === col) { _puSortAsc = !_puSortAsc; }
   else { _puSortCol = col; _puSortAsc = true; }
-  ['name','email','login'].forEach(c => {
+  ['name','email','pbp','smt','sg','login'].forEach(c => {
     const el = document.getElementById('pu-sort-'+c);
     if (el) el.textContent = c===_puSortCol ? (_puSortAsc?'▲':'▼') : '';
   });
   renderPeopleTable();
 }
 
+function clearPeopleFilters() {
+  ['puSearch','puPBPF','puSMTF','puSGF'].forEach(id=>{const el=document.getElementById(id);if(el){if(el.tagName==='INPUT')el.value='';else el.selectedIndex=0;}});
+  _puSortCol='name'; _puSortAsc=true;
+  sortPeople('name');
+}
+
 function renderMatrix() {
   const search=(document.getElementById('mxSearch')?.value||'').toLowerCase();
   const pbpf=document.getElementById('mxPBPF')?.value||'';
+  const smtf=document.getElementById('mxSMTF')?.value||'';
   // Populate PBP filter
   const allPBPs=[...new Set(matrixData.map(r=>(r[1]||'').trim()).filter(Boolean))].sort();
   const pbpSel=document.getElementById('mxPBPF');
   if (pbpSel&&pbpSel.options.length<=1) allPBPs.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;pbpSel.appendChild(o);});
+  // Populate SMT filter
+  const allSMTs=[...new Set(matrixData.map(r=>(r[2]||'').trim()).filter(Boolean))].sort();
+  const smtSel=document.getElementById('mxSMTF');
+  if (smtSel&&smtSel.options.length<=1) allSMTs.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;smtSel.appendChild(o);});
 
   const rows=matrixData.filter(r=>{
     if(!r[0])return false;
     if(pbpf&&r[1]!==pbpf)return false;
+    if(smtf&&r[2]!==smtf)return false;
     if(search&&!(r[0]+' '+r[1]+' '+r[2]).toLowerCase().includes(search))return false;
     return true;
   }).sort((a,b) => {
@@ -2404,6 +2499,11 @@ function renderMatrix() {
         </tr>`;
       }).join('')
     : `<tr><td colspan="5"><div class="empty-state"><div class="icon">📊</div><p>No cost centers found.</p></div></td></tr>`;
+}
+
+function clearMatrixFilters() {
+  ['mxSearch','mxPBPF','mxSMTF'].forEach(id=>{const el=document.getElementById(id);if(el){if(el.tagName==='INPUT')el.value='';else el.selectedIndex=0;}});
+  renderMatrix();
 }
 
 function editMatrix(idx) {
