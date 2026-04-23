@@ -625,70 +625,77 @@ const HR = SHEET_ID; // Headcount Report sheet — shorthand for config rows
 // 9=valueCol, 10=groupCol, 11=seriesCol, 12=operation, 13=dashboardTab,
 // 14=columnMapping(JSON), 15=notes
 
+// CONFIG_HEADER: 18 columns (A–R). Q=Filters JSON, R=Options (JSON)
 const CONFIG_HEADER = ['Metric Key','Display Name','Spreadsheet ID','Sheet Tab','Range',
   'Filter Col','Filter Value','Filter Col 2','Filter Value 2',
   'Value Col','Group Col','Series Col','Operation','Dashboard Tab',
-  'Column Mapping (JSON)','Notes'];
+  'Column Mapping (JSON)','Notes',
+  'Filters JSON',    // col Q — structured multi-condition filter array
+  'Options (JSON)',  // col R — skipRows, _projectCols, etc.
+];
 
-// Pre-populated defaults — 41 rows covering every dashboard metric
-// Columns match CONFIG_HEADER order
+// Pre-populated defaults — 40 rows covering every dashboard metric
+// Columns match CONFIG_HEADER order (18 cols: indices 0–17)
+// filterValue operators: ! (not blank)  !value (not equals)  !~text (not contains)
+//   ~/regex/flags (regex match)  !~/regex/flags (not regex)  >=today  <=today
+// filtersJSON ops: "!" "=" "!=" "~" "!~" "regex" "!~regex" ">=today" "<=today"
 const CONFIG_DEFAULTS = [
   // ── UTILITY ──────────────────────────────────────────────────────────────────────────────────────────────────
-  ['data-as-of',             'Data As Of Date',                 HR, '[IMPORT] Workday Data',       'B1:B1',     '','','','', '', '', '', 'SINGLE_CELL',  'all',         '', 'Workday export timestamp from cell B1'],
+  // [metricKey, displayName, spreadsheetId, sheetTab, range, filterCol, filterValue, filterCol2, filterValue2, valueCol, groupCol, seriesCol, operation, dashboardTab, columnMapping, notes, filtersJSON, options]
+  ['data-as-of','Data As Of Date',HR,'[IMPORT] Workday Data','B1:B1','','','','','','','','SINGLE_CELL','all','','Workday export timestamp from cell B1','',''],
 
-  // ── EE HEADCOUNT SUMMARY  (A5:M13)  A=SMT B=StartHC C=Attr D=Hires E=CurrHC F=FutAttr G=FutHires H=FutHC I=OpenReqs J=ProjHC K=TopLine L=Avail M=PendReqs ──
-  ['hc-ee',                  'EE Headcount Rows (all SMTs)',    HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', '', 'A', '', 'LIST',         'employees',   '{"0":"SMT Leader","1":"Start HC","2":"Attrition","3":"Hires","4":"Current HC","5":"Fut Attrition","6":"Fut Hires","7":"Fut HC","8":"Open Reqs","9":"Proj HC","10":"Top Line","11":"Available","12":"Pend Reqs"}', 'One row per SMT. Required by parse engine.'],
-  ['summary-ee-current',     'EE Current Headcount',           HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'E', '', '', 'SUM',          'summary,employees', '', 'Sum col E (Current HC) → s-totalEE KPI board'],
-  ['summary-ee-hires',       'EE Hires (YTD)',                 HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'D', '', '', 'SUM',          'summary,employees', '', 'Sum col D (Hires) → s-hiresEE KPI board'],
-  ['summary-ee-attrition',   'EE Attrition (YTD)',             HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'C', '', '', 'SUM',          'summary,employees', '', 'Sum col C (Attrition) → s-attrEE KPI board'],
-  ['summary-ee-future-attr', 'EE Future Attrition',            HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'F', '', '', 'SUM',          'summary,employees', '', 'Sum col F → s-futureAttrEE KPI board'],
-  ['summary-ee-topline',     'EE Top Line Target',             HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'K', '', '', 'SUM',          'summary,employees', '', 'Sum col K (Top Line) → s-tlEE KPI board'],
-  ['summary-ee-headroom',    'EE Headroom / Available',        HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'L', '', '', 'SUM',          'summary,employees', '', 'Sum col L (Available) → s-headroomEE KPI board'],
-  ['summary-ee-open-reqs',   'EE Open Reqs (HC Summary)',      HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'I', '', '', 'SUM',          'employees',         '', 'Sum col I → headroom table'],
-  ['summary-ee-pend-reqs',   'EE Pending Reqs',                HR, 'Headcount Summary by SMT',    'A5:M13',    '','','','', 'M', '', '', 'SUM',          'employees',         '', 'Sum col M → headroom table'],
+  // ── EE HEADCOUNT SUMMARY (A5:M13) A=SMT B=StartHC C=Attr D=Hires E=CurrHC F=FutAttr G=FutHires H=FutHC I=OpenReqs J=ProjHC K=TopLine L=Avail M=PendReqs ──
+  ['hc-ee','EE Headcount Rows (all SMTs)',HR,'Headcount Summary by SMT','A5:M13','A','!','','','','A','','LIST','employees','','Raw rows — render functions use col indexes (E=currHC etc.)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-current','EE Current Headcount',HR,'Headcount Summary by SMT','A5:M13','A','!','','','E','','','SUM','summary,employees','','Sum col E (Current HC)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-hires','EE Hires (YTD)',HR,'Headcount Summary by SMT','A5:M13','A','!','','','D','','','SUM','summary,employees','','Sum col D (Hires)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-attrition','EE Attrition (YTD)',HR,'Headcount Summary by SMT','A5:M13','A','!','','','C','','','SUM','summary,employees','','Sum col C (Attrition)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-future-attr','EE Future Attrition',HR,'Headcount Summary by SMT','A5:M13','A','!','','','F','','','SUM','summary,employees','','Sum col F','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-topline','EE Top Line Target',HR,'Headcount Summary by SMT','A5:M13','A','!','','','K','','','SUM','summary,employees','','Sum col K (Top Line)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-headroom','EE Headroom / Available',HR,'Headcount Summary by SMT','A5:M13','A','!','','','L','','','SUM','summary,employees','','Sum col L (Available)','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-open-reqs','EE Open Reqs (HC Summary)',HR,'Headcount Summary by SMT','A5:M13','A','!','','','I','','','SUM','employees','','Sum col I','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-ee-pend-reqs','EE Pending Reqs',HR,'Headcount Summary by SMT','A5:M13','A','!','','','M','','','SUM','employees','','Sum col M','[{"col":"A","op":"!~","val":"total"}]',''],
 
-  // ── CW HEADCOUNT SUMMARY  (A20:J28)  A=SMT B=StartHC C=Attr D=Hires E=CurrHC F=FutAttr G=FutHires H=FutHC I=OpenReqs J=ProjHC ──
-  ['hc-cw',                  'CW Headcount Rows (all SMTs)',   HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', '', 'A', '', 'LIST',         'contingent',  '{"0":"SMT Leader","1":"Start HC","2":"Attrition","3":"Hires","4":"Current HC","5":"Fut Attrition","6":"Fut Hires","7":"Fut HC","8":"Open Reqs","9":"Proj HC"}', 'One row per SMT. Required by parse engine.'],
-  ['summary-cw-current',     'CW Current Headcount',           HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', 'E', '', '', 'SUM',          'summary,contingent', '', 'Sum col E → s-totalCW KPI board'],
-  ['summary-cw-hires',       'CW Hires (YTD)',                 HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', 'D', '', '', 'SUM',          'summary,contingent', '', 'Sum col D → s-hiresCW KPI board'],
-  ['summary-cw-attrition',   'CW Attrition (YTD)',             HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', 'C', '', '', 'SUM',          'summary,contingent', '', 'Sum col C → s-attrCW KPI board'],
-  ['summary-cw-future-attr', 'CW Future Attrition',            HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', 'F', '', '', 'SUM',          'summary,contingent', '', 'Sum col F → s-futureAttrCW KPI board'],
-  ['summary-cw-future-hires','CW Future Hires',                HR, 'Headcount Summary by SMT',    'A20:J28',   '','','','', 'G', '', '', 'SUM',          'contingent',         '', 'Sum col G → cw-futureHires KPI board'],
+  // ── CW HEADCOUNT SUMMARY (A20:J28) ──
+  ['hc-cw','CW Headcount Rows (all SMTs)',HR,'Headcount Summary by SMT','A20:J28','A','!','','','','A','','LIST','contingent','','Raw rows — render functions use col indexes','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-cw-current','CW Current Headcount',HR,'Headcount Summary by SMT','A20:J28','A','!','','','E','','','SUM','summary,contingent','','Sum col E','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-cw-hires','CW Hires (YTD)',HR,'Headcount Summary by SMT','A20:J28','A','!','','','D','','','SUM','summary,contingent','','Sum col D','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-cw-attrition','CW Attrition (YTD)',HR,'Headcount Summary by SMT','A20:J28','A','!','','','C','','','SUM','summary,contingent','','Sum col C','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-cw-future-attr','CW Future Attrition',HR,'Headcount Summary by SMT','A20:J28','A','!','','','F','','','SUM','summary,contingent','','Sum col F','[{"col":"A","op":"!~","val":"total"}]',''],
+  ['summary-cw-future-hires','CW Future Hires',HR,'Headcount Summary by SMT','A20:J28','A','!','','','G','','','SUM','contingent','','Sum col G','[{"col":"A","op":"!~","val":"total"}]',''],
 
-  // ── COMBINED TOTALS  (E14:H29) ──
-  ['hc-comb',                'HC Combined Cells (E14:H29)',    HR, 'Headcount Summary by SMT',    'E14:H29',   '','','','', '', '', '', 'LIST',         'summary',     '', 'E14=EE curr, H14=EE future, E29=CW curr, H29=CW future. Required by parse engine.'],
-  ['combined-ee-current',    'EE Total Current HC (E14)',      HR, 'Headcount Summary by SMT',    'E14:E14',   '','','','', 'A', '', '', 'SINGLE_CELL',  'summary',     '', 'Cell E14 → s-combined board'],
-  ['combined-ee-future',     'EE Total Future HC (H14)',       HR, 'Headcount Summary by SMT',    'H14:H14',   '','','','', 'A', '', '', 'SINGLE_CELL',  'summary',     '', 'Cell H14 → s-futureCombined board'],
-  ['combined-cw-current',    'CW Total Current HC (E29)',      HR, 'Headcount Summary by SMT',    'E29:E29',   '','','','', 'A', '', '', 'SINGLE_CELL',  'summary',     '', 'Cell E29 → s-combined board'],
-  ['combined-cw-future',     'CW Total Future HC (H29)',       HR, 'Headcount Summary by SMT',    'H29:H29',   '','','','', 'A', '', '', 'SINGLE_CELL',  'summary',     '', 'Cell H29 → s-futureCombined board'],
+  // ── COMBINED TOTALS (hc-comb removed — replaced by 4 SINGLE_CELL rows) ──
+  ['combined-ee-current','EE Total Current HC (E14)',HR,'Headcount Summary by SMT','E14:E14','','','','','A','','','SINGLE_CELL','summary','','Cell E14','',''],
+  ['combined-ee-future','EE Total Future HC (H14)',HR,'Headcount Summary by SMT','H14:H14','','','','','A','','','SINGLE_CELL','summary','','Cell H14','',''],
+  ['combined-cw-current','CW Total Current HC (E29)',HR,'Headcount Summary by SMT','E29:E29','','','','','A','','','SINGLE_CELL','summary','','Cell E29','',''],
+  ['combined-cw-future','CW Total Future HC (H29)',HR,'Headcount Summary by SMT','H29:H29','','','','','A','','','SINGLE_CELL','summary','','Cell H29','',''],
 
-  // ── LOCATION ──
-  ['hc-ee-loc',              'EE by Location',                 HR, 'Headcount Summary by SMT',    'A38:C65',   '','','','', 'B', 'A', '', 'GROUP_BY_SUM', 'employees',   '', 'A=location, B=count. Required by parse engine.'],
-  ['hc-cw-loc',              'CW by Location',                 HR, 'Headcount Summary by SMT',    'E38:G80',   '','','','', 'B', 'A', '', 'GROUP_BY_SUM', 'contingent',  '', 'E→A=location, G→C=count. Required by parse engine.'],
+  // ── LOCATION (LIST + _projectCols produces [[location,count],...] for render fns) ──
+  ['hc-ee-loc','EE by Location',HR,'Headcount Summary by SMT','A38:C65','','','','','','','','LIST','employees','','A=location col0, C=count col2. Engine projects to [col0,col2] pairs.','[{"col":"A","op":"!"},{"col":"A","op":"!~","val":"global"},{"col":"A","op":"!~","val":"location"},{"col":"C","op":"!"}]','{"_projectCols":[0,2]}'],
+  ['hc-cw-loc','CW by Location',HR,'Headcount Summary by SMT','E38:G80','','','','','','','','LIST','contingent','','E→col0=location, G→col2=count. Engine projects to [col0,col2] pairs.','[{"col":"A","op":"!"},{"col":"A","op":"!~","val":"global"},{"col":"A","op":"!~","val":"location"},{"col":"C","op":"!"}]','{"_projectCols":[0,2]}'],
 
-  // ── GREENHOUSE OPEN REQS  (A4:AN2000)  Z=25=type  AB=27=backfill  AD=29=title  AI=34=loc  AJ=35=hireDate  AL=37=SMT  AM=38=PBP ──
-  ['gh-reqs',                'Open Reqs — All Roles (GH)',     HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '', '', '', 'LIST',         'reqs',        '{"title":29,"type":25,"backfill":27,"location":34,"hireDate":35,"smt":37,"pbp":38}', 'Row 1=header skipped; filtered: non-blank title+hireDate, hireDate not in past. Required by parse engine.'],
-  ['gh-total',               'Total Open Reqs Count',          HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '', '', '', 'COUNT_ROWS',   'reqs',        '', 'Active reqs: non-blank title, non-blank future hire date'],
-  ['gh-ee-count',            'Open EE Reqs Count',             HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', 'Z', 'Employee', '','', '', '', '', 'FILTER_COUNT', 'reqs',  '', 'Col Z (idx 25)=type. EE regex: /ee|employee|full.?time|fte/i — filter value is approximate'],
-  ['gh-cw-count',            'Open CW Reqs Count',             HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', 'Z', 'Contingent','','', '', '', '', 'FILTER_COUNT', 'reqs',  '', 'Col Z (idx 25)=type. CW regex: /cw|contingent|contractor|contract/i — approximate'],
-  ['gh-by-smt',              'Open Reqs by SMT Leader',        HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '', 'AL', '', 'GROUP_BY_COUNT','reqs',       '', 'Col AL (idx 37) = SMT Leader name'],
-  ['gh-by-pbp',              'Open Reqs by PBP',               HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '', 'AM', '', 'GROUP_BY_COUNT','reqs',       '', 'Col AM (idx 38) = PBP name'],
-  ['gh-by-location',         'Open Reqs by Location',          HR, '[IMPORT] GH Open Job Detail', 'A4:AN2000', '','','','', '', 'AI', '', 'GROUP_BY_COUNT','reqs',       '', 'Col AI (idx 34) = Location'],
+  // ── GREENHOUSE OPEN REQS (A4:AN2000) Z=25=type AB=27=backfill AD=29=title AI=34=loc AJ=35=hireDate AL=37=SMT AM=38=PBP ──
+  ['gh-reqs','Open Reqs — All Roles (GH)',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','','','LIST','reqs','{"title":29,"type":25,"backfill":27,"location":34,"hireDate":35,"smt":37,"pbp":38,"$isEE":{"col":25,"regex":"^(ee|employee|full.?time|fte)$","flags":"i"},"$isCW":{"col":25,"regex":"^(cw|contingent.*|contractor|contract)$","flags":"i"}}','Row 0=header skipped; title+hireDate not blank; hireDate >= today. $isEE/$isCW derived.','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
+  ['gh-total','Total Open Reqs Count',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','','','COUNT_ROWS','reqs','','Active reqs: non-blank title, future hire date','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
+  ['gh-ee-count','Open EE Reqs Count',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','Z','~/^(ee|employee|full.?time|fte)$/i','AJ','>=today','','','','FILTER_COUNT','reqs','','EE type regex + active date filter','[{"col":"AD","op":"!"},{"col":"AJ","op":"!"}]','{"skipRows":1}'],
+  ['gh-cw-count','Open CW Reqs Count',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','Z','~/^(cw|contingent.*|contractor|contract)$/i','AJ','>=today','','','','FILTER_COUNT','reqs','','CW type regex + active date filter','[{"col":"AD","op":"!"},{"col":"AJ","op":"!"}]','{"skipRows":1}'],
+  ['gh-by-smt','Open Reqs by SMT Leader',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','AL','','GROUP_BY_COUNT','reqs','','Col AL (idx 37) = SMT','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
+  ['gh-by-pbp','Open Reqs by PBP',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','AM','','GROUP_BY_COUNT','reqs','','Col AM (idx 38) = PBP','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
+  ['gh-by-location','Open Reqs by Location',HR,'[IMPORT] GH Open Job Detail','A4:AN2000','AD','!','AJ','>=today','','AI','','GROUP_BY_COUNT','reqs','','Col AI (idx 34) = Location','[{"col":"AJ","op":"!"}]','{"skipRows":1}'],
 
-  // ── WORKDAY  (A2:AK4500)  B=1=name  C=2=status  D=3=type  F=5=smt  K=10=mgr  L=11=title  N=13=costCtr  Q=16=loc  X=23=hireDate ──
-  ['wd-main',                'All Active Workers (Workday)',   HR, '[IMPORT] Workday Data',       'A2:AK4500', '','','','', '', '', '', 'LIST',         'summary',     '{"name":1,"status":2,"type":3,"smt":5,"manager":10,"title":11,"costCenter":13,"location":16,"hireDate":23}', 'Active: status≠Inactive, hireDate≤today. Required by parse engine.'],
+  // ── WORKDAY (A2:AK4500) B=1=name C=2=status D=3=type F=5=smt K=10=mgr L=11=title N=13=costCtr Q=16=loc X=23=hireDate ──
+  ['wd-main','All Active Workers (Workday)',HR,'[IMPORT] Workday Data','A2:AK4500','C','!Inactive','X','<=today','','','','LIST','summary','{"name":1,"status":2,"type":3,"smt":5,"manager":10,"title":11,"costCenter":13,"location":16,"hireDate":23,"$isEE":{"col":3,"exact":"Employee"},"$isCW":{"col":3,"exact":"Contingent Worker"}}','Active: status≠Inactive AND hireDate≤today AND name not blank. $isEE/$isCW derived.','[{"col":"B","op":"!"},{"col":"X","op":"!"}]',''],
 
-  // ── PENDING HIRES & ATTRITION  A=SMT/Loc  B=EE  C=CW  D=Total ──
-  ['pa-hires-smt',           'Pending Hires by SMT',           HR, 'Pending Hires & Attrition',   'A5:D20',    '','','','', '', 'A', '', 'LIST',         'pa',          '{"0":"SMT Leader","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Required by parse engine.'],
-  ['pa-hires-loc',           'Pending Hires by Location',      HR, 'Pending Hires & Attrition',   'F5:I20',    '','','','', '', 'A', '', 'LIST',         'pa',          '{"0":"Location","1":"Employee","2":"Contingent","3":"Grand Total"}',  'Required by parse engine.'],
-  ['pa-attrition-smt',       'Pending Attrition by SMT',       HR, 'Pending Hires & Attrition',   'A28:D45',   '','','','', '', 'A', '', 'LIST',         'pa',          '{"0":"SMT Leader","1":"Employee","2":"Contingent","3":"Grand Total"}', 'Required by parse engine.'],
-  ['pa-attrition-loc',       'Pending Attrition by Location',  HR, 'Pending Hires & Attrition',   'F28:I45',   '','','','', '', 'A', '', 'LIST',         'pa',          '{"0":"Location","1":"Employee","2":"Contingent","3":"Grand Total"}',  'Required by parse engine.'],
-  ['pa-hires-total',         'Total Pending Hires',            HR, 'Pending Hires & Attrition',   'A5:D20',    '','','','', 'D', '', '', 'SUM',          'pa',          '', 'Sum col D (Grand Total) → pa-hires KPI board'],
-  ['pa-hires-ee',            'Pending EE Hires',               HR, 'Pending Hires & Attrition',   'A5:D20',    '','','','', 'B', '', '', 'SUM',          'pa',          '', 'Sum col B (Employee) → sub-label'],
-  ['pa-hires-cw',            'Pending CW Hires',               HR, 'Pending Hires & Attrition',   'A5:D20',    '','','','', 'C', '', '', 'SUM',          'pa',          '', 'Sum col C (Contingent) → sub-label'],
-  ['pa-attrition-total',     'Total Pending Attrition',        HR, 'Pending Hires & Attrition',   'A28:D45',   '','','','', 'D', '', '', 'SUM',          'pa',          '', 'Sum col D (Grand Total) → pa-attr KPI board'],
-  ['pa-attrition-ee',        'Pending EE Attrition',           HR, 'Pending Hires & Attrition',   'A28:D45',   '','','','', 'B', '', '', 'SUM',          'pa',          '', 'Sum col B (Employee) → sub-label'],
-  ['pa-attrition-cw',        'Pending CW Attrition',           HR, 'Pending Hires & Attrition',   'A28:D45',   '','','','', 'C', '', '', 'SUM',          'pa',          '', 'Sum col C (Contingent) → sub-label'],
+  // ── PENDING HIRES & ATTRITION — col0=SMT/Loc col1=EE col2=CW col3=Total ──
+  ['pa-hires-smt','Pending Hires by SMT',HR,'Pending Hires & Attrition','A5:D20','A','!','','','','A','','LIST','pa','{"smt":0,"loc":0,"ee":{"col":1,"number":true},"cw":{"col":2,"number":true},"total":{"col":3,"number":true}}','Skip blank and total rows; numeric ee/cw/total fields','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-hires-loc','Pending Hires by Location',HR,'Pending Hires & Attrition','F5:I20','A','!','','','','A','','LIST','pa','{"smt":0,"loc":0,"ee":{"col":1,"number":true},"cw":{"col":2,"number":true},"total":{"col":3,"number":true}}','Skip blank and total rows; numeric ee/cw/total fields','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-attrition-smt','Pending Attrition by SMT',HR,'Pending Hires & Attrition','A28:D45','A','!','','','','A','','LIST','pa','{"smt":0,"loc":0,"ee":{"col":1,"number":true},"cw":{"col":2,"number":true},"total":{"col":3,"number":true}}','Skip blank and total rows; numeric ee/cw/total fields','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-attrition-loc','Pending Attrition by Location',HR,'Pending Hires & Attrition','F28:I45','A','!','','','','A','','LIST','pa','{"smt":0,"loc":0,"ee":{"col":1,"number":true},"cw":{"col":2,"number":true},"total":{"col":3,"number":true}}','Skip blank and total rows; numeric ee/cw/total fields','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-hires-total','Total Pending Hires',HR,'Pending Hires & Attrition','A5:D20','A','!','','','D','','','SUM','pa','','Sum col D (Grand Total)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-hires-ee','Pending EE Hires',HR,'Pending Hires & Attrition','A5:D20','A','!','','','B','','','SUM','pa','','Sum col B (Employee)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-hires-cw','Pending CW Hires',HR,'Pending Hires & Attrition','A5:D20','A','!','','','C','','','SUM','pa','','Sum col C (Contingent)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-attrition-total','Total Pending Attrition',HR,'Pending Hires & Attrition','A28:D45','A','!','','','D','','','SUM','pa','','Sum col D (Grand Total)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-attrition-ee','Pending EE Attrition',HR,'Pending Hires & Attrition','A28:D45','A','!','','','B','','','SUM','pa','','Sum col B (Employee)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
+  ['pa-attrition-cw','Pending CW Attrition',HR,'Pending Hires & Attrition','A28:D45','A','!','','','C','','','SUM','pa','','Sum col C (Contingent)','[{"col":"A","op":"!~regex","val":"^(total|grand)","flags":"i"}]',''],
 ];
 
 // ── Operation definitions (used in dropdown + tooltips) ──────
@@ -729,6 +736,8 @@ function parseConfigRow(raw) {
     dashboardTab:  (raw[13] || '').toString().trim(),
     columnMapping: (raw[14] || '').toString().trim(),
     notes:         (raw[15] || '').toString().trim(),
+    filtersJSON:   (raw[16] || '').toString().trim(),  // col Q — structured filter array
+    options:       (raw[17] || '').toString().trim(),  // col R — skipRows, _projectCols, etc.
   };
 }
 
@@ -775,26 +784,63 @@ async function createConfigTabIfMissing() {
 
 async function seedConfigTab() {
   await createConfigTabIfMissing();
-  await writeToRequestsSheet(CONFIG_TAB, 'A1:P1', [CONFIG_HEADER]);
-  await writeToRequestsSheet(CONFIG_TAB, 'A2:P'+(CONFIG_DEFAULTS.length+1), CONFIG_DEFAULTS);
+  const rowsToWrite = (_configRows && _configRows.length > 0)
+    ? _configRows.map(r => [r.metricKey, r.displayName, r.spreadsheetId, r.sheetTab, r.range,
+        r.filterCol, r.filterValue, r.filterCol2, r.filterValue2,
+        r.valueCol, r.groupCol, r.seriesCol, r.operation, r.dashboardTab,
+        r.columnMapping, r.notes, r.filtersJSON||'', r.options||''])
+    : CONFIG_DEFAULTS;
+  const versionSentinel = [['__version__', CONFIG_VERSION, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']];
+  await clearRequestsSheetRange(CONFIG_TAB, 'A1:R500');
+  await writeToRequestsSheet(CONFIG_TAB, 'A1:R1', [CONFIG_HEADER]);
+  await writeToRequestsSheet(CONFIG_TAB, 'A2:R'+(rowsToWrite.length+1), rowsToWrite);
+  await writeToRequestsSheet(CONFIG_TAB, 'A'+(rowsToWrite.length+2)+':R'+(rowsToWrite.length+2), versionSentinel);
 }
+
+// Bump this when CONFIG_DEFAULTS changes — triggers a one-time reseed of the sheet.
+// User-added rows are preserved by merging: defaults fill in missing metricKeys,
+// existing rows (by metricKey) are kept as-is so manual edits survive.
+const CONFIG_VERSION = 3;
 
 async function loadConfig() {
   try {
-    const rows = await fetchFromRequestsSheet(CONFIG_TAB, 'A2:P200');
-    if (!rows || rows.length === 0) {
+    const rows = await fetchFromRequestsSheet(CONFIG_TAB, 'A2:R200');
+    const dataRows = rows ? rows.filter(r => r[0] && r[0].toString().trim()) : [];
+
+    if (dataRows.length === 0) {
+      // Brand new — seed everything
       await seedConfigTab();
       _configRows = CONFIG_DEFAULTS.map(parseConfigRow);
+      return _configRows;
+    }
+
+    // Check stored version (we keep it in a special sentinel row with metricKey '__version__')
+    const versionRow = dataRows.find(r => r[0] === '__version__');
+    const storedVersion = versionRow ? parseInt(versionRow[1]) || 0 : 0;
+
+    if (storedVersion < CONFIG_VERSION) {
+      // Merge: start from defaults, overlay any existing user rows by metricKey
+      const existingByKey = {};
+      dataRows.filter(r => r[0] !== '__version__').forEach(r => {
+        existingByKey[r[0].trim()] = r;
+      });
+      const merged = CONFIG_DEFAULTS.map(def => existingByKey[def[0]] || def);
+      // Also keep any user-added rows that aren't in CONFIG_DEFAULTS
+      const defaultKeys = new Set(CONFIG_DEFAULTS.map(d => d[0]));
+      dataRows.filter(r => r[0] !== '__version__' && !defaultKeys.has(r[0])).forEach(r => merged.push(r));
+
+      _configRows = merged.map(parseConfigRow);
+      await seedConfigTab(); // rewrites sheet with merged rows + new version
     } else {
-      _configRows = rows.filter(r => r[0] && r[0].toString().trim()).map(parseConfigRow);
+      _configRows = dataRows.filter(r => r[0] !== '__version__').map(parseConfigRow);
     }
   } catch(e) {
-    // Tab likely doesn't exist — seed it
     try { await seedConfigTab(); } catch(e2) { console.warn('Could not seed config tab:', e2.message); }
     _configRows = CONFIG_DEFAULTS.map(parseConfigRow);
   }
   return _configRows;
 }
+
 
 // ── Fetch plan builder (deduplicate by spreadsheetId+tab+range) ──
 function buildFetchPlan(configRows) {
@@ -842,10 +888,36 @@ function colIndex(spec) {
 }
 
 // ── Filter helpers ────────────────────────────────────────────
+// matchesFilter: string-based operator on a raw row column.
+// Operators: ! (not blank)  !value (not equals)  !~text (not contains)
+//   !~/pat/flags (regex not match)  ~/pat/flags (regex match)
+//   >=today <=today >today <today  >=N <=N >N <N  ~text (contains)  value (equals)
 function matchesFilter(row, colIdx, filterValue) {
-  if (colIdx === null || !filterValue) return true;
+  if (colIdx === null || colIdx === undefined || filterValue === null || filterValue === undefined || filterValue === '') return true;
   const cell = (row[colIdx] || '').toString().trim();
   const fv   = filterValue.toString().trim();
+  if (!fv) return true;
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (fv === '!') return cell !== '';
+  if (fv === '>=today' || fv === '>today' || fv === '<=today' || fv === '<today') {
+    const d = new Date(cell); d.setHours(0,0,0,0);
+    if (isNaN(d)) return false;
+    if (fv === '>=today') return d >= today;
+    if (fv === '>today')  return d >  today;
+    if (fv === '<=today') return d <= today;
+    if (fv === '<today')  return d <  today;
+  }
+  if (fv.startsWith('!~/') || (fv.startsWith('~/') && fv.length > 2)) {
+    const neg = fv.startsWith('!~');
+    const regStr = neg ? fv.slice(3) : fv.slice(2);
+    const lastSlash = regStr.lastIndexOf('/');
+    const pattern = lastSlash > 0 ? regStr.slice(0, lastSlash) : regStr;
+    const flags   = lastSlash > 0 ? regStr.slice(lastSlash + 1) : 'i';
+    try { const re = new RegExp(pattern, flags); return neg ? !re.test(cell) : re.test(cell); }
+    catch(e) { return true; }
+  }
+  if (fv.startsWith('!~')) return !cell.toLowerCase().includes(fv.slice(2).toLowerCase());
+  if (fv.startsWith('!')) return cell.toLowerCase() !== fv.slice(1).toLowerCase();
   if (fv.startsWith('>=')) { const v=fv.slice(2); return isNaN(v) ? cell>=v : parseFloat(cell)>=parseFloat(v); }
   if (fv.startsWith('<=')) { const v=fv.slice(2); return isNaN(v) ? cell<=v : parseFloat(cell)<=parseFloat(v); }
   if (fv.startsWith('>'))  return parseFloat(cell) >  parseFloat(fv.slice(1));
@@ -854,9 +926,46 @@ function matchesFilter(row, colIdx, filterValue) {
   return cell.toLowerCase() === fv.toLowerCase();
 }
 
+// matchesFilterRule: structured rule from filtersJSON array.
+// ops: "!" "=" "!=" "~" "!~" "regex" "!~regex" ">=today" "<=today" ">today" "<today" ">=" "<=" ">" "<"
+function matchesFilterRule(row, rule) {
+  const ci = colIndex(rule.col);
+  if (ci === null || ci === undefined) return true;
+  const cell = (row[ci] || '').toString().trim();
+  const val  = (rule.val !== undefined ? rule.val : '').toString();
+  const today = new Date(); today.setHours(0,0,0,0);
+  switch (rule.op) {
+    case '!':       return cell !== '';
+    case '=':       return cell.toLowerCase() === val.toLowerCase();
+    case '!=':      return cell.toLowerCase() !== val.toLowerCase();
+    case '~':       return cell.toLowerCase().includes(val.toLowerCase());
+    case '!~':      return !cell.toLowerCase().includes(val.toLowerCase());
+    case 'regex':   try { return  new RegExp(val, rule.flags||'i').test(cell); } catch(e) { return true; }
+    case '!~regex': try { return !new RegExp(val, rule.flags||'i').test(cell); } catch(e) { return true; }
+    case '>=today': { const d=new Date(cell); d.setHours(0,0,0,0); return !isNaN(d) && d>=today; }
+    case '<=today': { const d=new Date(cell); d.setHours(0,0,0,0); return !isNaN(d) && d<=today; }
+    case '>today':  { const d=new Date(cell); d.setHours(0,0,0,0); return !isNaN(d) && d>today;  }
+    case '<today':  { const d=new Date(cell); d.setHours(0,0,0,0); return !isNaN(d) && d<today;  }
+    case '>=':      return parseFloat(cell) >= parseFloat(val);
+    case '<=':      return parseFloat(cell) <= parseFloat(val);
+    case '>':       return parseFloat(cell) >  parseFloat(val);
+    case '<':       return parseFloat(cell) <  parseFloat(val);
+    default:        return matchesFilter(row, ci, rule.op + val);
+  }
+}
+
 function applyFilters(rows, cfg) {
+  let opts = {};
+  try { if (cfg.options) opts = JSON.parse(cfg.options); } catch(e) {}
+  const skipRows = parseInt(opts.skipRows) || 0;
+  let result = skipRows > 0 ? rows.slice(skipRows) : rows;
   const fc1 = colIndex(cfg.filterCol), fc2 = colIndex(cfg.filterCol2);
-  return rows.filter(r => matchesFilter(r, fc1, cfg.filterValue) && matchesFilter(r, fc2, cfg.filterValue2));
+  if (fc1 !== null && cfg.filterValue)  result = result.filter(r => matchesFilter(r, fc1, cfg.filterValue));
+  if (fc2 !== null && cfg.filterValue2) result = result.filter(r => matchesFilter(r, fc2, cfg.filterValue2));
+  let rules = [];
+  try { if (cfg.filtersJSON) rules = JSON.parse(cfg.filtersJSON); } catch(e) {}
+  rules.forEach(rule => { result = result.filter(r => matchesFilterRule(r, rule)); });
+  return result;
 }
 
 // ── Operation executor ────────────────────────────────────────
@@ -896,9 +1005,51 @@ function applyOperation(cfg, rows) {
       return rows[0]?.[0] ?? '';
 
     case 'LIST': {
+      // Parse options for projection
+      let opts = {};
+      try { if (cfg.options) opts = JSON.parse(cfg.options); } catch(e) {}
       let mapping = null;
-      try { mapping = cfg.columnMapping ? JSON.parse(cfg.columnMapping) : null; } catch(e){}
-      return { rows: filtered, columnMapping: mapping };
+      try { mapping = cfg.columnMapping ? JSON.parse(cfg.columnMapping) : null; } catch(e) {}
+
+      // No columnMapping → return raw filtered arrays (hc-ee, hc-cw)
+      if (!mapping) return filtered;
+
+      // Column projection: options._projectCols → [[col0, col2], ...] (hc-ee-loc, hc-cw-loc)
+      if (opts._projectCols && Array.isArray(opts._projectCols)) {
+        return filtered.map(r => opts._projectCols.map(ci => (r[ci] !== undefined ? r[ci] : '')));
+      }
+
+      // Named object mapping with optional $derived fields and numeric conversion
+      const fieldDefs = Object.entries(mapping);
+      return filtered.map(r => {
+        const obj = {};
+        fieldDefs.forEach(([key, def]) => {
+          if (key.startsWith('$')) {
+            // Derived boolean field
+            const fieldName = key.slice(1);
+            const ci = typeof def.col === 'number' ? def.col : colIndex(String(def.col));
+            const colVal = (r[ci] !== undefined ? r[ci] : '').toString().trim();
+            if (def.exact !== undefined) {
+              obj[fieldName] = colVal === def.exact;
+            } else if (def.regex !== undefined) {
+              try { obj[fieldName] = new RegExp(def.regex, def.flags||'i').test(colVal); }
+              catch(e) { obj[fieldName] = false; }
+            } else {
+              obj[fieldName] = false;
+            }
+          } else if (def !== null && typeof def === 'object') {
+            // Object form: {"col": N, "number": true}
+            const ci = typeof def.col === 'number' ? def.col : colIndex(String(def.col));
+            const raw = (r[ci] !== undefined ? r[ci] : '').toString().trim();
+            obj[key] = def.number ? (parseFloat(raw.replace(/,/g,'')) || 0) : raw;
+          } else {
+            // Simple integer column index → string value
+            const ci = typeof def === 'number' ? def : parseInt(def);
+            obj[key] = (r[ci] !== undefined ? r[ci] : '').toString().trim();
+          }
+        });
+        return obj;
+      });
     }
 
     case 'CROSS_TAB': {
@@ -994,8 +1145,26 @@ function tsNow() {
 // ============================================================
 let D = {}; // all parsed data
 
+// Maps metricKey → legacy D property name so render functions work unchanged
+const D_PROPERTY_MAP = {
+  'hc-ee':              'eeData',
+  'hc-cw':              'cwData',
+  'hc-ee-loc':          'eeLoc',
+  'hc-cw-loc':          'cwLoc',
+  'gh-reqs':            'ghRows',
+  'wd-main':            'workdayWorkers',
+  'pa-hires-smt':       'hiresSMT',
+  'pa-hires-loc':       'hiresLoc',
+  'pa-attrition-smt':   'attrSMT',
+  'pa-attrition-loc':   'attrLoc',
+  'combined-ee-current':'eeCurrTotal',
+  'combined-ee-future': 'eeFutureTotal',
+  'combined-cw-current':'cwCurrTotal',
+  'combined-cw-future': 'cwFutureTotal',
+};
+
 // ============================================================
-// LOAD ALL DATA  (config-driven)
+// LOAD ALL DATA  (config-driven — all normalization in engine)
 // ============================================================
 async function loadAllData() {
   setLoading(true, 'Loading configuration…');
@@ -1034,23 +1203,10 @@ async function loadAllData() {
       D[cfg.metricKey] = den > 0 ? (num / den * 100).toFixed(1) + '%' : '—';
     });
 
-    // 7. Pass raw arrays to existing parse functions via getRaw()
-    setLoading(true, 'Processing data…');
-    parseHC(
-      getRaw('hc-ee',          fetchResults),
-      getRaw('hc-cw',          fetchResults),
-      getRaw('hc-comb',        fetchResults),
-      getRaw('hc-ee-loc',      fetchResults),
-      getRaw('hc-cw-loc',      fetchResults)
-    );
-    parseGH(getRaw('gh-reqs',  fetchResults));
-    parseWorkday(getRaw('wd-main', fetchResults));
-    parsePA(
-      getRaw('pa-hires-smt',     fetchResults),
-      getRaw('pa-hires-loc',     fetchResults),
-      getRaw('pa-attrition-smt', fetchResults),
-      getRaw('pa-attrition-loc', fetchResults)
-    );
+    // 7. Alias D[metricKey] → legacy D property names so render functions work unchanged
+    Object.entries(D_PROPERTY_MAP).forEach(([key, prop]) => {
+      if (D[key] !== undefined) D[prop] = D[key];
+    });
 
     renderAll();
 
@@ -1067,169 +1223,6 @@ async function loadAllData() {
   } finally {
     setLoading(false);
   }
-}
-
-// ============================================================
-// PARSE HEADCOUNT SUMMARY
-// ============================================================
-// ============================================================
-// PARSE HEADCOUNT SUMMARY
-// EE:    A5:M13  — cols A=name,B=startHC,C=attr,D=hires,E=currHC,F=futAttr,G=futHires,H=futHC,I=openReqs,J=projHC,K=topLine,L=avail,M=pendReqs
-// CW:    A20:J28 — cols A=name,B=startHC,C=attr,D=hires,E=currHC,F=futAttr,G=futHires,H=futHC,I=openReqs,J=projHC
-// Comb:  E14:H29 — we fetch this range; E14 row0col0=EE curr total, H14 row0col3=EE future total
-//                                        E29 is 15 rows down => row15col0=CW curr total, H29=row15col3=CW future total
-// EE Loc: A38:C65 — col A=location, col B=count (skip "Global Locations" rows)
-// CW Loc: E38:G80 — col E(→A)=location, col F(→B)=count (skip "Global Locations" rows)
-// ============================================================
-function parseHC(eeRaw, cwRaw, combRaw, eeLocRaw, cwLocRaw) {
-  // EE rows — skip any blank or total rows
-  const eeData = (eeRaw || []).filter(r => r && r[0] && !r[0].toString().toLowerCase().includes('total'));
-  // CW rows — skip blank or total rows
-  const cwData = (cwRaw || []).filter(r => r && r[0] && !r[0].toString().toLowerCase().includes('total'));
-
-  // Combined workforce from specific cells
-  // combRaw fetches E14:H29. E14=row0,col0; H14=row0,col3; E29=row15,col0; H29=row15,col3
-  const combRow0  = (combRaw || [])[0]  || [];
-  const combRow15 = (combRaw || [])[15] || [];
-  D.eeCurrTotal   = n(combRow0[0]);   // E14
-  D.eeFutureTotal = n(combRow0[3]);   // H14
-  D.cwCurrTotal   = n(combRow15[0]);  // E29
-  D.cwFutureTotal = n(combRow15[3]);  // H29
-
-  // EE Location A38:C65 — col A=location (idx 0), col C=count (idx 2). Skip blanks and header rows.
-  const eeLoc = (eeLocRaw || [])
-    .filter(r => r && r[0] && r[0].toString().trim() !== '' &&
-      !r[0].toString().toLowerCase().includes('global') &&
-      !r[0].toString().toLowerCase().includes('location') &&
-      (r[2] !== undefined && r[2] !== null && r[2] !== ''))
-    .map(r => [r[0], r[2]]); // normalise to [location, count]
-
-  // CW Location E38:G80 — col E=location (idx 0), col G=count (idx 2). Skip blanks and header rows.
-  const cwLoc = (cwLocRaw || [])
-    .filter(r => r && r[0] && r[0].toString().trim() !== '' &&
-      !r[0].toString().toLowerCase().includes('global') &&
-      !r[0].toString().toLowerCase().includes('location') &&
-      (r[2] !== undefined && r[2] !== null && r[2] !== ''))
-    .map(r => [r[0], r[2]]); // normalise to [location, count]
-
-  D.eeData = eeData;
-  D.cwData = cwData;
-  D.eeLoc  = eeLoc;
-  D.cwLoc  = cwLoc;
-}
-
-// ============================================================
-// PARSE GH OPEN JOBS
-// Headers at row 4 (first row of our fetch).
-// Cols (0-indexed from A): Z=25(type), AB=27(backfill/new HC flag), AD=29(title),
-//   AI=34(location), AJ=35(targetHireDate), AL=37(SMT), AM=38(PBP)
-// EE = type matches: EE, Employee, Full-time, Full Time (case-insensitive)
-// CW = type matches: CW, Contingent (case-insensitive)
-// Backfill is a FLAG only — does NOT affect EE/CW counts
-// Filter: exclude rows where targetHireDate is in the past
-// ============================================================
-function parseGH(rows) {
-  if (!rows.length) { D.ghRows = []; return; }
-  const today = new Date(); today.setHours(0,0,0,0);
-  // EE = EE, Employee, Full-time, Full Time, FTE (case-insensitive)
-  const isEE = t => /^(ee|employee|full.?time|fte)$/i.test((t||'').trim());
-  // CW = CW, Contingent, Contingent Worker, Contractor, Contract (case-insensitive)
-  const isCW = t => /^(cw|contingent.*|contractor|contract)$/i.test((t||'').trim());
-
-  const data = [];
-  for (let i = 1; i < rows.length; i++) { // i=0 is header row 4
-    const r = rows[i] || [];
-    if (!r.length) continue;
-
-    const titleRaw    = (r[29] || '').toString().trim(); // AD
-    const hireDateRaw = (r[35] || '').toString().trim(); // AJ
-    const typeRaw     = (r[25] || '').toString().trim(); // Z
-
-    // Exclude: blank title OR blank hire date
-    if (!titleRaw || !hireDateRaw) continue;
-
-    // Exclude: hire date is in the past
-    const hd = new Date(hireDateRaw); hd.setHours(0,0,0,0);
-    if (isNaN(hd) || hd < today) continue;
-
-    data.push({
-      title:    titleRaw,
-      type:     typeRaw,
-      isEE:     isEE(typeRaw),
-      isCW:     isCW(typeRaw),
-      backfill: (r[27] || '').toString().trim(), // AB — flag only
-      location: (r[34] || '').toString().trim(), // AI
-      hireDate: hireDateRaw,                      // AJ
-      smt:      (r[37] || '').toString().trim(), // AL
-      pbp:      (r[38] || '').toString().trim(), // AM
-    });
-  }
-  D.ghRows = data;
-}
-
-// ============================================================
-// PARSE WORKDAY DATA — Active Workers Roster
-// Cols (0-based): B=1 name, C=2 status, D=3 type, F=5 smt,
-//   K=10 manager, L=11 title, N=13 costCenter, Q=16 location,
-//   X=23 hireDate, AK=36 termDate
-// Active = status !== 'Inactive' AND hireDate <= today
-// Worker type: 'Employee' = EE, 'Contingent Worker' = CW
-// ============================================================
-function parseWorkday(rows) {
-  if (!rows || !rows.length) { D.workdayWorkers = []; return; }
-  const today = new Date(); today.setHours(0,0,0,0);
-
-  const workers = [];
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r || !r.length || !r[1]) continue; // skip blank rows
-
-    const status   = (r[2]  || '').toString().trim();
-    const hireRaw  = (r[23] || '').toString().trim();
-
-    // Exclude Inactive
-    if (status.toLowerCase() === 'inactive') continue;
-
-    // Must have a hire date on or before today
-    if (!hireRaw) continue;
-    const hireDate = new Date(hireRaw); hireDate.setHours(0,0,0,0);
-    if (isNaN(hireDate) || hireDate > today) continue;
-
-    const typeRaw = (r[3] || '').toString().trim();
-    workers.push({
-      name:       (r[1]  || '').toString().trim(),
-      status:     status,
-      type:       typeRaw,
-      isEE:       typeRaw === 'Employee',
-      isCW:       typeRaw === 'Contingent Worker',
-      smt:        (r[5]  || '').toString().trim(),
-      manager:    (r[10] || '').toString().trim(),
-      title:      (r[11] || '').toString().trim(),
-      costCenter: (r[13] || '').toString().trim(),
-      location:   (r[16] || '').toString().trim(),
-      hireDate:   hireRaw,
-    });
-  }
-  D.workdayWorkers = workers;
-}
-
-// ============================================================
-// PARSE PENDING HIRES & ATTRITION
-// hiresSMTRaw: A5:D20  — col0=SMT, col1=EE, col2=CW, col3=Total
-// hiresLocRaw: F5:I20  — col0=Loc, col1=EE, col2=CW, col3=Total
-// attrSMTRaw:  A28:D45 — col0=SMT, col1=EE, col2=CW, col3=Total
-// attrLocRaw:  F28:I45 — col0=Loc, col1=EE, col2=CW, col3=Total
-// Skip blank rows and total/grand total rows
-// ============================================================
-function parsePA(hiresSMTRaw, hiresLocRaw, attrSMTRaw, attrLocRaw) {
-  const clean = (raw, keyCol) => (raw || [])
-    .filter(r => r && r[keyCol] && !/^(total|grand)/i.test((r[keyCol]||'').toString().trim()))
-    .map(r => ({ smt: r[0], loc: r[0], ee: n(r[1]), cw: n(r[2]), total: n(r[3]) }));
-
-  D.hiresSMT = clean(hiresSMTRaw, 0);
-  D.hiresLoc = clean(hiresLocRaw, 0);
-  D.attrSMT  = clean(attrSMTRaw,  0);
-  D.attrLoc  = clean(attrLocRaw,  0);
 }
 
 // ============================================================
@@ -2042,6 +2035,8 @@ async function saveMappingRow(idx) {
     dashboardTab:  g('dashboardTab').trim(),
     columnMapping: g('columnMapping').trim(),
     notes:         g('notes').trim(),
+    filtersJSON:   g('filtersJSON').trim(),
+    options:       g('options').trim(),
   };
   _editingRowIdx = null;
   renderDataMapping();
@@ -2071,7 +2066,7 @@ function addMappingRow() {
   _configRows.push({ metricKey:'', displayName:'', spreadsheetId:HR, sheetTab:'', range:'',
     filterCol:'', filterValue:'', filterCol2:'', filterValue2:'',
     valueCol:'', groupCol:'', seriesCol:'', operation:'LIST',
-    dashboardTab:'', columnMapping:'', notes:'' });
+    dashboardTab:'', columnMapping:'', notes:'', filtersJSON:'', options:'' });
   _editingRowIdx = _configRows.length - 1;
   renderDataMapping();
   setTimeout(function() {
@@ -2087,11 +2082,14 @@ async function saveMappingAllToSheet() {
     return [r.metricKey, r.displayName, r.spreadsheetId, r.sheetTab, r.range,
             r.filterCol, r.filterValue, r.filterCol2, r.filterValue2,
             r.valueCol, r.groupCol, r.seriesCol, r.operation, r.dashboardTab,
-            r.columnMapping, r.notes];
+            r.columnMapping, r.notes, r.filtersJSON||'', r.options||''];
   });
-  await clearRequestsSheetRange(CONFIG_TAB, 'A1:P500');
-  await writeToRequestsSheet(CONFIG_TAB, 'A1:P1', [CONFIG_HEADER]);
-  if (dataRows.length) await writeToRequestsSheet(CONFIG_TAB, 'A2:P'+(dataRows.length+1), dataRows);
+  await clearRequestsSheetRange(CONFIG_TAB, 'A1:R500');
+  await writeToRequestsSheet(CONFIG_TAB, 'A1:R1', [CONFIG_HEADER]);
+  if (dataRows.length) await writeToRequestsSheet(CONFIG_TAB, 'A2:R'+(dataRows.length+1), dataRows);
+  // Preserve version sentinel so loadConfig doesn't re-merge on next load
+  const sentinel = [['__version__', CONFIG_VERSION, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']];
+  await writeToRequestsSheet(CONFIG_TAB, 'A'+(dataRows.length+2)+':R'+(dataRows.length+2), sentinel);
   var banner = document.getElementById('errorBanner');
   if (banner) {
     banner.textContent = '✓ Mapping saved — click Refresh to reload data from updated sources.';
