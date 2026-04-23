@@ -415,6 +415,7 @@ document.addEventListener("DOMContentLoaded", function() {
       </div>
     </div>
     <div>
+      <div id="cwLocDiag" style="display:none;margin-bottom:12px;padding:10px 14px;background:#E3F2FD;border:1px solid #90CAF9;border-radius:6px;font-size:11px;font-family:monospace;color:#1565C0;line-height:1.6"></div>
       <div class="section-header"><h3>Headcount by Location</h3><span class="pill">Click to drill</span></div>
       <div class="table-wrap">
         <table>
@@ -422,7 +423,6 @@ document.addEventListener("DOMContentLoaded", function() {
           <tbody id="cwHCByLoc"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--gray-dark)">Loading…</td></tr></tbody>
         </table>
       </div>
-      <div id="cwLocDebug" style="margin-top:8px;padding:10px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:6px;font-size:11px;font-family:monospace;color:#E65100;white-space:pre-wrap"></div>
     </div>
   </div>
 </div>
@@ -745,7 +745,9 @@ function parseConfigRow(raw) {
 // ── Generic sheet access (any spreadsheet) ───────────────────
 async function fetchFromAnySheet(spreadsheetId, sheet, range) {
   const token = await getToken();
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("'"+sheet+"'!"+range)}`;
+  // UNFORMATTED_VALUE ensures formula cells returning 0 are included rather than
+  // being treated as empty and truncated from the response
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("'"+sheet+"'!"+range)}?valueRenderOption=UNFORMATTED_VALUE`;
   const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
   if (!r.ok) throw new Error(`${sheet}!${range}: ${r.status}`);
   return (await r.json()).values || [];
@@ -861,6 +863,17 @@ async function executeFetches(plan) {
     const { spreadsheetId, tab, range } = plan[key];
     try {
       results[key] = await fetchFromAnySheet(spreadsheetId, tab, range);
+      // Diagnostic: log raw rows for CW location fetch
+      if (range === 'E38:G80') {
+        const raw = results[key];
+        const el = document.getElementById('cwLocDiag');
+        if (el) {
+          el.style.display = 'block';
+          el.innerHTML = '<strong>Raw API response for E38:G80 (first 5 rows):</strong><br>'
+            + raw.slice(0,5).map(r => JSON.stringify(r)).join('<br>')
+            + '<br><strong>Total rows returned:</strong> ' + raw.length;
+        }
+      }
     } catch(e) {
       console.warn(`Fetch failed [${tab}!${range}]:`, e.message);
       results[key] = [];
@@ -1231,7 +1244,6 @@ async function loadAllData() {
           // Old GROUP_BY_SUM returned an object {loc: count}
           val = Object.entries(val).filter(([k]) => k).map(([k, v]) => [k, v]);
         }
-        console.log('['+key+'] sample:', JSON.stringify(val.slice(0,3)));
         // Already correct array format — keep as-is
       }
 
@@ -1443,8 +1455,17 @@ function renderEETab() {
     <td class="num">${fmt(tot.tl)}</td><td class="num">+${fmt(tot.avail)}</td>
     <td>${bar(tot.curr,tot.tl)}</td></tr>`;
 
-  // By Location
-  const locData = D.eeLoc || ee.map(r=>[r[0],r[4]]); // fallback to SMT data
+  // By Location — filter out header/global rows, fall back to Workday if counts empty
+  const _eeLocRaw = (D.eeLoc || []).filter(r => r && r[0]
+    && !r[0].toString().toLowerCase().includes('global')
+    && !r[0].toString().toLowerCase().includes('location')
+    && n(r[1]) > 0);
+  const _eeWdLoc = !_eeLocRaw.length
+    ? Object.entries((D.workdayWorkers||[]).filter(w=>w.isEE&&w.location)
+        .reduce((a,w)=>{a[w.location]=(a[w.location]||0)+1;return a;},{}))
+        .map(([l,c])=>[l,c])
+    : [];
+  const locData = _eeLocRaw.length ? _eeLocRaw : _eeWdLoc.length ? _eeWdLoc : ee.map(r=>[r[0],r[4]]);
   const locTotal = locData.reduce((s,r)=>s+n(r[1]),0)||1;
   const locMax   = Math.max(...locData.map(r=>n(r[1])),1);
   document.getElementById('eeHCByLoc').innerHTML = [...locData].sort((a,b)=>n(b[1])-n(a[1])).map(r =>
@@ -1520,12 +1541,17 @@ function renderCWTab() {
     <td class="num">${fmt(tot.futAttr)}</td><td class="num">${fmt(tot.futHires)}</td>
     <td class="num">${fmt(tot.futHC)}</td></tr>`;
 
-  // By Location
-  const locData = D.cwLoc || cw.map(r=>[r[0],r[4]]);
-  // Debug: show raw data so we can see what the engine is producing
-  const dbg = document.getElementById('cwLocDebug');
-  if (dbg) dbg.innerHTML = '<strong>Raw cwLoc data (first 5 rows):</strong><br>'
-    + (locData.slice(0,5).map(r=>JSON.stringify(r)).join('<br>') || '(empty)');
+  // By Location — filter global rows; if sheet counts are empty fall back to Workday
+  const _cwLocRaw = (D.cwLoc || []).filter(r => r && r[0]
+    && !r[0].toString().toLowerCase().includes('global')
+    && !r[0].toString().toLowerCase().includes('location')
+    && n(r[1]) > 0);
+  const _cwWdLoc = !_cwLocRaw.length
+    ? Object.entries((D.workdayWorkers||[]).filter(w=>w.isCW&&w.location)
+        .reduce((a,w)=>{a[w.location]=(a[w.location]||0)+1;return a;},{}))
+        .map(([l,c])=>[l,c])
+    : [];
+  const locData = _cwLocRaw.length ? _cwLocRaw : _cwWdLoc.length ? _cwWdLoc : cw.map(r=>[r[0],r[4]]);
   const locTotal = locData.reduce((s,r)=>s+n(r[1]),0)||1;
   const locMax   = Math.max(...locData.map(r=>n(r[1])),1);
   document.getElementById('cwHCByLoc').innerHTML = [...locData].sort((a,b)=>n(b[1])-n(a[1])).map(r =>
@@ -2038,43 +2064,50 @@ function updateOpDesc(idx) {
   if (sel && desc) desc.textContent = OPERATION_DEFS[sel.value] || '';
 }
 
+
 // ── Column definitions: [key, label, width, monospace, placeholder, isTextarea, tooltip] ──
 var DM_COLS = [
-  ['displayName',  'Name',           '170px', false, '',                        false,
-   'Human-readable label. Click the ↗ link to jump to the elements this metric powers on its dashboard tab.'],
-  ['metricKey',    'Key',            '130px', true,  '',                        false,
-   'Unique code identifier (e.g. "hc-ee"). Used as D[key] in the data engine — must be stable and unique across all rows.'],
-  ['operation',    'Operation',      '148px', false, '',                        false,
-   'How fetched rows are reduced: LIST → array, SUM → numeric total, COUNT_ROWS → count, GROUP_BY_COUNT/SUM → grouped object, SINGLE_CELL → first cell value. Hover the dropdown for each operation\'s definition.'],
-  ['sheetTab',     'Sheet Tab',      '190px', false, '',                        false,
-   'Exact name of the Google Sheets tab (case-sensitive, spaces included), e.g. "[IMPORT] Workday Data".'],
-  ['range',        'Range',          '88px',  true,  'A5:M13',                  false,
+  ['displayName',  'Name',          170, false, '',                        false,
+   'Human-readable label. Click ↗ to jump to the elements this metric powers on its dashboard tab.'],
+  ['metricKey',    'Key',           130, true,  '',                        false,
+   'Unique code identifier used as D[key]. Must be stable and unique across all rows.'],
+  ['operation',    'Operation',     148, false, '',                        false,
+   'How fetched rows are reduced: LIST → array, SUM → numeric total, COUNT_ROWS → count, GROUP_BY_COUNT/SUM → grouped object, SINGLE_CELL → first cell value.'],
+  ['sheetTab',     'Sheet Tab',     190, false, '',                        false,
+   'Exact name of the Google Sheets tab (case-sensitive). E.g. "[IMPORT] Workday Data".'],
+  ['range',        'Range',          88, true,  'A5:M13',                  false,
    'A1-notation cell range to fetch. Empty trailing rows are filtered automatically.'],
-  ['filterCol',    'F.Col',          '50px',  true,  'A',                       false,
-   'Column letter or 0-based index for the primary filter condition. Leave blank for no filter.'],
-  ['filterValue',  'F.Value',        '108px', false, '!',                       false,
+  ['filterCol',    'F.Col',          50, true,  'A',                       false,
+   'Column letter or 0-based index for the primary filter. Leave blank for no filter.'],
+  ['filterValue',  'F.Value',       108, false, '!',                       false,
    'Operator + value: ! (not blank)  !val (not equals)  !~text (not contains)  ~text (contains)  ~/re/flags  !~/re/flags  >=today  <=today  >=N  <=N  value (exact).'],
-  ['filterCol2',   'F.Col2',         '50px',  true,  '',                        false,
+  ['filterCol2',   'F.Col2',         50, true,  '',                        false,
    'Column for a second AND filter. Both conditions must pass.'],
-  ['filterValue2', 'F.Val2',         '90px',  false, '',                        false,
+  ['filterValue2', 'F.Val2',         90, false, '',                        false,
    'Same operators as F.Value, applied to F.Col2.'],
-  ['valueCol',     'Val',            '44px',  true,  'E',                       false,
+  ['valueCol',     'Val',            44, true,  'E',                       false,
    'Column summed (SUM), counted (COUNT_DISTINCT), or returned (FIRST_VALUE). For PERCENTAGE: "numKey/denKey". For DELTA: "key1,key2".'],
-  ['groupCol',     'Grp',            '44px',  true,  'A',                       false,
+  ['groupCol',     'Grp',            44, true,  'A',                       false,
    'Column to group by in GROUP_BY_COUNT / GROUP_BY_SUM / CROSS_TAB operations.'],
-  ['seriesCol',    'Ser',            '44px',  true,  '',                        false,
+  ['seriesCol',    'Ser',            44, true,  '',                        false,
    'Secondary grouping dimension for CROSS_TAB operations.'],
-  ['dashboardTab', 'Tab',            '108px', false, 'summary',                 false,
-   'Which dashboard tab this metric belongs to. Controls the ↗ link and this editor\'s grouping. Values: all  summary  employees  contingent  reqs  pa. Comma-separate for multi-tab metrics.'],
-  ['filtersJSON',  'Filters JSON',   '180px', true,  '[{"col":"A","op":"!"}]',  false,
-   'Extra AND filters as JSON array. Each rule: {"col":"A","op":"!~","val":"total"}. Ops: "!" "=" "!=" "~" "!~" "regex" "!~regex" ">=today" "<=today" ">=" "<=". Use when you need more than 2 conditions or multiple on the same column.'],
-  ['options',      'Options',        '118px', true,  '{"skipRows":1}',          false,
-   'Misc options JSON. skipRows: N skips the first N rows (e.g. header). _projectCols:[0,2] projects each raw row to those column indices, producing [[col0,col2],...] pairs.'],
-  ['columnMapping','Column Mapping', '230px', true,  '',                        true,
-   'JSON shaping raw rows into named objects (LIST). Simple: {"name":1}. Numeric: {"ee":{"col":1,"number":true}}. Derived bool: {"$isEE":{"col":3,"exact":"Employee"}} or {"$isEE":{"col":25,"regex":"^(ee|employee)$","flags":"i"}}. Empty = return raw arrays.'],
-  ['notes',        'Notes',          '170px', false, '',                        false,
-   'Internal annotation only — not shown on any dashboard. Document why this row exists, what reads it, or source data quirks.'],
+  ['dashboardTab', 'Tab',           108, false, 'summary',                 false,
+   'Which dashboard tab this metric belongs to. Values: all  summary  employees  contingent  reqs  pa. Comma-separate for multi-tab metrics.'],
+  ['filtersJSON',  'Filters JSON',  180, true,  '[{"col":"A","op":"!"}]',  false,
+   'Extra AND filters as JSON array. Each rule: {"col":"A","op":"!~","val":"total"}. Ops: "!" "=" "!=" "~" "!~" "regex" "!~regex" ">=today" "<=today" ">=" "<=".'],
+  ['options',      'Options',       118, true,  '{"skipRows":1}',          false,
+   'Misc options JSON. skipRows: N skips first N rows. _projectCols:[0,2] projects each row to those column indices.'],
+  ['columnMapping','Col Mapping',   230, true,  '',                        true,
+   'JSON shaping raw rows into named objects (LIST). Simple: {"name":1}. Numeric: {"ee":{"col":1,"number":true}}. Derived bool: {"$isEE":{"col":3,"exact":"Employee"}}. Empty = raw arrays.'],
+  ['notes',        'Notes',         170, false, '',                        false,
+   'Internal annotation only. Document why this row exists, what reads it, or source data quirks.'],
 ];
+
+// Column widths (px) — user can drag to resize, stored here
+var _dmColWidths = DM_COLS.map(function(c){ return c[2]; });
+
+// Collapsed group state
+var _dmCollapsed = {};
 
 function renderDataMapping() {
   var el = document.getElementById('mappingTable');
@@ -2098,221 +2131,234 @@ function renderDataMapping() {
 
   // ── CSS ──────────────────────────────────────────────────────────────────
   var css = '<style>'
-    + ':root { --dm-row: #fff; --dm-row-alt: #FAFAFA; --dm-border: #EBEBEB; --dm-group-border: #E0E0E0; }'
+    + ':root{--dm-row:#fff;--dm-row-alt:#FAFAFA;--dm-border:#EBEBEB;--dm-group-border:#E0E0E0;}'
 
-    // Table shell
-    + '#dm-wrap { overflow-x:auto; }'
-    + '#dm-grid { border-collapse:collapse; width:100%; font-size:11.5px; }'
+    // Scroll wrapper — vertical scroll here so sticky headers work
+    + '#dm-scroll-wrap{overflow:auto;max-height:calc(100vh - 220px);position:relative;}'
+    + '#dm-grid{border-collapse:collapse;width:100%;font-size:11.5px;table-layout:fixed;}'
 
-    // Column group header row
-    + '#dm-grid tr.dm-col-group th { background:#F5F5F5; padding:3px 8px 3px; font-size:9px;'
-    +   'font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#aaa;'
-    +   'border-bottom:1px solid var(--dm-border); white-space:nowrap; text-align:left; }'
-    + '#dm-grid tr.dm-col-group th.cg-divider { border-left:2px solid var(--dm-group-border); }'
+    // Group header row
+    + '#dm-grid tr.dm-col-group th{background:#F5F5F5;padding:3px 8px;font-size:9px;'
+    +   'font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#aaa;'
+    +   'border-bottom:1px solid var(--dm-border);white-space:nowrap;text-align:left;'
+    +   'position:sticky;top:0;z-index:4;}'
+    + '#dm-grid tr.dm-col-group th.cg-divider{border-left:2px solid var(--dm-group-border);}'
 
-    // Column headers
-    + '#dm-grid tr.dm-col-hdr th { position:sticky; top:0; z-index:3; background:#FAFAFA;'
-    +   'padding:6px 8px 5px; font-size:10px; font-weight:700; text-transform:uppercase;'
-    +   'letter-spacing:0.4px; color:#888; white-space:nowrap; text-align:left;'
-    +   'border-bottom:2px solid var(--dm-group-border); border-top:none;'
-    +   'cursor:default; user-select:none; }'
-    + '#dm-grid tr.dm-col-hdr th.cg-divider { border-left:2px solid var(--dm-group-border); }'
-    + '#dm-grid tr.dm-col-hdr th[title] { cursor:help; }'
-    + '#dm-grid tr.dm-col-hdr th[title]:hover { color:#555; background:#F0F0F0; }'
+    // Column label row
+    + '#dm-grid tr.dm-col-hdr th{position:sticky;top:22px;z-index:4;background:#FAFAFA;'
+    +   'padding:5px 8px 5px;font-size:10px;font-weight:700;text-transform:uppercase;'
+    +   'letter-spacing:0.4px;color:#888;white-space:nowrap;text-align:left;'
+    +   'border-bottom:2px solid var(--dm-group-border);overflow:hidden;'
+    +   'user-select:none;box-shadow:0 1px 0 var(--dm-group-border);}'
+    + '#dm-grid tr.dm-col-hdr th.cg-divider{border-left:2px solid var(--dm-group-border);}'
+    + '#dm-grid tr.dm-col-hdr th[title]{cursor:help;}'
+    + '#dm-grid tr.dm-col-hdr th[title]:hover{color:#555;background:#F0F0F0;}'
 
     // Sticky name column
-    + '#dm-grid td.dm-sticky, #dm-grid th.dm-sticky {'
-    +   'position:sticky; left:0; z-index:2; background:inherit; }'
-    + '#dm-grid td.dm-sticky::after {'
-    +   'content:""; position:absolute; top:0; right:-8px; bottom:0; width:8px;'
-    +   'background:linear-gradient(to right,rgba(0,0,0,0.06),transparent);'
-    +   'pointer-events:none; }'
+    + '#dm-grid td.dm-sticky,#dm-grid th.dm-sticky{'
+    +   'position:sticky;left:0;z-index:2;background:inherit;}'
+    + '#dm-grid tr.dm-col-group th.dm-sticky,#dm-grid tr.dm-col-hdr th.dm-sticky{z-index:5;}'
+    + '#dm-grid td.dm-sticky::after{'
+    +   'content:"";position:absolute;top:0;right:-6px;bottom:0;width:6px;'
+    +   'background:linear-gradient(to right,rgba(0,0,0,0.07),transparent);pointer-events:none;}'
 
     // Data rows
-    + '#dm-grid tbody tr { background:var(--dm-row); }'
-    + '#dm-grid tbody tr:nth-child(even) { background:var(--dm-row-alt); }'
-    + '#dm-grid td { border-bottom:1px solid var(--dm-border); padding:0; vertical-align:top; }'
-    + '#dm-grid td.cg-divider { border-left:2px solid var(--dm-group-border); }'
+    + '#dm-grid tbody tr{background:var(--dm-row);}'
+    + '#dm-grid tbody tr:nth-child(even):not(.dm-group-hdr){background:var(--dm-row-alt);}'
+    + '#dm-grid td{border-bottom:1px solid var(--dm-border);padding:0;vertical-align:top;overflow:hidden;}'
+    + '#dm-grid td.cg-divider{border-left:2px solid var(--dm-group-border);}'
 
-    // Group header rows
-    + '#dm-grid tr.dm-group-hdr td { background:#F9F6F2; padding:8px 12px 5px;'
-    +   'font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:1.2px;'
-    +   'color:#C47D3A; border-top:2px solid #EDE0D4; border-bottom:1px solid #EDE0D4;'
-    +   'border-left:none; border-right:none; }'
+    // Group header rows — collapsible
+    + '#dm-grid tr.dm-group-hdr td{background:#F2EDE8;padding:0;'
+    +   'border-top:2px solid #D4BDA8;border-bottom:1px solid #D4BDA8;'
+    +   'border-left:none;border-right:none;}'
+    + '.dm-group-btn{width:100%;text-align:left;background:none;border:none;cursor:pointer;'
+    +   'padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;'
+    +   'letter-spacing:1.2px;color:#8B5E3C;display:flex;align-items:center;gap:8px;'
+    +   'font-family:inherit;}'
+    + '.dm-group-btn:hover{background:#EAE0D8;}'
+    + '.dm-group-arrow{font-size:9px;transition:transform 0.15s;display:inline-block;}'
+    + '.dm-group-btn.collapsed .dm-group-arrow{transform:rotate(-90deg);}'
+    + '.dm-group-count{font-weight:400;opacity:0.6;font-size:9.5px;}'
 
     // Cells
-    + '.dm-cell { width:100%; box-sizing:border-box; border:none; outline:none;'
-    +   'background:transparent; font-size:11.5px; font-family:inherit;'
-    +   'padding:6px 8px; resize:none; color:#333; }'
-    + '.dm-cell::placeholder { color:#C8C8C8; }'
-    + '.dm-cell:focus { background:#FFFDE7; outline:2px solid #FB8C00;'
-    +   'outline-offset:-2px; z-index:1; position:relative; }'
-    + '.dm-cell-mono { font-family:"SF Mono","Fira Mono","Consolas",monospace; font-size:11px; }'
-    + '.dm-cell-op { width:100%; box-sizing:border-box; border:none; outline:none;'
-    +   'background:transparent; font-size:11px; font-family:inherit;'
-    +   'padding:6px 8px; cursor:pointer; color:#333; }'
-    + '.dm-cell-op:focus { background:#FFFDE7; outline:2px solid #FB8C00; outline-offset:-2px; }'
+    + '.dm-cell{width:100%;box-sizing:border-box;border:none;outline:none;'
+    +   'background:transparent;font-size:11.5px;font-family:inherit;'
+    +   'padding:5px 7px;resize:none;color:#333;}'
+    + '.dm-cell::placeholder{color:#CCC;}'
+    + '.dm-cell:focus{background:#FFFDE7;outline:2px solid #FB8C00;'
+    +   'outline-offset:-2px;z-index:1;position:relative;}'
+    + '.dm-cell-mono{font-family:"SF Mono","Fira Mono","Consolas",monospace;font-size:11px;}'
+    + '.dm-cell-op{width:100%;box-sizing:border-box;border:none;outline:none;'
+    +   'background:transparent;font-size:11px;font-family:inherit;'
+    +   'padding:5px 7px;cursor:pointer;color:#333;}'
+    + '.dm-cell-op:focus{background:#FFFDE7;outline:2px solid #FB8C00;outline-offset:-2px;}'
 
     // Name cell
-    + '.dm-name-wrap { position:relative; min-height:30px; }'
-    + '.dm-nav-btn { display:block; width:100%; text-align:left; background:none; border:none;'
-    +   'padding:6px 8px; font-size:12px; font-weight:600; color:#E65100; cursor:pointer;'
-    +   'font-family:inherit; line-height:1.3; }'
-    + '.dm-nav-btn:hover { text-decoration:underline; }'
-    + '.dm-nav-btn .dm-nav-arrow { font-size:10px; opacity:0.6; margin-left:3px; }'
-    + '.dm-key-sub { display:block; font-family:"SF Mono","Fira Mono","Consolas",monospace;'
-    +   'font-size:9.5px; color:#BBB; padding:0 8px 5px; line-height:1; }'
-    + '.dm-name-inp { position:absolute; inset:0; opacity:0; pointer-events:none;'
-    +   'font-weight:600; font-size:12px; color:#E65100; }'
+    + '.dm-nav-btn{display:block;width:100%;text-align:left;background:none;border:none;'
+    +   'padding:5px 7px;font-size:12px;font-weight:600;color:#E65100;cursor:pointer;'
+    +   'font-family:inherit;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.dm-nav-btn:hover{text-decoration:underline;}'
+    + '.dm-nav-arrow{font-size:10px;opacity:0.55;margin-left:3px;}'
+    + '.dm-key-sub{display:block;font-family:"SF Mono","Fira Mono","Consolas",monospace;'
+    +   'font-size:9.5px;color:#BBB;padding:0 7px 4px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.dm-name-inp{position:absolute;inset:0;opacity:0;pointer-events:none;'
+    +   'font-weight:600;font-size:12px;color:#E65100;}'
 
-    // Delete button
-    + '.dm-del { background:none; border:none; color:#DDD; cursor:pointer;'
-    +   'padding:5px 7px; font-size:14px; line-height:1; border-radius:4px; }'
-    + '.dm-del:hover { color:#E53935; background:#FFF5F5; }'
+    // Delete
+    + '.dm-del{background:none;border:none;color:#DDD;cursor:pointer;'
+    +   'padding:5px 7px;font-size:14px;line-height:1;border-radius:4px;}'
+    + '.dm-del:hover{color:#E53935;background:#FFF5F5;}'
+
+    // Resize handle
+    + '.dm-resizer{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;'
+    +   'background:transparent;z-index:10;}'
+    + '.dm-resizer:hover,.dm-resizer.resizing{background:rgba(251,140,0,0.4);}'
 
     // Dirty banner
-    + '#dm-dirty { display:none; align-items:center; gap:10px; position:sticky; bottom:0;'
-    +   'background:#212121; color:#fff; padding:10px 18px; margin-top:2px;'
-    +   'border-radius:10px 10px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,0.18); }'
-    + '#dm-dirty .dm-dirty-dot { width:8px; height:8px; border-radius:50%;'
-    +   'background:#FB8C00; flex-shrink:0; }'
-    + '#dm-dirty .dm-dirty-label { font-size:12px; font-weight:600; flex:1; }'
-    + '#dm-dirty .dm-save-btn { background:#FB8C00; color:#fff; border:none;'
-    +   'padding:6px 18px; border-radius:6px; font-size:12px; font-weight:700;'
-    +   'cursor:pointer; letter-spacing:0.2px; }'
-    + '#dm-dirty .dm-save-btn:hover { background:#E65100; }'
-    + '#dm-dirty .dm-discard-btn { background:none; border:1px solid rgba(255,255,255,0.25);'
-    +   'color:rgba(255,255,255,0.7); padding:6px 14px; border-radius:6px;'
-    +   'font-size:12px; cursor:pointer; }'
-    + '#dm-dirty .dm-discard-btn:hover { border-color:rgba(255,255,255,0.5); color:#fff; }'
+    + '#dm-dirty{display:none;align-items:center;gap:10px;position:sticky;bottom:0;'
+    +   'background:#212121;color:#fff;padding:10px 18px;margin-top:2px;'
+    +   'border-radius:10px 10px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,0.18);}'
+    + '#dm-dirty .dm-dirty-dot{width:8px;height:8px;border-radius:50%;background:#FB8C00;flex-shrink:0;}'
+    + '#dm-dirty .dm-dirty-label{font-size:12px;font-weight:600;flex:1;}'
+    + '#dm-dirty .dm-save-btn{background:#FB8C00;color:#fff;border:none;'
+    +   'padding:6px 18px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;}'
+    + '#dm-dirty .dm-save-btn:hover{background:#E65100;}'
+    + '#dm-dirty .dm-discard-btn{background:none;border:1px solid rgba(255,255,255,0.25);'
+    +   'color:rgba(255,255,255,0.7);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;}'
+    + '#dm-dirty .dm-discard-btn:hover{border-color:rgba(255,255,255,0.5);color:#fff;}'
     + '</style>';
 
-  // ── Column group spans ─────────────────────────────────────────────────────
-  // Groups: [label, span, isDivider]
+  // ── Column groups ────────────────────────────────────────────────────────
   var COL_GROUPS = [
-    ['',         1, false], // del
-    ['Identity', 3, false], // name, key, op
-    ['Source',   2, true],  // sheetTab, range
-    ['Filters',  6, true],  // filterCol, filterVal, filterCol2, filterVal2, filtersJSON, options
-    ['Output',   3, true],  // valueCol, groupCol, seriesCol
-    ['Routing',  1, true],  // dashboardTab
-    ['Mapping',  2, true],  // columnMapping, notes
+    ['', 1, false],          // del
+    ['Identity', 3, false],  // name key op
+    ['Source', 2, true],     // sheetTab range
+    ['Filters', 6, true],    // fc fv fc2 fv2 fj opts
+    ['Output', 3, true],     // val grp ser
+    ['Routing', 1, true],    // tab
+    ['Mapping', 2, true],    // cm notes
   ];
 
-  // Column divider flags matching COLS order:
-  // del | name key op | sheetTab range | fcol fval fcol2 fval2 fjson opts | val grp ser | tab | cm notes
-  var COL_DIVIDERS = [false, false, false, false, true, true, false, false, false, false, true, false, false, true, false, true, false, false];
-  // Index:          del      nm    key    op     sT    rng   fc    fv    fc2   fv2   fj    opt  vc    gc    sc   tab   cm    nt
+  // Divider flags — matches del + 17 cols
+  var COL_DIVIDERS = [false,false,false,false,true,true,false,false,false,false,true,false,false,true,false,true,false,false];
 
-  // Build thead — group row
-  var groupHdr = '<tr class="dm-col-group"><th></th>';
+  // ── Build column widths style ────────────────────────────────────────────
+  var colgroup = '<colgroup><col style="width:28px;min-width:28px">';
+  _dmColWidths.forEach(function(w) { colgroup += '<col style="width:'+w+'px;min-width:40px">'; });
+  colgroup += '</colgroup>';
+
+  // ── Build thead ───────────────────────────────────────────────────────────
+  var groupHdr = '<tr class="dm-col-group"><th class="dm-sticky" style="width:28px"></th>';
   COL_GROUPS.forEach(function(g, gi) {
-    if (gi === 0) return; // del already done
+    if (gi === 0) return;
     groupHdr += '<th colspan="'+g[1]+'"'+(g[2]?' class="cg-divider"':'')+'>'+g[0]+'</th>';
   });
   groupHdr += '</tr>';
 
-  // Build thead — column labels
-  var colHdr = '<tr class="dm-col-hdr"><th class="dm-sticky" style="width:28px;min-width:28px"></th>';
+  var colHdr = '<tr class="dm-col-hdr"><th class="dm-sticky" style="width:28px;position:relative"></th>';
   DM_COLS.forEach(function(c, ci) {
-    var isDivider = COL_DIVIDERS[ci + 1]; // +1 for del column
+    var isDivider = COL_DIVIDERS[ci + 1];
     var cls = (ci === 0 ? 'dm-sticky ' : '') + (isDivider ? 'cg-divider' : '');
-    var tip = c[6] ? ' title="'+c[6].replace(/"/g,'&quot;')+'\"' : '';
-    colHdr += '<th class="'+cls+'" style="min-width:'+c[2]+';max-width:'+c[2]+'"'+tip+'>'+c[1]+'</th>';
+    var tip = c[6] ? ' title="'+c[6].replace(/"/g,'&quot;')+'"' : '';
+    colHdr += '<th class="'+cls+'" style="position:relative"'+tip+'>'
+      + c[1]
+      + '<div class="dm-resizer" data-col="'+ci+'" '
+      + 'onmousedown="dmResizeStart(event,'+ci+')"></div>'
+      + '</th>';
   });
   colHdr += '</tr>';
 
   var thead = '<thead>' + groupHdr + colHdr + '</thead>';
 
-  // ── Table body ─────────────────────────────────────────────────────────────
+  // ── Build body ────────────────────────────────────────────────────────────
   var tbody = '<tbody>';
   allTabs.forEach(function(tab) {
     if (!groups[tab] || !groups[tab].length) return;
+    var collapsed = !!_dmCollapsed[tab];
+    var rowCount = groups[tab].length;
+    var btnCls = 'dm-group-btn' + (collapsed ? ' collapsed' : '');
     tbody += '<tr class="dm-group-hdr"><td colspan="'+(DM_COLS.length+1)+'">'
-      +(TAB_LABELS[tab]||tab)
-      +' <span style="font-weight:400;opacity:0.6">('+groups[tab].length+' rows)</span>'
-      +'</td></tr>';
+      + '<button class="'+btnCls+'" onclick="dmToggleGroup(\''+tab+'\')">'
+      + '<span class="dm-group-arrow">▼</span>'
+      + (TAB_LABELS[tab]||tab)
+      + ' <span class="dm-group-count">('+rowCount+' rows)</span>'
+      + '</button>'
+      + '</td></tr>';
 
-    groups[tab].forEach(function(idx) {
-      var r = _configRows[idx];
-      tbody += '<tr id="dm-row-'+idx+'">';
-
-      // Delete button
-      tbody += '<td class="dm-sticky" style="width:28px;min-width:28px;text-align:center;vertical-align:middle">'
-        +'<button class="dm-del" onclick="deleteMappingRow('+idx+')" title="Delete this row">×</button>'
-        +'</td>';
-
-      DM_COLS.forEach(function(c, ci) {
-        var field = c[0], w = c[2], mono = c[3], ph = c[4], isTA = c[5], tip = c[6]||'';
-        var val = (r[field] || '').toString();
-        var isDivider = COL_DIVIDERS[ci + 1];
-        var tdCls = (ci === 0 ? 'dm-sticky ' : '') + (isDivider ? 'cg-divider' : '');
-        var tdStyle = 'min-width:'+w+';max-width:'+w+';';
-        var tipAttr = tip ? ' title="'+tip.replace(/"/g,'&quot;')+'"' : '';
-
-        // ── Name column: nav button + hidden real input ──────────────────────
-        if (field === 'displayName') {
-          var hasNav = r.dashboardTab && r.dashboardTab.split(',').some(function(t){
-            return TAB_NAV_MAP[t.trim()];
-          });
-          var tabLabel = r.dashboardTab ? (TAB_LABELS[r.dashboardTab.split(',')[0].trim()] || r.dashboardTab) : '';
-          var navTitle = hasNav ? 'Jump to "'+tabLabel+'" tab and highlight this metric\'s elements' : 'No navigation target (set Tab field)';
-          tbody += '<td class="'+tdCls+'" style="'+tdStyle+'">'
-            +'<div class="dm-name-wrap">';
-          if (hasNav) {
-            tbody += '<button class="dm-nav-btn" id="dm-navbtn-'+idx+'" '
-              +'onclick="navToTabForRow(\''+esc(r.metricKey)+'\',\''+esc(r.dashboardTab)+'\')" '
-              +'title="'+navTitle+'">'
-              +(esc(val)||'<em style="font-weight:400;color:#ccc">unnamed</em>')
-              +'<span class="dm-nav-arrow">↗</span>'
-              +'</button>';
-          } else {
-            tbody += '<button class="dm-nav-btn" id="dm-navbtn-'+idx+'" style="color:#999;cursor:default" '
-              +'title="'+navTitle+'">'
-              +(esc(val)||'<em style="font-weight:400;color:#ccc">unnamed</em>')
-              +'</button>';
-          }
-          tbody += '<input id="me-displayName-'+idx+'" class="dm-cell dm-name-inp" '
-            +'value="'+esc(val)+'" placeholder="Display name" '
-            +'oninput="dmMarkDirty();dmSyncNameBtn('+idx+')">'
-            +'</div>'
-            +'<span class="dm-key-sub" id="dm-keysub-'+idx+'">'+esc(r.metricKey)+'</span>'
-            +'</td>';
-          return;
-        }
-
-        // ── Operation: colored select ────────────────────────────────────────
-        if (field === 'operation') {
-          var opColor = OP_COLORS[r.operation] || '#666';
-          var opOpts = ops.map(function(op){
-            return '<option value="'+op+'"'+(op===r.operation?' selected':'')+'>'+op+'</option>';
-          }).join('');
-          tbody += '<td class="'+tdCls+'" style="'+tdStyle+'">'
-            +'<select id="me-operation-'+idx+'" class="dm-cell-op" style="color:'+opColor+';font-weight:600" '
-            +'oninput="dmMarkDirty();this.style.color=OP_COLORS[this.value]||\'#666\'" '
-            +'title="'+(tip||'').replace(/"/g,'&quot;')+'">'
-            +opOpts+'</select>'
-            +'</td>';
-          return;
-        }
-
-        // ── Textarea ─────────────────────────────────────────────────────────
-        if (isTA) {
-          tbody += '<td class="'+tdCls+'" style="'+tdStyle+'">'
-            +'<textarea id="me-'+field+'-'+idx+'" class="dm-cell dm-cell-mono" rows="2" '
-            +'placeholder="'+esc(ph)+'"'+tipAttr+' oninput="dmMarkDirty()">'+esc(val)+'</textarea>'
-            +'</td>';
-          return;
-        }
-
-        // ── Plain input ───────────────────────────────────────────────────────
-        tbody += '<td class="'+tdCls+'" style="'+tdStyle+'">'
-          +'<input id="me-'+field+'-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'" '
-          +'class="dm-cell'+(mono?' dm-cell-mono':'')+'"'+tipAttr+' oninput="dmMarkDirty()">'
+    if (!collapsed) {
+      groups[tab].forEach(function(idx) {
+        var r = _configRows[idx];
+        tbody += '<tr id="dm-row-'+idx+'">';
+        tbody += '<td class="dm-sticky" style="width:28px;text-align:center;vertical-align:middle">'
+          +'<button class="dm-del" onclick="deleteMappingRow('+idx+')" title="Delete">×</button>'
           +'</td>';
+
+        DM_COLS.forEach(function(c, ci) {
+          var field = c[0], mono = c[3], ph = c[4], isTA = c[5], tip = c[6]||'';
+          var val = (r[field] || '').toString();
+          var isDivider = COL_DIVIDERS[ci + 1];
+          var tdCls = (ci === 0 ? 'dm-sticky ' : '') + (isDivider ? 'cg-divider' : '');
+          var tipAttr = tip ? ' title="'+tip.replace(/"/g,'&quot;')+'"' : '';
+
+          // Name column
+          if (field === 'displayName') {
+            var hasNav = r.dashboardTab && r.dashboardTab.split(',').some(function(t){ return TAB_NAV_MAP[t.trim()]; });
+            var tabLabel = r.dashboardTab ? (TAB_LABELS[r.dashboardTab.split(',')[0].trim()]||r.dashboardTab) : '';
+            tbody += '<td class="'+tdCls+'" style="overflow:hidden">'
+              +'<div style="position:relative">';
+            if (hasNav) {
+              tbody += '<button class="dm-nav-btn" id="dm-navbtn-'+idx+'" '
+                +'onclick="navToTabForRow(\''+esc(r.metricKey)+'\',\''+esc(r.dashboardTab)+'\')" '
+                +'title="Jump to '+esc(tabLabel)+' tab">'
+                +(esc(val)||'<em style="font-weight:400;color:#ccc;font-style:italic">unnamed</em>')
+                +'<span class="dm-nav-arrow">↗</span>'
+                +'</button>';
+            } else {
+              tbody += '<button class="dm-nav-btn" id="dm-navbtn-'+idx+'" style="color:#999;cursor:default">'
+                +(esc(val)||'<em style="font-weight:400;color:#ccc;font-style:italic">unnamed</em>')
+                +'</button>';
+            }
+            tbody += '<input id="me-displayName-'+idx+'" class="dm-cell dm-name-inp" '
+              +'value="'+esc(val)+'" placeholder="Display name" '
+              +'oninput="dmMarkDirty();dmSyncNameBtn('+idx+')">'
+              +'</div>'
+              +'<span class="dm-key-sub" id="dm-keysub-'+idx+'">'+esc(r.metricKey)+'</span>'
+              +'</td>';
+            return;
+          }
+
+          // Operation select
+          if (field === 'operation') {
+            var opColor = OP_COLORS[r.operation]||'#666';
+            var opOpts = ops.map(function(op){
+              return '<option value="'+op+'"'+(op===r.operation?' selected':'')+'>'+op+'</option>';
+            }).join('');
+            tbody += '<td class="'+tdCls+'">'
+              +'<select id="me-operation-'+idx+'" class="dm-cell-op" style="color:'+opColor+';font-weight:600" '
+              +'oninput="dmMarkDirty();this.style.color=OP_COLORS[this.value]||\'#666\'"'+tipAttr+'>'
+              +opOpts+'</select></td>';
+            return;
+          }
+
+          // Textarea
+          if (isTA) {
+            tbody += '<td class="'+tdCls+'">'
+              +'<textarea id="me-'+field+'-'+idx+'" class="dm-cell dm-cell-mono" rows="2" '
+              +'placeholder="'+esc(ph)+'"'+tipAttr+' oninput="dmMarkDirty()">'+esc(val)+'</textarea>'
+              +'</td>';
+            return;
+          }
+
+          // Plain input
+          tbody += '<td class="'+tdCls+'">'
+            +'<input id="me-'+field+'-'+idx+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'" '
+            +'class="dm-cell'+(mono?' dm-cell-mono':'')+'"'+tipAttr+' oninput="dmMarkDirty()">'
+            +'</td>';
+        });
+        tbody += '</tr>';
       });
-      tbody += '</tr>';
-    });
+    }
   });
   tbody += '</tbody>';
 
@@ -2325,15 +2371,19 @@ function renderDataMapping() {
     +'</div>';
 
   el.innerHTML = css
-    + '<div style="font-size:11px;color:#aaa;margin-bottom:14px;line-height:1.5">'
+    + '<div style="font-size:11px;color:#aaa;margin-bottom:12px;line-height:1.6">'
     + '<strong style="color:#666">'+_configRows.length+' rows</strong>'
-    + ' · Edit any cell directly · Hover a <u style="cursor:help">column header</u> for its definition'
-    + ' · Click an <strong style="color:#E65100">orange name ↗</strong> to navigate to that metric on its dashboard tab'
+    + ' · Click a <strong style="color:#E65100">section header</strong> to collapse/expand'
+    + ' · Drag column edges to resize'
+    + ' · Hover a column header for its definition'
+    + ' · Click an <strong style="color:#E65100">orange name ↗</strong> to navigate to that metric'
     + '</div>'
-    + '<div id="dm-wrap"><table id="dm-grid">' + thead + tbody + '</table></div>'
+    + '<div id="dm-scroll-wrap"><table id="dm-grid">'
+    + colgroup + thead + tbody
+    + '</table></div>'
     + banner;
 
-  // Wire double-click on name buttons to expose the real input
+  // Wire double-click on name buttons
   _configRows.forEach(function(_, idx) {
     var btn = document.getElementById('dm-navbtn-'+idx);
     var inp = document.getElementById('me-displayName-'+idx);
@@ -2342,25 +2392,57 @@ function renderDataMapping() {
       e.stopPropagation();
       btn.style.display = 'none';
       inp.classList.remove('dm-name-inp');
-      inp.style.position = '';
-      inp.style.opacity = '';
-      inp.style.pointerEvents = '';
-      inp.focus();
-      inp.select();
+      inp.style.position = ''; inp.style.opacity = ''; inp.style.pointerEvents = '';
+      inp.focus(); inp.select();
       inp.addEventListener('blur', function onBlur() {
         inp.removeEventListener('blur', onBlur);
-        btn.textContent = inp.value || 'unnamed';
         var arrow = document.createElement('span');
         arrow.className = 'dm-nav-arrow'; arrow.textContent = '↗';
+        btn.textContent = inp.value || 'unnamed';
         btn.appendChild(arrow);
         btn.style.display = '';
         inp.classList.add('dm-name-inp');
-        inp.style.position = 'absolute';
-        inp.style.opacity = '0';
-        inp.style.pointerEvents = 'none';
+        inp.style.position = 'absolute'; inp.style.opacity = '0'; inp.style.pointerEvents = 'none';
       });
     });
   });
+}
+
+// ── Collapsible group toggle ─────────────────────────────────────────────────
+function dmToggleGroup(tab) {
+  _configRows.forEach(function(_, idx) { var r = _dmReadRow(idx); if(r.metricKey||r.displayName) _configRows[idx]=r; });
+  _dmCollapsed[tab] = !_dmCollapsed[tab];
+  renderDataMapping();
+}
+
+// ── Column resize ────────────────────────────────────────────────────────────
+var _dmResizeState = null;
+
+function dmResizeStart(e, colIdx) {
+  e.preventDefault();
+  _dmResizeState = { colIdx: colIdx, startX: e.clientX, startW: _dmColWidths[colIdx] };
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  var handle = e.target; handle.classList.add('resizing');
+  function onMove(ev) {
+    if (!_dmResizeState) return;
+    var delta = ev.clientX - _dmResizeState.startX;
+    var newW = Math.max(40, _dmResizeState.startW + delta);
+    _dmColWidths[_dmResizeState.colIdx] = newW;
+    // Update the colgroup col widths live
+    var cols = document.querySelectorAll('#dm-grid colgroup col');
+    if (cols[colIdx + 1]) cols[colIdx + 1].style.width = newW + 'px';
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    handle.classList.remove('resizing');
+    _dmResizeState = null;
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 var _dmDirty = false;
@@ -2376,16 +2458,10 @@ function dmMarkDirty() {
 function dmSyncNameBtn(idx) {
   var inp = document.getElementById('me-displayName-'+idx);
   var btn = document.getElementById('dm-navbtn-'+idx);
-  var sub = document.getElementById('dm-keysub-'+idx);
   if (inp && btn) {
-    // Update visible button text
     var arrow = btn.querySelector('.dm-nav-arrow');
     btn.textContent = inp.value || 'unnamed';
     if (arrow) btn.appendChild(arrow);
-  }
-  if (sub) {
-    var keyEl = document.getElementById('me-metricKey-'+idx);
-    if (keyEl) sub.textContent = keyEl.value || '';
   }
 }
 
@@ -2395,7 +2471,7 @@ function _dmReadRow(idx) {
   return {
     metricKey:     g('metricKey').trim(),
     displayName:   g('displayName').trim(),
-    spreadsheetId: (g('spreadsheetId') || HR).trim(),
+    spreadsheetId: (g('spreadsheetId')||HR).trim(),
     sheetTab:      g('sheetTab').trim(),
     range:         g('range').trim(),
     filterCol:     g('filterCol').trim(),
@@ -2439,7 +2515,11 @@ function addMappingRow() {
     var row = document.getElementById('dm-row-'+lastIdx);
     if (row) row.scrollIntoView({ behavior:'smooth', block:'center' });
     var first = document.getElementById('me-displayName-'+lastIdx);
-    if (first) { first.classList.remove('dm-name-inp'); first.style.position=''; first.style.opacity=''; first.style.pointerEvents=''; first.focus(); }
+    if (first) {
+      first.classList.remove('dm-name-inp');
+      first.style.position=''; first.style.opacity=''; first.style.pointerEvents='';
+      first.focus();
+    }
   }, 80);
 }
 
