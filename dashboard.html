@@ -3061,19 +3061,24 @@ function renderDmCardView() {
           +   opSelect + '</select>'
           + '</div>');
 
-        // Filters
-
-        parts.push('<div style="display:grid;grid-template-columns:108px 1fr 1fr 1fr 1fr;gap:6px;align-items:start">'
-          + '<div class="dmcard-lbl" style="padding-top:7px" '
-          +   'data-dm-tip="Filters let you keep only the rows you want. Pick a column and then pick a rule.">Row Filters</div>'
-          + '<input class="dci mono" value="' + _escAttr(r.filterCol||'') + '" '
-          +   'placeholder="Col (e.g. A)" title="Which column to filter by" '
-          +   'data-idx="' + i + '" data-field="filterCol" onchange="dmcUpdateField(this)">'
-          + dmcFilterWidget(i, 'filterValue', r.filterValue||'')
-          + '<input class="dci mono" value="' + _escAttr(r.filterCol2||'') + '" '
-          +   'placeholder="Col 2 (optional)" title="A second column to filter by (optional)" '
-          +   'data-idx="' + i + '" data-field="filterCol2" onchange="dmcUpdateField(this)">'
-          + dmcFilterWidget(i, 'filterValue2', r.filterValue2||'')
+        // Filters — two sub-rows so the rule widget has room to breathe
+        parts.push('<div style="display:flex;flex-direction:column;gap:5px">'
+          // ── Filter 1 ──
+          + '<div style="display:grid;grid-template-columns:108px 70px 1fr;gap:5px;align-items:center">'
+          +   '<div class="dmcard-lbl" data-dm-tip="Filters let you keep only the rows you want. Pick a column then a rule.">Filter 1</div>'
+          +   '<input class="dci mono" value="' + _escAttr(r.filterCol||'') + '" '
+          +     'placeholder="Col" title="Column letter to filter by (e.g. A)" style="min-width:0" '
+          +     'data-idx="' + i + '" data-field="filterCol" onchange="dmcUpdateField(this)">'
+          +   dmcFilterWidget(i, 'filterValue', r.filterValue||'')
+          + '</div>'
+          // ── Filter 2 ──
+          + '<div style="display:grid;grid-template-columns:108px 70px 1fr;gap:5px;align-items:center">'
+          +   '<div class="dmcard-lbl" style="font-size:9px;color:#bbb">AND also…</div>'
+          +   '<input class="dci mono" value="' + _escAttr(r.filterCol2||'') + '" '
+          +     'placeholder="Col" title="Second column (optional)" style="min-width:0" '
+          +     'data-idx="' + i + '" data-field="filterCol2" onchange="dmcUpdateField(this)">'
+          +   dmcFilterWidget(i, 'filterValue2', r.filterValue2||'')
+          + '</div>'
           + '</div>');
 
         // Column Mapping — with visible plain-language explanation box
@@ -3239,7 +3244,7 @@ function dmcFilterWidget(idx, field, stored) {
   var valId   = 'dfw-val-' + idx + '-' + field;
 
   // Build select
-  var selHtml = '<select id="' + selId + '" class="dci mono" style="flex:0 0 auto;width:auto;min-width:100px" '
+  var selHtml = '<select id="' + selId + '" class="dci mono" style="flex:0 0 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis" '
     + 'data-idx="' + idx + '" data-field="' + field + '" onchange="dmcFilterChange(this.dataset.idx,this.dataset.field)">';
   DM_OP_OPTIONS.forEach(function(opt) {
     var prefix = opt[0], label = opt[1];

@@ -126,12 +126,9 @@ td { padding:10px 14px; vertical-align:middle; }
 .tag-cw{background:#FFF3E0;color:#BF6000} .tag-new{background:#E8F5EE;color:var(--green)}
 .tag-backfill{background:#F3E5F5;color:var(--purple)} .tag-recruited{background:#E8F5EE;color:var(--green)}
 
-.sort-btn { display:inline-flex; align-items:center; gap:4px; cursor:pointer; user-select:none; }
-.sort-arrow { display:inline-block; width:14px; height:14px; text-align:center; line-height:14px;
-  font-size:9px; color:#aaa; border:1px solid #ddd; border-radius:3px; background:#f5f5f5; }
-.sort-arrow.active { color:var(--orange); border-color:var(--orange); background:#FFF3E0; font-weight:700; }
+.sort-arrow { display:inline-block; width:16px; height:16px; text-align:center; line-height:16px;
+  font-size:10px; color:var(--orange); font-weight:700; margin-left:2px; }
 th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
-th.sortable:hover .sort-arrow { color:#666; border-color:#bbb; }
 /* MODAL */
 .modal-tabs { display:flex; gap:0; border-bottom:2px solid var(--gray-mid); margin-bottom:18px; }
 .modal-tab-btn { padding:10px 18px; background:none; border:none; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-dark); border-bottom:3px solid transparent; margin-bottom:-2px; font-family:inherit; transition:color 0.15s; }
@@ -638,9 +635,9 @@ document.addEventListener("DOMContentLoaded", function() {
   <div class="table-wrap">
     <div class="table-header"><h3>Cost Centers (<span id="mxCount">—</span>)</h3></div>
     <table><thead><tr>
-  <th class="sortable" onclick="sortMatrix('cc')">Cost Center <span id="mx-sort-cc" class="sort-arrow active">▲</span></th>
-  <th class="sortable" onclick="sortMatrix('pbp')">PBP <span id="mx-sort-pbp" class="sort-arrow">↕</span></th>
-  <th class="sortable" onclick="sortMatrix('smt')">SMT or Delegate <span id="mx-sort-smt" class="sort-arrow">↕</span></th>
+  <th class="sortable" onclick="sortMatrix('cc')">Cost Center <span id="mx-sort-cc" class="sort-arrow" style="opacity:1">▲</span></th>
+  <th class="sortable" onclick="sortMatrix('pbp')">PBP <span id="mx-sort-pbp" class="sort-arrow" style="opacity:0.25">▲</span></th>
+  <th class="sortable" onclick="sortMatrix('smt')">SMT or Delegate <span id="mx-sort-smt" class="sort-arrow" style="opacity:0.25">▲</span></th>
   <th>Notes</th><th>Actions</th>
 </tr></thead>
     <tbody id="matrixTable"><tr><td colspan="5"><div class="empty-state"><div class="icon">📊</div><p>Loading…</p></div></td></tr></tbody></table>
@@ -714,12 +711,12 @@ document.addEventListener("DOMContentLoaded", function() {
   <div class="table-wrap">
     <div class="table-header"><h3>All Users (<span id="peopleCount">—</span>)</h3></div>
     <table><thead><tr>
-      <th class="sortable" onclick="sortPeople('name')">Name <span id="pu-sort-name" class="sort-arrow active">▲</span></th>
-      <th class="sortable" onclick="sortPeople('email')">Email <span id="pu-sort-email" class="sort-arrow">↕</span></th>
-      <th class="sortable" onclick="sortPeople('pbp')">PBP <span id="pu-sort-pbp" class="sort-arrow">↕</span></th>
-      <th class="sortable" onclick="sortPeople('smt')">SMT <span id="pu-sort-smt" class="sort-arrow">↕</span></th>
-      <th class="sortable" onclick="sortPeople('sg')">Security Groups <span id="pu-sort-sg" class="sort-arrow">↕</span></th>
-      <th class="sortable" onclick="sortPeople('login')">Last Login <span id="pu-sort-login" class="sort-arrow">↕</span></th>
+      <th class="sortable" onclick="sortPeople('name')">Name <span id="pu-sort-name" class="sort-arrow" style="opacity:1">▲</span></th>
+      <th class="sortable" onclick="sortPeople('email')">Email <span id="pu-sort-email" class="sort-arrow" style="opacity:0.25">▲</span></th>
+      <th class="sortable" onclick="sortPeople('pbp')">PBP <span id="pu-sort-pbp" class="sort-arrow" style="opacity:0.25">▲</span></th>
+      <th class="sortable" onclick="sortPeople('smt')">SMT <span id="pu-sort-smt" class="sort-arrow" style="opacity:0.25">▲</span></th>
+      <th class="sortable" onclick="sortPeople('sg')">Security Groups <span id="pu-sort-sg" class="sort-arrow" style="opacity:0.25">▲</span></th>
+      <th class="sortable" onclick="sortPeople('login')">Last Login <span id="pu-sort-login" class="sort-arrow" style="opacity:0.25">▲</span></th>
       <th>Actions</th>
     </tr></thead>
     <tbody id="peopleTable"><tr><td colspan="7"><div class="empty-state"><div class="icon">👤</div><p>Loading…</p></div></td></tr></tbody></table>
@@ -1063,7 +1060,13 @@ async function ensureHeaders() {
     [T.issues+'!A1',   [['ID','Submitted','ReporterName','ReporterEmail','Page','Title','Description','Status']]],
   ];
   for (const [range, headers] of checks) {
-    try { const v=await apiGet(range); if (!v.length) await apiAppend(range, headers); } catch(e){}
+    try {
+      const v=await apiGet(range);
+      if (!v.length) await apiUpdate(range, headers);  // use update not append for A1
+    } catch(e){
+      // Range might not exist yet — try to write headers directly
+      try { await apiUpdate(range, headers); } catch(e2){}
+    }
   }
 }
 
@@ -2516,6 +2519,29 @@ function openIssueModal() {
 function closeIssueModal() {
   document.getElementById('issueModalOverlay').style.display = 'none';
 }
+async function ensureIssuesSheet() {
+  // Try to create the Issues tab — silently ignore if it already exists
+  try {
+    const meta = await fetch(
+      'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID,
+      { headers: { 'Authorization': 'Bearer ' + getAccessToken() } }
+    ).then(r => r.json());
+    const exists = meta.sheets && meta.sheets.some(s => s.properties.title === T.issues);
+    if (!exists) {
+      await fetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + ':batchUpdate',
+        {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + getAccessToken(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requests: [{ addSheet: { properties: { title: T.issues } } }] })
+        }
+      );
+      // Write headers to new sheet
+      await apiUpdate(T.issues+'!A1:H1', [['ID','Submitted','ReporterName','ReporterEmail','Page','Title','Description','Status']]);
+    }
+  } catch(e) { /* If this fails, apiAppend will too — caller handles */ }
+}
+
 async function submitIssue() {
   const title = document.getElementById('issue-title').value.trim();
   const desc  = document.getElementById('issue-desc').value.trim();
@@ -2524,17 +2550,25 @@ async function submitIssue() {
     return;
   }
   document.getElementById('issueFormErr').style.display = 'none';
+  const submitBtn = document.querySelector('#issueModalOverlay .btn-primary');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
   const eu  = effectiveUser();
   const now = new Date().toISOString();
   const id  = 'ISS-' + Date.now();
-  const page = document.title || 'Headcount Requests';
+  const page = 'Headcount Requests';
   try {
+    await ensureIssuesSheet();
     await apiAppend(T.issues+'!A2', [[id, now, eu.name, eu.email, page, title, desc, 'Open']]);
     issuesData.push([id, now, eu.name, eu.email, page, title, desc, 'Open']);
-    closeIssueModal();
-    toast('Issue reported — thank you!', 'success');
+    // Show success BEFORE closing so user sees feedback
+    toast('Issue reported — thank you! The admin team will review it.', 'success');
+    setTimeout(closeIssueModal, 1200);
     if (canManagePeople()) renderIssuesTable();
-  } catch(e) { toast('Error submitting issue: '+e.message, 'error'); }
+  } catch(e) {
+    toast('Error submitting: ' + e.message, 'error');
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Report'; }
+  }
 }
 
 function renderIssuesTable() {
@@ -2588,8 +2622,8 @@ function sortMatrix(col) {
   ['cc','pbp','smt'].forEach(k => {
     const el = document.getElementById('mx-sort-'+k);
     if (!el) return;
-    if (k === _mxSortCol) { el.textContent = _mxSortAsc?'▲':'▼'; el.className='sort-arrow active'; }
-    else { el.textContent = '↕'; el.className='sort-arrow'; }
+    el.textContent = (k === _mxSortCol) ? (_mxSortAsc?'▲':'▼') : '▲';
+    el.style.opacity = (k === _mxSortCol) ? '1' : '0.25';
   });
   renderMatrix();
 }
@@ -2601,8 +2635,8 @@ function sortPeople(col) {
   ['name','email','pbp','smt','sg','login'].forEach(k => {
     const el = document.getElementById('pu-sort-'+k);
     if (!el) return;
-    if (k === _puSortCol) { el.textContent = _puSortAsc?'▲':'▼'; el.className='sort-arrow active'; }
-    else { el.textContent = '↕'; el.className='sort-arrow'; }
+    el.textContent = (k === _puSortCol) ? (_puSortAsc?'▲':'▼') : '▲';
+    el.style.opacity = (k === _puSortCol) ? '1' : '0.25';
   });
   renderPeopleTable();
 }
