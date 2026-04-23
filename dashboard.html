@@ -2747,30 +2747,30 @@ function setDmView(mode) {
 
 // ── CARD VIEW renderer ─────────────────────────────────────────────────────
 var DM_OP_TIPS = {
-  'LIST': 'Returns all matching rows as a list — used for tables, rosters, and charts that need every row.',
-  'SINGLE_CELL': 'Grabs the value from the very first cell in the range — used for a single pre-calculated total.',
-  'SUM': 'Adds up every value in the Value Column for matching rows — gives you a running total.',
-  'COUNT_ROWS': 'Counts how many rows pass the filter — useful for headcounts and role tallies.',
-  'COUNT_DISTINCT': 'Counts unique values in the Value Column — e.g. number of distinct locations.',
-  'GROUP_BY_COUNT': 'Groups rows by the Group Column and counts how many are in each group.',
-  'GROUP_BY_SUM': 'Groups rows by the Group Column and sums the Value Column within each group.',
-  'FILTER_COUNT': 'Counts rows where two filter conditions are both true at once.',
-  'PERCENTAGE': 'Divides one metric by another and returns a percentage. Put "numeratorKey/denominatorKey" in Value Column.',
-  'DELTA': 'Subtracts one metric from another. Put the two metric IDs separated by a comma in Value Column.',
-  'FIRST_VALUE': 'Returns the value from the Value Column in the first row that passes the filter.',
-  'CROSS_TAB': 'Groups rows by Group Column, then sub-groups by Series Column — like a pivot table.',
-  'MULTI_SERIES': 'Merges several GROUP_BY operations sharing a common dimension. Define the series in Column Mapping JSON.'
+  'LIST':           'Grab ALL the rows and keep them as a list so the dashboard can draw tables and charts.',
+  'SINGLE_CELL':    'Just grab one number from one specific cell — good for a total someone already calculated in the spreadsheet.',
+  'SUM':            'Add up all the numbers in a column. Like totaling a receipt.',
+  'COUNT_ROWS':     'Count how many rows there are after filtering. Like counting people in a line.',
+  'COUNT_DISTINCT': 'Count how many DIFFERENT values show up in a column. Like counting how many unique cities are in a list.',
+  'GROUP_BY_COUNT': 'Split rows into groups (like by team), then count how many are in each group.',
+  'GROUP_BY_SUM':   'Split rows into groups (like by team), then add up a number column for each group.',
+  'FILTER_COUNT':   'Count rows that pass TWO filters at the same time. Both conditions must be true.',
+  'PERCENTAGE':     'Show one number as a percent of another. Example: 30 hires out of 200 employees = 15%.',
+  'DELTA':          'Subtract one number from another to show the change. Like how much a number went up or down.',
+  'FIRST_VALUE':    'Look through the rows and return the first matching value you find.',
+  'CROSS_TAB':      'Like a pivot table — group by one thing, then break each group down further by another thing.',
+  'MULTI_SERIES':   'Combine several groups into one chart with multiple lines or bars.'
 };
 var DM_FILTER_TIPS = {
-  '!': "Keep rows where this cell is <strong>not blank</strong>",
-  '=': "Keep rows where this cell <strong>exactly equals</strong> the value you enter",
-  '!=': "Keep rows where this cell <strong>does not equal</strong> the value you enter",
-  '~': "Keep rows where this cell <strong>contains</strong> the text you enter",
-  '!~': "Keep rows where this cell <strong>does not contain</strong> the text you enter",
-  '>=today': "Keep rows where the date in this cell is <strong>today or in the future</strong>",
-  '<=today': "Keep rows where the date in this cell is <strong>today or in the past</strong>",
-  '>=N': "Keep rows where the number in this cell is <strong>greater than or equal to N</strong>",
-  '<=N': "Keep rows where the number in this cell is <strong>less than or equal to N</strong>"
+  '!':       'Keep only rows where this cell has something in it (not empty)',
+  '=':       'Keep only rows where this cell says exactly what you type',
+  '!=':      'Keep only rows where this cell does NOT say what you type',
+  '~':       'Keep only rows where this cell contains your text anywhere inside it',
+  '!~':      'Keep only rows where this cell does NOT contain your text',
+  '>=today': 'Keep only rows where the date is today or in the future (upcoming dates)',
+  '<=today': 'Keep only rows where the date is today or in the past (already happened)',
+  '>=N':     'Keep only rows where the number is N or bigger (e.g. >=10 means 10 or more)',
+  '<=N':     'Keep only rows where the number is N or smaller (e.g. <=5 means 5 or less)'
 };
 
 function _dmTipAttr(tip) {
@@ -2779,29 +2779,29 @@ function _dmTipAttr(tip) {
 }
 
 function _dmColMapTip(json) {
-  if (!json || !json.trim()) return 'No column mapping — rows are kept as raw arrays.';
+  if (!json || !json.trim()) return 'No column mapping set. Each row will come back as a plain list of values (like ["Alice", "Engineering", 42]).';
   try {
     var m = JSON.parse(json);
-    var lines = [];
+    var lines = ['This column mapping gives each value in a row a friendly name:'];
     Object.entries(m).forEach(function(e) {
       var k = e[0], v = e[1];
       if (k.startsWith('$')) {
-        // Derived boolean
-        if (typeof v === 'object' && v.exact) lines.push('"' + k.slice(1) + '" = true when column ' + (v.col) + ' exactly equals "' + v.exact + '"');
-        else if (typeof v === 'object' && v.regex) lines.push('"' + k.slice(1) + '" = true when column ' + (v.col) + ' matches regex ' + v.regex);
-        else lines.push('"' + k.slice(1) + '" is a derived flag');
+        var realKey = k.slice(1);
+        if (typeof v === 'object' && v.exact)  lines.push('• "' + realKey + '" is automatically set to YES when column ' + v.col + ' says exactly "' + v.exact + '"');
+        else if (typeof v === 'object' && v.regex) lines.push('• "' + realKey + '" is automatically set to YES when column ' + v.col + ' matches a pattern');
+        else lines.push('• "' + realKey + '" is a yes/no flag that gets calculated automatically');
       } else if (typeof v === 'number') {
-        lines.push('"' + k + '" ← column ' + v);
+        lines.push('• Column ' + v + ' in the spreadsheet becomes the "' + k + '" field');
       } else if (typeof v === 'object') {
-        var note = v.number ? ' (as a number)' : '';
-        lines.push('"' + k + '" ← column ' + v.col + note);
+        var extra = v.number ? ' (read as a number, not text)' : '';
+        lines.push('• Column ' + v.col + ' in the spreadsheet becomes the "' + k + '" field' + extra);
       } else {
-        lines.push('"' + k + '" ← ' + v);
+        lines.push('• "' + k + '" comes from ' + v);
       }
     });
-    return lines.length ? lines.join('\n') : 'Column mapping found — hover shows parsed fields';
+    return lines.join('\n');
   } catch(ex) {
-    return 'Mapping JSON: ' + json;
+    return 'The mapping JSON looks like it has a typo — check for missing quotes or brackets.';
   }
 }
 
@@ -2959,19 +2959,15 @@ function renderDmCardView() {
         var fv2tip = (DM_FILTER_TIPS[r.filterValue2] || 'Second filter rule. Both conditions must be true.').replace(/"/g,'&quot;');
         parts.push('<div style="display:grid;grid-template-columns:108px 1fr 1fr 1fr 1fr;gap:6px;align-items:start">'
           + '<div class="dmcard-lbl" style="padding-top:7px" '
-          +   'data-dm-tip="Filters control which rows to keep. Both conditions must be true if you use two filters.">Row Filters</div>'
+          +   'data-dm-tip="Filters let you keep only the rows you want. Pick a column and then pick a rule.">Row Filters</div>'
           + '<input class="dci mono" value="' + _escAttr(r.filterCol||'') + '" '
-          +   'placeholder="Col (A)" title="Column letter or 0-based index to filter by" '
+          +   'placeholder="Col (e.g. A)" title="Which column to filter by" '
           +   'data-idx="' + i + '" data-field="filterCol" onchange="dmcUpdateField(this)">'
-          + '<input class="dci mono" value="' + _escAttr(r.filterValue||'') + '" '
-          +   'placeholder="Rule (e.g. !)" title="' + fv1tip + '" '
-          +   'data-idx="' + i + '" data-field="filterValue" onchange="dmcUpdateField(this)">'
+          + dmcFilterSelect(i, 'filterValue', r.filterValue||'')
           + '<input class="dci mono" value="' + _escAttr(r.filterCol2||'') + '" '
-          +   'placeholder="Col 2" title="Second filter column" '
+          +   'placeholder="Col 2 (optional)" title="A second column to filter by (optional)" '
           +   'data-idx="' + i + '" data-field="filterCol2" onchange="dmcUpdateField(this)">'
-          + '<input class="dci mono" value="' + _escAttr(r.filterValue2||'') + '" '
-          +   'placeholder="Rule 2" title="' + fv2tip + '" '
-          +   'data-idx="' + i + '" data-field="filterValue2" onchange="dmcUpdateField(this)">'
+          + dmcFilterSelect(i, 'filterValue2', r.filterValue2||'')
           + '</div>');
 
         // Column Mapping — with visible plain-language explanation box
@@ -3079,6 +3075,36 @@ function dmcRefreshColMapBox(textarea) {
   if (!box) return;
   var tip = _dmColMapTip(textarea.value || '');
   box.textContent = tip;
+}
+
+
+// Build the filter rule select options, with the current value pre-selected
+function dmcFilterSelect(idx, field, currentVal) {
+  var opts = [
+    ['', 'Pick a rule...'],
+    ['!', '! — Not empty (cell has something in it)'],
+    ['=', '= — Equals a specific value'],
+    ['!=', '!= — Does NOT equal a value'],
+    ['~', '~ — Contains some text'],
+    ['!~', '!~ — Does NOT contain some text'],
+    ['>=today', '>=today — Future dates only'],
+    ['<=today', '<=today — Past or current dates only'],
+    ['>=', '>= — Number is at least N  (e.g. >=10)'],
+    ['<=', '<= — Number is at most N  (e.g. <=5)'],
+  ];
+  var html = '<select class="dci mono" data-idx="' + idx + '" data-field="' + field + '" '
+    + 'onchange="dmcUpdateField(this)">';
+  opts.forEach(function(opt) {
+    var val = opt[0], label = opt[1];
+    var sel = (currentVal === val) || (val && val !== '' && currentVal && currentVal !== val && currentVal.startsWith(val) && ['>=','<='].indexOf(val) >= 0) ? ' selected' : '';
+    html += '<option value="' + val + '"' + sel + '>' + label + '</option>';
+  });
+  var knownVals = opts.map(function(o){ return o[0]; });
+  if (currentVal && knownVals.indexOf(currentVal) < 0) {
+    html += '<option value="' + currentVal.replace(/"/g,'&quot;') + '" selected>' + currentVal + ' (custom)</option>';
+  }
+  html += '</select>';
+  return html;
 }
 
 function dmcUpdateField(el) {

@@ -629,7 +629,7 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
   <div class="table-wrap">
     <div class="table-header"><h3>Cost Centers (<span id="mxCount">—</span>)</h3></div>
-    <table><thead><tr><th>Cost Center</th><th>PBP</th><th>SMT or Delegate</th><th>Notes</th><th>Actions</th></tr></thead>
+    <table><thead><tr><th style="cursor:pointer;user-select:none" onclick="sortMatrix('cc')">Cost Center <span id="mx-sort-cc">▲</span></th><th style="cursor:pointer;user-select:none" onclick="sortMatrix('pbp')">PBP <span id="mx-sort-pbp"></span></th><th style="cursor:pointer;user-select:none" onclick="sortMatrix('smt')">SMT or Delegate <span id="mx-sort-smt"></span></th><th>Notes</th><th>Actions</th></tr></thead>
     <tbody id="matrixTable"><tr><td colspan="5"><div class="empty-state"><div class="icon">📊</div><p>Loading…</p></div></td></tr></tbody></table>
   </div>
 </div>
@@ -695,7 +695,7 @@ document.addEventListener("DOMContentLoaded", function() {
   <div class="table-wrap">
     <div class="table-header"><h3>All Users (<span id="peopleCount">—</span>)</h3></div>
     <table><thead><tr>
-      <th>Name</th><th>Email</th><th>PBP</th><th>SMT or Delegate</th>
+      <th style="cursor:pointer;user-select:none" onclick="sortPeople('name')">Name <span id="pu-sort-name">▲</span></th><th style="cursor:pointer;user-select:none" onclick="sortPeople('email')">Email <span id="pu-sort-email"></span></th><th>PBP</th><th>SMT or Delegate</th>
       <th>Security Groups</th><th>Last Login</th><th>Actions</th>
     </tr></thead>
     <tbody id="peopleTable"><tr><td colspan="7"><div class="empty-state"><div class="icon">👤</div><p>Loading…</p></div></td></tr></tbody></table>
@@ -1790,6 +1790,7 @@ function reopenRowHtml(reqId) {
 async function reopenReq(reqId) {
   const idx = allRequests.findIndex(r=>r[0]===reqId); if(idx<0)return;
   const r = allRequests[idx];
+  const eu = effectiveUser();
   const hasPBP = !!(r[9]);
   const status = hasPBP ? 'Pending PBP' : (r[8] ? 'Pending SMT' : 'Pending Admin');
   const now = new Date().toISOString();
@@ -2188,21 +2189,51 @@ async function loadAndRenderComments(reqId) {
   const panel = document.getElementById('mpanel-comments-'+reqId);
   if (!panel) return;
   const comments = await loadCommentsForReq(reqId);
-  if (!comments.length) {
-    panel.innerHTML = '<div style="padding:32px;text-align:center;color:var(--gray-dark)"><div style="font-size:24px;margin-bottom:8px">💬</div><p>No comments yet.</p></div>';
-    return;
-  }
-  panel.innerHTML = '<div style="padding:4px 0">' + comments.map(cm => {
-    const initials = (cm[2]||'?').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
-    const stage = cm[4] ? `<span class="comment-stage">${cm[4]}</span>` : '';
-    return `<div class="comment-item">
-      <div class="comment-avatar">${initials}</div>
-      <div class="comment-bubble">
-        <div class="comment-meta"><strong>${cm[2]||'Unknown'}</strong>${stage} · ${fd(cm[1])}</div>
-        <div class="comment-text">${(cm[5]||'').replace(/\n/g,'<br>')}</div>
+
+  const thread = comments.length
+    ? '<div style="padding:4px 0 16px">' + comments.map(cm => {
+        const initials = (cm[2]||'?').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+        const stage = cm[4] ? `<span class="comment-stage">${cm[4]}</span>` : '';
+        return `<div class="comment-item">
+          <div class="comment-avatar">${initials}</div>
+          <div class="comment-bubble">
+            <div class="comment-meta"><strong>${cm[2]||'Unknown'}</strong>${stage} · ${toPT(cm[1])}</div>
+            <div class="comment-text">${(cm[5]||'').replace(/\n/g,'<br>')}</div>
+          </div>
+        </div>`;
+      }).join('') + '</div>'
+    : '<div style="padding:24px 0 16px;text-align:center;color:var(--gray-dark)"><div style="font-size:24px;margin-bottom:8px">💬</div><p>No comments yet. Be the first!</p></div>';
+
+  panel.innerHTML = thread + `
+    <div style="border-top:1px solid var(--gray-mid);padding-top:14px;margin-top:4px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--gray-dark);text-transform:uppercase;letter-spacing:0.5px">Add a Comment</div>
+      <textarea id="new-comment-${reqId}" placeholder="Type your comment here…"
+        style="width:100%;min-height:72px;font-family:inherit;font-size:13px;border:1px solid var(--gray-mid);border-radius:7px;padding:9px 12px;resize:vertical;outline:none"
+        onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--gray-mid)'"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button class="btn btn-primary btn-sm" onclick="submitModalComment('${reqId}')">Post Comment</button>
       </div>
     </div>`;
-  }).join('') + '</div>';
+}
+
+async function submitModalComment(reqId) {
+  const textarea = document.getElementById('new-comment-'+reqId);
+  const text = textarea ? textarea.value.trim() : '';
+  if (!text) { textarea && (textarea.style.borderColor='var(--red)'); return; }
+  const eu = effectiveUser();
+  const now = new Date().toISOString();
+  try {
+    await apiAppend(T.comments+'!A2', [[reqId, now, eu.name, eu.email, 'Note', text]]);
+    delete _commentsCache[reqId]; // invalidate so reload fetches fresh
+    await loadAndRenderComments(reqId);
+    // Also refresh audit if open
+    const auditPanel = document.getElementById('mpanel-audit-'+reqId);
+    if (auditPanel && auditPanel.classList.contains('active')) {
+      delete _commentsCache[reqId];
+      await loadAndRenderAudit(reqId);
+    }
+    toast('Comment posted', 'success');
+  } catch(e) { toast('Error: '+e.message, 'error'); }
 }
 
 async function loadAndRenderAudit(reqId) {
@@ -2212,40 +2243,70 @@ async function loadAndRenderAudit(reqId) {
   if (!r) { panel.innerHTML = '<p style="padding:32px;color:var(--gray-dark)">Request not found.</p>'; return; }
   const comments = await loadCommentsForReq(reqId);
 
-  // Build timeline events from request data + comments
+  // Build timeline — STRICT chronological order, no manipulation
+  // Only add events that have real timestamps from the data
   const events = [];
-  const push = (ts, icon, bg, label, meta, note) => events.push({ts,icon,bg,label,meta,note});
+  const push = (ts, icon, bg, label, meta, note) => {
+    if (ts) events.push({ts, icon, bg, label, meta: meta||'', note: note||null});
+  };
 
-  push(r[1], '📝', '#E3F2FD', 'Submitted', `By ${r[2]} (${r[3]||'—'})`, null);
+  // Submission always has a real timestamp
+  push(r[1], '📝', '#E3F2FD', 'Submitted', 'By ' + (r[2]||'—') + (r[3] ? ' · '+r[3] : ''), null);
 
+  // Views — only if timestamps exist (cols 24, 25)
   if (r[24]) push(r[24], '👁', '#FFF8E1', 'Viewed by PBP', r[9]||'PBP', null);
-  if (r[17]) push(r[19]||r[1], r[17]==='Approved'?'✓':'✕', r[17]==='Approved'?'#E8F5EE':'#FDECEA',
-    `PBP ${r[17]}`, `By ${r[18]||'—'}`, null);
-
   if (r[25]) push(r[25], '👁', '#FFF8E1', 'Viewed by SMT', r[8]||'SMT', null);
-  if (r[20]) push(r[22]||r[1], r[20]==='Approved'?'✓':'✕', r[20]==='Approved'?'#E8F5EE':'#FDECEA',
-    `SMT ${r[20]}`, `By ${r[21]||'—'}`, null);
 
-  if (r[23]) push(r[1], '🏁', '#E8F5EE', `Marked ${r[23]}`, 'Admin action', null);
-  if (r[16]==='Cancelled') push(r[1], '🚫', '#FDECEA', 'Cancelled', '', null);
-  if (r[37]) push(r[37], '🔄', '#FFF3E0', 'Reopened', `Status reset to ${r[16]}`, null);
+  // PBP decision — use the actual decision timestamp (col 19)
+  if (r[17] && r[19]) push(r[19], r[17]==='Approved'?'✓':'✕',
+    r[17]==='Approved'?'#E8F5EE':'#FDECEA',
+    'PBP Stage: ' + r[17], 'By ' + (r[18]||'—'), null);
 
-  // Append comments as events
+  // SMT decision — use the actual decision timestamp (col 22)
+  if (r[20] && r[22]) push(r[22], r[20]==='Approved'?'✓':'✕',
+    r[20]==='Approved'?'#E8F5EE':'#FDECEA',
+    'SMT Stage: ' + r[20], 'By ' + (r[21]||'—'), null);
+
+  // Reopen timestamp (col 37) — only if it exists
+  if (r[37]) push(r[37], '🔄', '#FFF3E0', 'Reopened', 'Prior approval history preserved', null);
+
+  // ALL comments go in as-is — they each have real timestamps
+  // This includes: approval comments, admin status changes, cancellations, reopens stored as comments
   comments.forEach(cm => {
-    push(cm[1], '💬', '#F3E5F5', `Comment (${cm[4]||'Note'})`, `By ${cm[2]||'—'}`, cm[5]);
+    const stage = cm[4] || 'Note';
+    const stageColors = {
+      'PBP': '#E8F5EE', 'SMT': '#E8F5EE',
+      'Admin': '#E3F2FD', 'Cancelled': '#FDECEA',
+      'Reopened': '#FFF3E0', 'Compensation': '#FFF8E1'
+    };
+    const icons = {
+      'PBP': '✓', 'SMT': '✓', 'Admin': '🔧',
+      'Cancelled': '🚫', 'Reopened': '🔄', 'Compensation': '💰'
+    };
+    push(cm[1],
+      icons[stage] || '💬',
+      stageColors[stage] || '#F3E5F5',
+      stage === 'Note' ? 'Comment' : stage + ' Comment',
+      'By ' + (cm[2]||'—'),
+      cm[5]
+    );
   });
 
-  // Sort by timestamp
-  events.sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  // Sort strictly by timestamp — no manipulation
+  events.sort((a,b) => new Date(a.ts) - new Date(b.ts));
 
-  if (!events.length) { panel.innerHTML = '<div style="padding:32px;text-align:center;color:var(--gray-dark)">No audit events found.</div>'; return; }
-  panel.innerHTML = '<div style="padding:4px 0">' + events.map(ev=>`
+  if (!events.length) {
+    panel.innerHTML = '<div style="padding:32px;text-align:center;color:var(--gray-dark)"><div style="font-size:24px;margin-bottom:8px">📋</div><p>No audit events found.</p></div>';
+    return;
+  }
+
+  panel.innerHTML = '<div style="padding:4px 0">' + events.map((ev,i) => `
     <div class="audit-item">
-      <div class="audit-dot" style="background:${ev.bg}">${ev.icon}</div>
+      <div class="audit-dot" style="background:${ev.bg};font-size:${ev.icon.length>1?'11px':'13px'}">${ev.icon}</div>
       <div class="audit-body">
         <div class="audit-label">${ev.label}</div>
-        <div class="audit-meta">${ev.meta ? ev.meta+' · ' : ''}${fd(ev.ts)}</div>
-        ${ev.note ? `<div class="audit-note">${ev.note.replace(/\n/g,'<br>')}</div>` : ''}
+        <div class="audit-meta">${ev.meta ? ev.meta + ' · ' : ''}${toPT(ev.ts)}</div>
+        ${ev.note ? '<div class="audit-note">' + ev.note.replace(/\n/g,'<br>') + '</div>' : ''}
       </div>
     </div>`).join('') + '</div>';
 }
@@ -2284,6 +2345,29 @@ async function submitApproval(reqId, decision, commentOverride) {
 // ============================================================
 // MATRIX CRUD
 // ============================================================
+var _mxSortCol = 'cc', _mxSortAsc = true;
+function sortMatrix(col) {
+  if (_mxSortCol === col) { _mxSortAsc = !_mxSortAsc; }
+  else { _mxSortCol = col; _mxSortAsc = true; }
+  // Update indicators
+  ['cc','pbp','smt'].forEach(c => {
+    const el = document.getElementById('mx-sort-'+c);
+    if (el) el.textContent = c===_mxSortCol ? (_mxSortAsc?'▲':'▼') : '';
+  });
+  renderMatrix();
+}
+
+var _puSortCol = 'name', _puSortAsc = true;
+function sortPeople(col) {
+  if (_puSortCol === col) { _puSortAsc = !_puSortAsc; }
+  else { _puSortCol = col; _puSortAsc = true; }
+  ['name','email','login'].forEach(c => {
+    const el = document.getElementById('pu-sort-'+c);
+    if (el) el.textContent = c===_puSortCol ? (_puSortAsc?'▲':'▼') : '';
+  });
+  renderPeopleTable();
+}
+
 function renderMatrix() {
   const search=(document.getElementById('mxSearch')?.value||'').toLowerCase();
   const pbpf=document.getElementById('mxPBPF')?.value||'';
@@ -2297,7 +2381,12 @@ function renderMatrix() {
     if(pbpf&&r[1]!==pbpf)return false;
     if(search&&!(r[0]+' '+r[1]+' '+r[2]).toLowerCase().includes(search))return false;
     return true;
-  }).sort((a,b)=>(a[0]||'').localeCompare(b[0]||''));  // alphabetize by cost center
+  }).sort((a,b) => {
+    const colMap = {cc:0, pbp:1, smt:2};
+    const ci = colMap[_mxSortCol] || 0;
+    const cmp = (a[ci]||'').localeCompare(b[ci]||'');
+    return _mxSortAsc ? cmp : -cmp;
+  });
   set('mxCount',rows.length);
   const ro=!canEditMatrix();
   document.getElementById('matrixTable').innerHTML=rows.length
@@ -2374,7 +2463,12 @@ function renderPeopleTable() {
     if(sgf&&!(r[4]||'').includes(sgf))return false;
     if(search&&!(r[0]+' '+r[1]).toLowerCase().includes(search))return false;
     return true;
-  }).sort((a,b)=>(a[0]||'').localeCompare(b[0]||''));  // alphabetize by name
+  }).sort((a,b) => {
+    const colMap = {name:0, email:1, login:5};
+    const ci = colMap[_puSortCol] || 0;
+    const cmp = (a[ci]||'').localeCompare(b[ci]||'');
+    return _puSortAsc ? cmp : -cmp;
+  });
   set('peopleCount',rows.length);
 
   const isMaster=hasGroup('master_admin')&&!proxyUser;
@@ -2471,6 +2565,18 @@ function fd(iso){
   try{return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}catch{return iso;}
 }
 function set(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
+
+// Format a timestamp in Pacific Time (handles PST/PDT automatically)
+function toPT(ts) {
+  if (!ts) return '—';
+  try {
+    return new Date(ts).toLocaleString('en-US', {
+      timeZone:'America/Los_Angeles',
+      month:'short', day:'numeric', year:'numeric',
+      hour:'numeric', minute:'2-digit', hour12:true
+    }) + ' PT';
+  } catch(e) { return ts; }
+}
 function toast(msg,type='success'){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast '+type; t.classList.add('show');

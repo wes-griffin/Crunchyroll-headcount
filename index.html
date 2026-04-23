@@ -88,6 +88,26 @@ body { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background:#F2ED
   83%      { transform:translateY(0); }
   100%     { transform:translateY(0); }
 }
+/* Waving hand */
+@keyframes waveHand {
+  0%   { transform: rotate(0deg)  scale(1);   }
+  10%  { transform: rotate(-15deg) scale(1.1); }
+  20%  { transform: rotate(12deg) scale(1.1);  }
+  30%  { transform: rotate(-15deg) scale(1.1); }
+  40%  { transform: rotate(12deg) scale(1.1);  }
+  50%  { transform: rotate(-10deg) scale(1.1); }
+  60%  { transform: rotate(8deg)  scale(1.05); }
+  70%  { transform: rotate(-5deg) scale(1.02); }
+  80%  { transform: rotate(3deg)  scale(1);    }
+  90%  { transform: rotate(0deg)  scale(1);    }
+  100% { transform: rotate(0deg)  scale(1);    }
+}
+.wave-hand {
+  display: inline-block;
+  animation: waveHand 3.2s linear infinite;
+  transform-origin: 70% 80%;
+  font-style: normal;
+}
 /* Nav logo animation (same as dashboard/requests) */
 @keyframes crLogoBounce {
   0%   { transform: translateY(0)     scale(1);                   animation-timing-function: ease-in; }
@@ -158,7 +178,7 @@ body { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background:#F2ED
   </div>
 
   <div class="signed-in-hero">
-    <h2>Welcome back, <span id="welcomeName" style="color:var(--orange)"></span></h2>
+    <h2><em class="wave-hand">👋</em> Welcome back, <span id="welcomeName" style="color:var(--orange)"></span></h2>
     <p>Choose a tool below to get started</p>
   </div>
 
@@ -230,7 +250,13 @@ function parseJwt(token) {
 function showSignedIn(user) {
   document.getElementById('authView').style.display = 'none';
   document.getElementById('signedInView').style.display = 'block';
-  document.getElementById('welcomeName').textContent = user.name.split(' ')[0];
+  // Build the first name as cr-char wave spans (same 3.2s cycle as nav text)
+  const firstName = user.name.split(' ')[0];
+  const nameSpans = firstName.split('').map(function(ch, i) {
+    const delay = (i * 0.025).toFixed(3);
+    return '<span class="cr-char" style="color:var(--orange);animation-delay:' + delay + 's">' + ch + '</span>';
+  }).join('');
+  document.getElementById('welcomeName').innerHTML = nameSpans;
   document.getElementById('headerUserName').textContent = user.name;
 }
 
