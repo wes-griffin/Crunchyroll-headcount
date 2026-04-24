@@ -164,23 +164,6 @@ function crInjectNav(currentPage, extraNavHTML = '') {
   wrapper.innerHTML = headerHTML;
   document.body.insertBefore(wrapper, document.body.firstChild);
 
-  // L3: on inner pages (not index) expose a Home tab in the mobile bottom nav
-  // and a global Escape key to close any open modal
-  if (currentPage !== 'home') {
-    // Append Home button to whatever bottom nav the page builds
-    // (deferred so page-specific build runs first)
-    window.addEventListener('load', () => {
-      const existing = document.querySelector('.cr-btm-nav');
-      if (!existing) return;
-      const homeBtn = document.createElement('button');
-      homeBtn.className = 'cr-btm-btn';
-      homeBtn.id = 'crBtmHome';
-      homeBtn.innerHTML = '<span style="font-size:18px">🏠</span><span class="cr-btm-lbl">Home</span>';
-      homeBtn.addEventListener('click', () => { window.location.href = 'index.html'; });
-      existing.appendChild(homeBtn);
-    });
-  }
-
   // Global Escape closes any open modal overlay
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;

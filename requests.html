@@ -259,9 +259,16 @@ th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
 /* ── Mobile (≤600px) ── */
 @media(max-width:600px){
   /* Layout & spacing */
-  .content { padding: 14px 12px 80px; }
+  .content { padding: 14px 12px 24px; }
+  body { overflow-x: hidden; }
 
-  /* Page & section titles */
+  /* Internal nav bar: scrollable instead of hidden */
+  .nav-bar { overflow-x: auto; white-space: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 0 8px; }
+  .nav-bar::-webkit-scrollbar { display: none; }
+  .nav-btn { flex-shrink: 0; font-size: 11px; padding: 10px 12px; }
+
+  /* Form fields can't overflow viewport */
+  .form-group input, .form-group select, .form-group textarea { max-width: 100%; width: 100%; }
   .page-title h2 { font-size: 20px; }
   .table-header { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 14px; }
   .table-header h3 { font-size: 13px; }
@@ -272,10 +279,8 @@ th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
   .kpi { padding: 14px 16px; }
   .kpi-row[style*="repeat(5"] { grid-template-columns: repeat(2,1fr) !important; }
 
-  /* Hide top nav — replaced by bottom nav */
-  .nav-bar { display: none; }
-
-  /* ── Card tables ── */
+  /* FAB */
+  #reportIssueFAB { bottom: 24px !important; right: 16px; padding: 10px 16px; font-size: 12px; }
   .table-wrap { overflow-x: visible; border-radius: 8px; background: transparent; border: none; }
   .table-wrap table, .table-wrap table.wide { min-width: 0 !important; display: block; }
   .table-wrap thead { display: none; }
@@ -351,8 +356,7 @@ th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
   .mob-step-nav { display: flex; gap: 10px; margin-top: 16px; }
   .mob-step-nav button { flex: 1; }
 
-  /* FAB above bottom nav */
-  #reportIssueFAB { bottom: 74px !important; right: 16px; padding: 10px 16px; font-size: 12px; }
+  /* stepped form */
 }
 @media(min-width:601px){
   .mob-step { display: block !important; }
@@ -392,56 +396,6 @@ document.addEventListener("DOMContentLoaded", function() {
     crInjectNav('requests');
     crUpdateHeaderUser(user);
 
-    // ── Mobile bottom nav (C4: all views; M3: rebuilt on resize) ──
-    const REQ_VIEW_META = [
-      { id:'submit',  btn:'nav-submit',   label:'New',     icon:'✚' },
-      { id:'my',      btn:'nav-my',       label:'My Reqs', icon:'📋' },
-      { id:'review',  btn:'nav-review',   label:'Approve', icon:'✓' },
-      { id:'comp',    btn:'nav-comp',     label:'Comp',    icon:'💰' },
-      { id:'adminEE', btn:'nav-admin-ee', label:'EE',      icon:'👤' },
-      { id:'adminCW', btn:'nav-admin-cw', label:'CW',      icon:'🔧' },
-      { id:'matrix',  btn:'nav-matrix',   label:'Matrix',  icon:'📊' },
-      { id:'people',  btn:'nav-people',   label:'Access',  icon:'⚙' },
-    ];
-    function buildReqBtmNav() {
-      const existing = document.getElementById('reqsBtmNav');
-      if (existing) existing.remove();
-      if (window.innerWidth > 600) return;
-      // Only create tabs for views whose desktop nav button is currently visible
-      const visible = REQ_VIEW_META.filter(v => {
-        const el = document.getElementById(v.btn);
-        return el && !el.classList.contains('hidden') && el.style.display !== 'none';
-      });
-      if (!visible.length) { // nav not built yet — show minimal default tabs
-        visible.push(REQ_VIEW_META[0], REQ_VIEW_META[1]);
-      }
-      const btmNav = document.createElement('nav');
-      btmNav.className = 'cr-btm-nav';
-      btmNav.id = 'reqsBtmNav';
-      visible.forEach((v, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'cr-btm-btn' + (i === 0 ? ' cr-btm-active' : '');
-        btn.id = 'reqsBtmBtn-' + v.id;
-        btn.innerHTML = `<span style="font-size:18px">${v.icon}</span><span class="cr-btm-lbl">${v.label}</span>`;
-        btn.addEventListener('click', () => {
-          const navBtn = document.getElementById(v.btn);
-          showView(v.id, navBtn);
-        });
-        btmNav.appendChild(btn);
-      });
-      document.body.appendChild(btmNav);
-    }
-    buildReqBtmNav();
-    // M3: rebuild on orientation change / resize
-    if (window.ResizeObserver) {
-      let _lastMobileReqs = window.innerWidth <= 600;
-      new ResizeObserver(() => {
-        const nowMobile = window.innerWidth <= 600;
-        if (nowMobile !== _lastMobileReqs) { _lastMobileReqs = nowMobile; buildReqBtmNav(); }
-      }).observe(document.body);
-    }
-    window.addEventListener('orientationchange', () => { setTimeout(buildReqBtmNav, 100); });
-    window._buildReqBtmNav = buildReqBtmNav; // expose for setupUI rebuild
     initMobileSteppedForm();
 
     showScreen('loading', 'Loading data…');
@@ -1096,8 +1050,6 @@ function setupUI() {
   populateSMTFilters();
   populateProxySelector();
   renderAll();
-  // C4: now that nav visibility is settled, rebuild the bottom nav with all accessible views
-  if (typeof window._buildReqBtmNav === 'function') window._buildReqBtmNav();
 }
 
 function renderUserBadges() {
@@ -1701,18 +1653,6 @@ function updateApprovalBadge(pendingCount) {
     b.className = 'nav-badge';
     b.textContent = pendingCount > 99 ? '99+' : pendingCount;
     btn.appendChild(b);
-  }
-  // mirror on mobile bottom nav button
-  const mBtn = document.getElementById('reqsBtmBtn-review');
-  if (!mBtn) return;
-  mBtn.querySelector('.nav-badge')?.remove();
-  if (pendingCount > 0) {
-    const b = document.createElement('span');
-    b.className = 'nav-badge';
-    b.style.cssText = 'position:absolute;top:2px;right:8px;font-size:8px;padding:1px 4px;';
-    b.textContent = pendingCount > 99 ? '99+' : pendingCount;
-    mBtn.style.position = 'relative';
-    mBtn.appendChild(b);
   }
 }
 
