@@ -107,7 +107,26 @@ function crInjectNav(currentPage, extraNavHTML = '') {
     .cr-refresh-btn.loading .cr-refresh-icon { animation:crspin 1s linear infinite; }
     @keyframes crspin { to { transform:rotate(360deg); } }
     .cr-last-updated { color:#888; font-size:11px; text-align:right; }
-    @media(max-width:600px) { .cr-header,.cr-nav-bar { padding:0 16px; } .cr-user-name { display:none; } }
+    @media(max-width:600px) {
+      .cr-header { padding:0 14px; height:52px; }
+      .cr-nav-bar { display:none; }
+      .cr-user-name,.cr-sign-out { display:none; }
+      .cr-logo-img { width:28px; height:28px; }
+      .cr-logo-text { font-size:14px; }
+    }
+    .cr-avatar-btn { display:none; width:32px; height:32px; border-radius:50%; background:#FF5E00; color:white; border:none; font-size:12px; font-weight:700; cursor:pointer; align-items:center; justify-content:center; font-family:inherit; position:relative; }
+    .cr-avatar-menu { display:none; position:absolute; top:calc(100% + 8px); right:0; background:#111; border-radius:10px; min-width:160px; padding:6px 0; box-shadow:0 4px 20px rgba(0,0,0,.35); z-index:600; }
+    .cr-avatar-menu.open { display:block; }
+    .cr-avatar-menu-item { display:block; width:100%; padding:11px 16px; background:none; border:none; color:#ccc; font-size:13px; font-weight:500; text-align:left; cursor:pointer; font-family:inherit; }
+    .cr-avatar-menu-item:hover { background:#222; color:#fff; }
+    @media(max-width:600px) { .cr-avatar-btn { display:flex; } }
+    .cr-btm-nav { display:none; }
+    @media(max-width:600px) {
+      .cr-btm-nav { display:flex; position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e8e3dd; z-index:500; height:56px; padding-bottom:env(safe-area-inset-bottom,0); }
+      .cr-btm-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; border:none; background:none; cursor:pointer; padding:4px 2px 0; -webkit-tap-highlight-color:transparent; }
+      .cr-btm-lbl { font-size:9px; font-weight:600; color:#aaa; letter-spacing:.2px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; }
+      .cr-btm-btn.cr-btm-active .cr-btm-lbl { color:#FF5E00; }
+    }
   </style>
   <div class="cr-header">
     <div class="cr-header-left">
@@ -137,10 +156,30 @@ function crInjectNav(currentPage, extraNavHTML = '') {
 function crUpdateHeaderUser(user) {
   const el = document.getElementById('crHeaderRight');
   if (!el) return;
+  const initials = (user.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   el.innerHTML = `
     <span class="cr-user-name">${user.name}</span>
-    <button class="cr-sign-out" onclick="crSignOut()">Sign out</button>`;
+    <button class="cr-sign-out" onclick="crSignOut()">Sign out</button>
+    <button class="cr-avatar-btn" id="crAvatarBtn" onclick="crToggleAvatarMenu(event)" title="${user.name}">${initials}
+      <div class="cr-avatar-menu" id="crAvatarMenu">
+        <div style="padding:10px 16px 8px;border-bottom:1px solid #222;margin-bottom:4px">
+          <div style="font-size:12px;font-weight:600;color:#fff">${user.name}</div>
+          <div style="font-size:11px;color:#888;margin-top:2px">${user.email||''}</div>
+        </div>
+        <button class="cr-avatar-menu-item" onclick="crSignOut()">Sign out</button>
+      </div>
+    </button>`;
 }
+
+function crToggleAvatarMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('crAvatarMenu');
+  if (menu) menu.classList.toggle('open');
+}
+document.addEventListener('click', function() {
+  const menu = document.getElementById('crAvatarMenu');
+  if (menu) menu.classList.remove('open');
+});
 
 // ── Sign out ─────────────────────────────────────────────────
 function crSignOut() {
