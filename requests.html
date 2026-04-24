@@ -280,7 +280,7 @@ th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
   .kpi-row[style*="repeat(5"] { grid-template-columns: repeat(2,1fr) !important; }
 
   /* FAB */
-  #reportIssueFAB { bottom: 24px !important; right: 16px; padding: 10px 16px; font-size: 12px; }
+  #reportIssueFAB { bottom: 24px !important; right: 16px; width: 44px; height: 44px; font-size: 18px; }
   .table-wrap { overflow-x: visible; border-radius: 8px; background: transparent; border: none; }
   .table-wrap table, .table-wrap table.wide { min-width: 0 !important; display: block; }
   .table-wrap thead { display: none; }
@@ -880,13 +880,14 @@ document.addEventListener("DOMContentLoaded", function() {
 <!-- Report an Issue FAB button (visible on all views) -->
 <button id="reportIssueFAB" onclick="openIssueModal()"
   style="position:fixed;bottom:28px;right:28px;z-index:300;
-    background:var(--orange);color:white;border:none;border-radius:50px;
-    padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;
+    background:var(--orange);color:white;border:none;border-radius:50%;
+    width:52px;height:52px;font-size:22px;font-weight:700;cursor:pointer;
     font-family:inherit;box-shadow:0 4px 16px rgba(0,0,0,0.18);
-    display:flex;align-items:center;gap:8px;transition:transform 0.15s,box-shadow 0.15s"
+    display:flex;align-items:center;justify-content:center;transition:transform 0.15s,box-shadow 0.15s"
   onmouseenter="this.style.transform='scale(1.05)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.22)'"
-  onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.18)'">
-  🐛 Report an Issue
+  onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.18)'"
+  title="Report an Issue">
+  🐛
 </button>
 
 <!-- Report Issue Modal -->

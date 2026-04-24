@@ -92,10 +92,8 @@ function crInjectNav(currentPage, extraNavHTML = '') {
       100%     { transform:translateY(0); }
     }
     .cr-header-right { display:flex; align-items:center; gap:12px; flex-shrink:0; }
-    /* L1 – truncate long display names */
-    .cr-user-name { color:#aaa; font-size:13px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     /* M2 – 44px minimum touch target (iOS/Android HIG) */
-    .cr-sign-out { background:none; border:1px solid #444; color:#888; padding:0 12px; border-radius:6px; font-size:12px; cursor:pointer; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; min-height:44px; display:inline-flex; align-items:center; }
+    .cr-sign-out { background:none; border:1px solid #444; color:#888; padding:0 12px; border-radius:6px; font-size:12px; cursor:pointer; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; min-height:44px; display:inline-flex; align-items:center; white-space:nowrap; }
     .cr-sign-out:hover { border-color:#888; color:#fff; }
     .cr-nav-bar { background:#000; border-top:1px solid #222; display:flex; padding:0 40px; overflow-x:auto; gap:0; scrollbar-width:none; }
     .cr-nav-bar::-webkit-scrollbar { display:none; }
@@ -114,8 +112,6 @@ function crInjectNav(currentPage, extraNavHTML = '') {
       /* C1 – reduced padding/height on narrow viewports */
       .cr-header { padding:0 14px; height:52px; }
       .cr-nav-bar { display:none; }
-      /* C3 – hide name/sign-out; avatar button handles sign-out on mobile */
-      .cr-user-name,.cr-sign-out { display:none; }
       .cr-logo-img { width:28px; height:28px; }
       .cr-logo-text { font-size:14px; }
     }
@@ -123,22 +119,15 @@ function crInjectNav(currentPage, extraNavHTML = '') {
     @media(min-width:601px) and (max-width:860px) {
       .cr-header { padding:0 20px; }
       .cr-nav-bar { padding:0 20px; }
-      .cr-user-name { max-width:100px; }
     }
-    /* M2 – 44×44px minimum touch target; M4 – won't be squeezed out of header */
-    .cr-avatar-btn { display:none; width:44px; height:44px; border-radius:50%; background:#FF5E00; color:white; border:none; font-size:12px; font-weight:700; cursor:pointer; align-items:center; justify-content:center; font-family:inherit; position:relative; flex-shrink:0; }
-    /* M4 – right:0 keeps menu anchored; max-width clamp prevents off-screen render */
-    .cr-avatar-menu { display:none; position:absolute; top:calc(100% + 8px); right:0; background:#111; border-radius:10px; min-width:160px; max-width:min(220px,calc(100vw - 28px)); padding:6px 0; box-shadow:0 4px 20px rgba(0,0,0,.35); z-index:600; }
-    .cr-avatar-menu.open { display:block; }
-    .cr-avatar-menu-item { display:block; width:100%; padding:11px 16px; background:none; border:none; color:#ccc; font-size:13px; font-weight:500; text-align:left; cursor:pointer; font-family:inherit; }
-    .cr-avatar-menu-item:hover { background:#222; color:#fff; }
-    @media(max-width:600px) { .cr-avatar-btn { display:flex; } }
     .cr-btm-nav { display:none; }
     @media(max-width:600px) {
       .cr-btm-nav { display:flex; position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e8e3dd; z-index:500; height:56px; padding-bottom:env(safe-area-inset-bottom,0); }
       .cr-btm-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; border:none; background:none; cursor:pointer; padding:4px 2px 0; -webkit-tap-highlight-color:transparent; }
+      .cr-btm-icon { font-size:18px; line-height:1; }
       .cr-btm-lbl { font-size:9px; font-weight:600; color:#aaa; letter-spacing:.2px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; }
       .cr-btm-btn.cr-btm-active .cr-btm-lbl { color:#FF5E00; }
+      .cr-btm-btn.cr-btm-active .cr-btm-icon { filter: none; }
     }
   </style>
   <div class="cr-header">
@@ -147,15 +136,22 @@ function crInjectNav(currentPage, extraNavHTML = '') {
       <a href="index.html" class="cr-logo-text">${_waveOrange}${_waveWhite}</a>
     </div>
     <div class="cr-header-right" id="crHeaderRight">
-      ${user ? `
-        <span class="cr-user-name">${user.name}</span>
-        <button class="cr-sign-out" onclick="crSignOut()">Sign out</button>
-      ` : ''}
+      ${user ? `<button class="cr-sign-out" onclick="crSignOut()">Sign out</button>` : ''}
     </div>
   </div>
   <div class="cr-nav-bar">
     ${navLinks}
     ${extraNavHTML ? `<div class="cr-nav-divider"></div>${extraNavHTML}` : ''}
+  </div>
+  <div class="cr-btm-nav">
+    <button class="cr-btm-btn ${currentPage === 'dashboard' ? 'cr-btm-active' : ''}" onclick="location.href='dashboard.html'">
+      <span class="cr-btm-icon">📊</span>
+      <span class="cr-btm-lbl">Dashboard</span>
+    </button>
+    <button class="cr-btm-btn ${currentPage === 'requests' ? 'cr-btm-active' : ''}" onclick="location.href='requests.html'">
+      <span class="cr-btm-icon">📝</span>
+      <span class="cr-btm-lbl">Requests</span>
+    </button>
   </div>`;
 
   // Insert at very top of body
@@ -175,30 +171,8 @@ function crInjectNav(currentPage, extraNavHTML = '') {
 function crUpdateHeaderUser(user) {
   const el = document.getElementById('crHeaderRight');
   if (!el) return;
-  const initials = (user.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  el.innerHTML = `
-    <span class="cr-user-name">${user.name}</span>
-    <button class="cr-sign-out" onclick="crSignOut()">Sign out</button>
-    <button class="cr-avatar-btn" id="crAvatarBtn" onclick="crToggleAvatarMenu(event)" title="${user.name}">${initials}
-      <div class="cr-avatar-menu" id="crAvatarMenu">
-        <div style="padding:10px 16px 8px;border-bottom:1px solid #222;margin-bottom:4px">
-          <div style="font-size:12px;font-weight:600;color:#fff">${user.name}</div>
-          <div style="font-size:11px;color:#888;margin-top:2px">${user.email||''}</div>
-        </div>
-        <button class="cr-avatar-menu-item" onclick="crSignOut()">Sign out</button>
-      </div>
-    </button>`;
+  el.innerHTML = `<button class="cr-sign-out" onclick="crSignOut()">Sign out</button>`;
 }
-
-function crToggleAvatarMenu(e) {
-  e.stopPropagation();
-  const menu = document.getElementById('crAvatarMenu');
-  if (menu) menu.classList.toggle('open');
-}
-document.addEventListener('click', function() {
-  const menu = document.getElementById('crAvatarMenu');
-  if (menu) menu.classList.remove('open');
-});
 
 // ── Sign out ─────────────────────────────────────────────────
 function crSignOut() {
