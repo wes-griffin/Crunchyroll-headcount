@@ -191,7 +191,7 @@
   /* ── Mobile (≤600px) ── */
   @media (max-width: 600px) {
     .content { padding: 16px 14px 24px; }
-    body { overflow-x: hidden; }
+    html, body { overflow-x: hidden; }
     .tabs-bar { padding: 0 6px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
     .tabs-bar::-webkit-scrollbar { display: none; }
     .tab-btn { padding: 12px 14px; font-size: 11px; flex-shrink: 0; }
@@ -218,8 +218,8 @@
     /* Mapping boards: constrain to viewport so inner scroll-wrap handles horizontal scroll */
     #tab-mapping { width: 100%; max-width: 100%; }
     #mappingTable, #dm-scroll-wrap { max-width: calc(100vw - 28px) !important; overflow-x: auto; }
-    /* EE/CW tabs: clip horizontal overflow without blocking vertical scrolling */
-    #tab-ee, #tab-cw { overflow-x: clip; }
+    /* EE/CW tabs: constrain kpi rows so they don't push page width */
+    #tab-ee .kpi-row, #tab-cw .kpi-row { max-width: 100%; }
     /* FAB: circle, clear of any bottom content */
     button[onclick="openDashIssueModal()"] { bottom: 24px !important; right: 16px; width: 48px !important; height: 48px !important; font-size: 20px !important; }
     /* Chip-style quick filters on Reqs tab */
