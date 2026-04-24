@@ -185,6 +185,10 @@
   @media (max-width: 1000px) {
     .kpi-row-4, .kpi-row-5 { grid-template-columns: repeat(2, 1fr); }
     .charts-grid, .two-col, .three-col { grid-template-columns: 1fr; }
+    /* Prevent grid items from overflowing their 1fr track (CSS grid min-width:auto bug).
+       Without this, tables with min-width:480px push the column — and the page — wider
+       than the viewport, and table-wrap overflow-x:auto never triggers. */
+    .two-col > *, .charts-grid > *, .three-col > * { min-width: 0; }
     .modal-kpis { grid-template-columns: repeat(2, 1fr); }
   }
 
@@ -218,8 +222,6 @@
     /* Mapping boards: constrain to viewport so inner scroll-wrap handles horizontal scroll */
     #tab-mapping { width: 100%; max-width: 100%; }
     #mappingTable, #dm-scroll-wrap { max-width: calc(100vw - 28px) !important; overflow-x: auto; }
-    /* EE/CW tabs: constrain kpi rows so they don't push page width */
-    #tab-ee .kpi-row, #tab-cw .kpi-row { max-width: 100%; }
     /* FAB: circle, clear of any bottom content */
     button[onclick="openDashIssueModal()"] { bottom: 24px !important; right: 16px; width: 48px !important; height: 48px !important; font-size: 20px !important; }
     /* Chip-style quick filters on Reqs tab */
