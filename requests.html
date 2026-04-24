@@ -235,6 +235,11 @@ th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
   .cr-btm-nav { overflow-x:auto; }
   .cr-btm-nav .cr-btm-btn { flex:0 0 auto; min-width:58px; }
 }
+/* Approval badge on nav button */
+.nav-badge { background:var(--orange); color:white; font-size:9px; font-weight:700; padding:1px 5px; border-radius:10px; margin-left:5px; vertical-align:middle; }
+/* Draft saved indicator */
+#draftBanner { font-size:11px; color:var(--amber); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+#draftBanner button { background:none; border:none; color:var(--orange); font-size:11px; cursor:pointer; padding:0; font-family:inherit; text-decoration:underline; }
 
 /* EMPTY STATE */
 .empty-state { text-align:center; padding:48px 24px; color:var(--gray-dark); }
@@ -454,6 +459,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
 <div class="toast" id="toast"></div>
 
+<!-- Session expired reconnect banner -->
+<div id="sessionExpiredBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:var(--amber);color:white;padding:10px 20px;font-size:13px;font-weight:600;align-items:center;justify-content:space-between;gap:12px;">
+  <span>⚠️ Your session expired. Save any work, then reconnect.</span>
+  <button onclick="location.reload()" style="background:white;color:var(--amber);border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">Reconnect</button>
+</div>
+
 <!-- MODAL -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
   <div class="modal">
@@ -545,6 +556,7 @@ document.addEventListener("DOMContentLoaded", function() {
 <!-- ── NEW REQUEST ── -->
 <div class="view active" id="view-submit">
   <div class="page-title"><h2>New Headcount Request</h2><p>Submit a request for a new employee or contingent worker hire</p></div>
+  <div id="draftBanner" style="display:none">📝 Draft restored — <button onclick="clearDraft()">Clear draft</button></div>
   <div class="type-toggle">
     <button class="type-btn active" id="typeEE" onclick="setReqType('EE')">👤 Employee (FTE)</button>
     <button class="type-btn"        id="typeCW" onclick="setReqType('CW')">🔄 Contingent Worker</button>
@@ -1062,6 +1074,7 @@ async function initApp() {
   await recordLogin();
   setupUI();
   showScreen('main');
+  restoreDraft();
 }
 
 function setupUI() {
@@ -1308,20 +1321,28 @@ function initMobileSteppedForm() {
 async function apiGet(range) {
   const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`,
     {headers:{Authorization:'Bearer '+userToken}});
+  if (r.status === 401) { handleTokenExpiry(); throw new Error('Session expired — please reconnect'); }
   if (!r.ok) throw new Error(await r.text());
   return (await r.json()).values||[];
 }
 async function apiAppend(range, values) {
   const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
     {method:'POST',headers:{Authorization:'Bearer '+userToken,'Content-Type':'application/json'},body:JSON.stringify({values})});
+  if (r.status === 401) { handleTokenExpiry(); throw new Error('Session expired — please reconnect'); }
   if (!r.ok) throw new Error(await r.text());
   return await r.json();
 }
 async function apiUpdate(range, values) {
   const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
     {method:'PUT',headers:{Authorization:'Bearer '+userToken,'Content-Type':'application/json'},body:JSON.stringify({values})});
+  if (r.status === 401) { handleTokenExpiry(); throw new Error('Session expired — please reconnect'); }
   if (!r.ok) throw new Error(await r.text());
   return await r.json();
+}
+
+function handleTokenExpiry() {
+  const banner = document.getElementById('sessionExpiredBanner');
+  if (banner) banner.style.display = 'flex';
 }
 
 async function ensureTabs() {
@@ -1625,6 +1646,7 @@ async function submitRequest(e) {
       '','','','','','','','' // comp fields
     ]]);
     toast('Request submitted!','success');
+    clearDraft();
     resetForm();
     await refreshData();
     showView('my',document.getElementById('nav-my'));
@@ -1638,6 +1660,68 @@ function resetForm() {
   document.getElementById('f-pbp').value='';
   setReqType('EE');
 }
+
+// ── Draft auto-save ──────────────────────────────────────────
+const DRAFT_KEY   = 'cr_req_draft';
+const DRAFT_FIELDS= ['f-title','f-costCenter','f-category','f-location','f-startDate','f-endDate','f-justification','f-jdlink'];
+function saveDraft() {
+  const d = {};
+  DRAFT_FIELDS.forEach(id => { const el=document.getElementById(id); if (el) d[id]=el.value; });
+  sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+}
+function restoreDraft() {
+  try {
+    const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY)||'null');
+    if (!d || !Object.keys(d).some(k=>d[k])) return;
+    DRAFT_FIELDS.forEach(id => {
+      const el=document.getElementById(id);
+      if (el && d[id]) { el.value=d[id]; if (id==='f-costCenter') onCostCenterChange(); }
+    });
+    document.getElementById('draftBanner').style.display='flex';
+  } catch(e) {}
+}
+function clearDraft() {
+  sessionStorage.removeItem(DRAFT_KEY);
+  document.getElementById('draftBanner').style.display='none';
+  resetForm();
+}
+// Wire auto-save to form inputs (event delegation)
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('requestForm');
+  if (form) form.addEventListener('input', saveDraft);
+});
+
+// ── Approval badge ────────────────────────────────────────────
+function updateApprovalBadge(pendingCount) {
+  const btn = document.getElementById('nav-review');
+  if (!btn) return;
+  btn.querySelector('.nav-badge')?.remove();
+  if (pendingCount > 0) {
+    const b = document.createElement('span');
+    b.className = 'nav-badge';
+    b.textContent = pendingCount > 99 ? '99+' : pendingCount;
+    btn.appendChild(b);
+  }
+  // mirror on mobile bottom nav button
+  const mBtn = document.getElementById('reqsBtmBtn-review');
+  if (!mBtn) return;
+  mBtn.querySelector('.nav-badge')?.remove();
+  if (pendingCount > 0) {
+    const b = document.createElement('span');
+    b.className = 'nav-badge';
+    b.style.cssText = 'position:absolute;top:2px;right:8px;font-size:8px;padding:1px 4px;';
+    b.textContent = pendingCount > 99 ? '99+' : pendingCount;
+    mBtn.style.position = 'relative';
+    mBtn.appendChild(b);
+  }
+}
+
+// ── Escape key closes modals ──────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('modalOverlay')?.classList.contains('open'))       closeModal();
+  if (document.getElementById('adminCommentOverlay')?.classList.contains('open')) closeAdminComment();
+});
 
 // ============================================================
 // MY REQUESTS
@@ -1717,7 +1801,7 @@ function renderMyRequests() {
           <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();openReqModal('${r[0]}')">View</button></td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="8"><div class="empty-state"><div class="icon">📋</div><p>${statusF?'No requests match this filter.':'No requests submitted yet.'}</p></div></td></tr>`;
+    : `<tr><td colspan="8"><div class="empty-state"><div class="icon">📋</div><p>${statusF?'No requests match this filter.':'You haven\'t submitted any requests yet.'}</p>${!statusF?`<button onclick="showView('submit',document.getElementById('nav-submit'))" style="margin-top:12px;background:var(--orange);color:white;border:none;padding:9px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Submit your first request →</button>`:''}</div></td></tr>`;
 }
 
 // ============================================================
@@ -1802,6 +1886,7 @@ function renderReviewTable() {
     return false;
   }).length;
   set('rev-pending',  awaitingCount);
+  updateApprovalBadge(awaitingCount);
   // Count by MY stage action (not overall status) — includes admin-proxied approvals in scope
   set('rev-approved', allRequests.filter(r=>
     (iActedPBP(r)&&r[17]==='Approved') || (iActedSMT(r)&&r[20]==='Approved')).length);
@@ -1822,7 +1907,7 @@ function renderReviewTable() {
           <td><button class="btn btn-sm btn-primary" onclick="event.stopPropagation();openReqModal('${r[0]}',true)">Review</button></td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="8"><div class="empty-state"><div class="icon">✅</div><p>No requests to review.</p></div></td></tr>`;
+    : `<tr><td colspan="8"><div class="empty-state"><div class="icon">✅</div><p>${statF==='pending'?'No requests waiting for your approval right now.':'No requests found in this view.'}</p></div></td></tr>`;
 }
 
 // ============================================================

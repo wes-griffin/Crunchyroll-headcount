@@ -1516,6 +1516,8 @@ async function loadAllData() {
     });
 
     renderAll();
+    _lastLoadTime = Date.now();
+    updateLastUpdatedDisplay();
 
     // 8. Update "Data as of" banners
     const dataAsOf = D['data-as-of'] ? 'Data as of ' + D['data-as-of'] : '';
@@ -1528,9 +1530,7 @@ async function loadAllData() {
     showError('Failed to load data: ' + err.message);
     console.error(err);
   } finally {
-    setLoading(false);
-  }
-}
+    setLoading(false);\n  }\n}\n\n// ── Last-updated stale indicator ─────────────────────────────\nvar _lastLoadTime = null;\nfunction updateLastUpdatedDisplay() {\n  if (!_lastLoadTime) return;\n  const mins = Math.floor((Date.now() - _lastLoadTime) / 60000);\n  const el = document.getElementById('lastUpdatedHeader');\n  if (!el) return;\n  el.textContent = mins < 1 ? 'Just now' : mins === 1 ? '1 min ago' : mins + ' min ago';\n  const stale = mins >= 45;\n  el.style.color  = stale ? 'var(--amber)' : '#888';\n  el.title = stale ? 'Data may be stale — click Refresh' : 'Last data refresh';\n  const btn = document.getElementById('refreshBtn');\n  if (btn) btn.title = stale ? '⚠️ Data may be stale — click to refresh' : 'Refresh data';\n}\nsetInterval(updateLastUpdatedDisplay, 60000);
 
 // ============================================================
 // RENDER ALL
