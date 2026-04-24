@@ -237,10 +237,56 @@ th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
 /* MATRIX ACTIONS */
 .row-actions { display:flex; gap:6px; }
 
+/* ── Tablet (≤900px) ── */
 @media(max-width:900px){
   .kpi-row-4,.kpi-row-3{grid-template-columns:repeat(2,1fr)}
   .form-grid,.detail-grid{grid-template-columns:1fr}
   .content{padding:20px} .header,.nav-bar{padding:0 16px}
+}
+
+/* ── Mobile (≤600px) ── */
+@media(max-width:600px){
+  /* Layout & spacing */
+  .content { padding: 14px 12px 80px; }
+
+  /* Page & section titles */
+  .page-title h2 { font-size: 20px; }
+  .table-header { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 14px; }
+  .table-header h3 { font-size: 13px; }
+
+  /* KPI values */
+  .kpi-value { font-size: 26px; }
+  .kpi-row-2 { grid-template-columns: repeat(2,1fr); }
+  .kpi { padding: 14px 16px; }
+  /* Inline 5-col KPI rows (My Requests, Admin views) */
+  .kpi-row[style*="repeat(5"] { grid-template-columns: repeat(2,1fr) !important; }
+
+  /* Nav bar tabs */
+  .nav-bar { padding: 0; gap: 0; }
+  .nav-btn { padding: 11px 12px; font-size: 11px; }
+
+  /* Tables — horizontal scroll so no columns are clipped */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
+  .table-wrap table { min-width: 520px; }
+
+  /* Wide tables (7+ cols) need more room */
+  .table-wrap table.wide { min-width: 680px; }
+
+  /* Bug Box description column: allow wrap rather than fixed max-width */
+  #issuesTable td:nth-child(5) { max-width: 160px; white-space: normal; word-break: break-word; }
+
+  /* Row actions stay compact */
+  .row-actions { flex-wrap: wrap; gap: 4px; }
+  .row-actions select { font-size: 10px; }
+
+  /* Modal adjustments */
+  .modal { border-radius: 10px; }
+  .modal-body { padding: 16px 18px; }
+  .modal-hdr { padding: 14px 18px; }
+  .detail-grid { grid-template-columns: 1fr; }
+
+  /* FAB */
+  #reportIssueFAB { bottom: 18px; right: 16px; padding: 10px 16px; font-size: 12px; }
 }
 </style>
 <script src="nav.js"></script>
@@ -489,7 +535,7 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
   <div class="table-wrap">
     <div class="table-header"><h3>My Submissions</h3></div>
-    <table><thead><tr>
+    <table class="wide"><thead><tr>
       <th>Submitted</th><th>Title</th><th>Type</th><th>Category</th>
       <th>Cost Center</th><th>Location</th><th>Status</th><th></th>
     </tr></thead>
@@ -517,7 +563,7 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
   <div class="table-wrap">
     <div class="table-header"><h3>Queue</h3></div>
-    <table><thead><tr>
+    <table class="wide"><thead><tr>
       <th>Submitted</th><th>Requestor</th><th>Title</th><th>Type</th>
       <th>Cost Center</th><th>Stage</th><th>Status</th><th></th>
     </tr></thead>
@@ -547,7 +593,7 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
   <div class="table-wrap">
     <div class="table-header"><h3>Compensation Queue</h3></div>
-    <table><thead><tr>
+    <table class="wide"><thead><tr>
       <th>Submitted</th><th>Requestor</th><th>Title</th><th>Type</th>
       <th>Cost Center</th><th>SMT or Delegate</th><th>Comp Status</th><th>Status</th><th></th>
     </tr></thead>
@@ -575,7 +621,7 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
   <div class="table-wrap">
     <div class="table-header"><h3>All Employee Requests</h3></div>
-    <table><thead><tr>
+    <table class="wide"><thead><tr>
       <th>Submitted</th><th>Requestor</th><th>Title</th><th>Category</th>
       <th>Cost Center</th><th>SMT or Delegate</th><th>Location</th><th>Status</th><th>Actions</th>
     </tr></thead>
@@ -603,7 +649,7 @@ document.addEventListener("DOMContentLoaded", function() {
   </div>
   <div class="table-wrap">
     <div class="table-header"><h3>All CW Requests</h3></div>
-    <table><thead><tr>
+    <table class="wide"><thead><tr>
       <th>Submitted</th><th>Requestor</th><th>Title</th><th>Cost Center</th>
       <th>SMT or Delegate</th><th>Start</th><th>End</th><th>Status</th><th>Actions</th>
     </tr></thead>
@@ -737,7 +783,7 @@ document.addEventListener("DOMContentLoaded", function() {
       </div>
     </div>
     <div class="table-wrap">
-      <table><thead><tr>
+      <table class="wide"><thead><tr>
         <th>Submitted</th><th>Reporter</th><th>Page</th><th>Title</th><th>Description</th><th>Status</th><th>Actions</th>
       </tr></thead>
       <tbody id="issuesTable"><tr><td colspan="7"><div class="empty-state"><div class="icon">🐛</div><p>No issues reported.</p></div></td></tr></tbody></table>

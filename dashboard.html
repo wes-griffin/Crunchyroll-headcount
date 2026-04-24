@@ -181,10 +181,53 @@
   .issue-btn-primary { background:var(--orange); color:white; } .issue-btn-primary:hover { background:#e05500; } .issue-btn-primary:disabled { opacity:0.5; pointer-events:none; }
   .issue-btn-secondary { background:var(--gray); color:var(--text); } .issue-btn-secondary:hover { background:var(--gray-mid); }
 
+  /* ── Tablet (≤1000px) ── */
   @media (max-width: 1000px) {
     .kpi-row-4, .kpi-row-5 { grid-template-columns: repeat(2, 1fr); }
     .charts-grid, .two-col, .three-col { grid-template-columns: 1fr; }
     .modal-kpis { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ── Mobile (≤600px) ── */
+  @media (max-width: 600px) {
+    /* Layout & spacing */
+    .content { padding: 16px 14px 80px; }
+    .tabs-bar { padding: 0 6px; }
+    .tab-btn { padding: 12px 14px; font-size: 11px; }
+
+    /* Page titles stack vertically */
+    .page-title { flex-direction: column; gap: 6px; }
+    .page-title h2 { font-size: 20px; }
+    .last-updated { text-align: left; }
+
+    /* KPI grid — 3-col rows drop to 2-col; values shrink to fit */
+    .kpi-row-3 { grid-template-columns: repeat(2, 1fr); }
+    .kpi-value { font-size: 26px; }
+    .kpi { padding: 14px 16px; }
+
+    /* Section headers */
+    .section-header { margin-top: 18px; }
+
+    /* Tables — allow horizontal scroll so no columns are lost */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
+    .table-wrap table { min-width: 480px; }
+    /* Wide tables (7+ cols) need more room */
+    .table-wrap table.wide { min-width: 620px; }
+    /* Inner scroll containers keep their max-height but also scroll horizontally */
+    .table-scroll { max-height: 340px; }
+
+    /* Horizontal bar charts — shrink label so bar gets more space */
+    .hbar-label { width: 100px; font-size: 11px; }
+
+    /* Modal adjustments */
+    .modal { border-radius: 10px; }
+    .modal-body { padding: 16px 18px; }
+    .modal-kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .modal-header { padding: 14px 18px; }
+
+    /* Issue report FAB — hug the bottom-right more tightly */
+    #dashIssueOverlay + button,
+    button[onclick="openDashIssueModal()"] { bottom: 18px; right: 16px; padding: 10px 16px; font-size: 12px; }
   }
 </style>
 <script src="nav.js"></script>
@@ -501,7 +544,7 @@ document.addEventListener("DOMContentLoaded", function() {
   <!-- By SMT -->
   <div class="section-header"><h3>Open Roles by SMT</h3><span class="pill">Click to drill</span></div>
   <div class="table-wrap">
-    <table>
+    <table class="wide">
       <thead><tr>
         <th>SMT Leader</th><th class="num">EE Roles</th><th class="num">CW Roles</th>
         <th class="num">Total</th><th class="num">New HC</th><th class="num">Backfill</th>
@@ -514,7 +557,7 @@ document.addEventListener("DOMContentLoaded", function() {
   <!-- By PBP -->
   <div class="section-header"><h3>Open Roles by People Business Partner</h3><span class="pill">Click to drill</span></div>
   <div class="table-wrap">
-    <table>
+    <table class="wide">
       <thead><tr>
         <th>People Business Partner</th><th class="num">EE Roles</th><th class="num">CW Roles</th>
         <th class="num">Total</th><th class="num">New HC</th><th class="num">Backfill</th>
@@ -544,7 +587,7 @@ document.addEventListener("DOMContentLoaded", function() {
   <!-- All open roles detail -->
   <div class="section-header"><h3>All Open Roles</h3><span class="pill">Full List · Click to drill</span></div>
   <div class="table-wrap"><div class="table-scroll">
-    <table>
+    <table class="wide">
       <thead><tr>
         <th>Job Title</th><th>SMT</th><th>PBP</th><th>Location</th>
         <th>Type</th><th>Category</th><th>Target Hire Date</th>
