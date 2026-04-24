@@ -1530,7 +1530,25 @@ async function loadAllData() {
     showError('Failed to load data: ' + err.message);
     console.error(err);
   } finally {
-    setLoading(false);\n  }\n}\n\n// ── Last-updated stale indicator ─────────────────────────────\nvar _lastLoadTime = null;\nfunction updateLastUpdatedDisplay() {\n  if (!_lastLoadTime) return;\n  const mins = Math.floor((Date.now() - _lastLoadTime) / 60000);\n  const el = document.getElementById('lastUpdatedHeader');\n  if (!el) return;\n  el.textContent = mins < 1 ? 'Just now' : mins === 1 ? '1 min ago' : mins + ' min ago';\n  const stale = mins >= 45;\n  el.style.color  = stale ? 'var(--amber)' : '#888';\n  el.title = stale ? 'Data may be stale — click Refresh' : 'Last data refresh';\n  const btn = document.getElementById('refreshBtn');\n  if (btn) btn.title = stale ? '⚠️ Data may be stale — click to refresh' : 'Refresh data';\n}\nsetInterval(updateLastUpdatedDisplay, 60000);
+    setLoading(false);
+  }
+}
+
+// Last-updated stale indicator
+var _lastLoadTime = null;
+function updateLastUpdatedDisplay() {
+  if (!_lastLoadTime) return;
+  var mins = Math.floor((Date.now() - _lastLoadTime) / 60000);
+  var el = document.getElementById('lastUpdatedHeader');
+  if (!el) return;
+  el.textContent = mins < 1 ? 'Just now' : mins === 1 ? '1 min ago' : mins + ' min ago';
+  var stale = mins >= 45;
+  el.style.color = stale ? 'var(--amber)' : '#888';
+  el.title = stale ? 'Data may be stale — click Refresh' : 'Last data refresh';
+  var btn = document.getElementById('refreshBtn');
+  if (btn) btn.title = stale ? 'Data may be stale — click to refresh' : 'Refresh data';
+}
+setInterval(updateLastUpdatedDisplay, 60000);
 
 // ============================================================
 // RENDER ALL
