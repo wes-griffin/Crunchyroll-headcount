@@ -723,10 +723,10 @@ document.addEventListener("DOMContentLoaded", function() {
     <tbody id="peopleTable"><tr><td colspan="7"><div class="empty-state"><div class="icon">👤</div><p>Loading…</p></div></td></tr></tbody></table>
   </div>
 
-  <!-- Reported Issues section (master admin only) -->
+  <!-- Bug Box section (master admin only) -->
   <div id="issuesSection" style="display:none;margin-top:32px">
     <div class="table-header" style="display:flex;align-items:center;justify-content:space-between">
-      <h3>Reported Issues (<span id="issueCount">—</span>)</h3>
+      <h3>Bug Box 🐛 (<span id="issueCount">—</span>)</h3>
       <div style="display:flex;gap:8px;align-items:center">
         <select id="issueStatusF" onchange="renderIssuesTable()">
           <option value="">All Statuses</option>
@@ -2564,7 +2564,11 @@ async function submitIssue() {
     await apiAppend(T.issues+'!A2', [[id, now, eu.name, eu.email, page, title, desc, 'Open']]);
     issuesData.push([id, now, eu.name, eu.email, page, title, desc, 'Open']);
     closeIssueModal();
-    toast('Issue reported — thank you! The admin team will review it shortly.', 'success');
+    const banner = document.createElement('div');
+    banner.textContent = '✓ Issue reported — thank you! The admin team will review it shortly.';
+    banner.style.cssText = 'position:fixed;bottom:80px;right:28px;background:#2E7D32;color:white;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-family:inherit;transition:opacity 0.4s';
+    document.body.appendChild(banner);
+    setTimeout(() => { banner.style.opacity = '0'; setTimeout(() => banner.remove(), 400); }, 3600);
     if (canManagePeople()) renderIssuesTable();
   } catch(err) {
     console.error('Issue submit error:', err);

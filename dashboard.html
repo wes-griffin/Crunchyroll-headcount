@@ -169,6 +169,18 @@
   .summary-chip.blue { background: #E3F2FD; color: var(--blue); }
   .summary-chip.purple { background: #F3E5F5; color: #6A1B9A; }
 
+  /* ISSUE MODAL FORM */
+  .issue-form-group { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  .issue-form-group label { font-size:12px; font-weight:600; color:var(--text); }
+  .issue-form-group label .req { color:var(--red); margin-left:2px; }
+  .issue-form-group input, .issue-form-group textarea { padding:10px 12px; border:1px solid var(--gray-mid); border-radius:8px; font-size:13px; font-family:inherit; color:var(--text); background:white; transition:border 0.15s; outline:none; }
+  .issue-form-group input:focus, .issue-form-group textarea:focus { border-color:var(--orange); }
+  .issue-form-group textarea { resize:vertical; min-height:100px; }
+  .issue-btn-row { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+  .issue-btn { padding:10px 22px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; border:none; transition:all 0.15s; }
+  .issue-btn-primary { background:var(--orange); color:white; } .issue-btn-primary:hover { background:#e05500; } .issue-btn-primary:disabled { opacity:0.5; pointer-events:none; }
+  .issue-btn-secondary { background:var(--gray); color:var(--text); } .issue-btn-secondary:hover { background:var(--gray-mid); }
+
   @media (max-width: 1000px) {
     .kpi-row-4, .kpi-row-5 { grid-template-columns: repeat(2, 1fr); }
     .charts-grid, .two-col, .three-col { grid-template-columns: 1fr; }
@@ -185,41 +197,35 @@
     padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;
     font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
     box-shadow:0 4px 16px rgba(0,0,0,0.18);
-    display:flex;align-items:center;gap:8px;transition:transform 0.15s"
-  onmouseenter="this.style.transform='scale(1.05)'"
-  onmouseleave="this.style.transform=''">
+    display:flex;align-items:center;gap:8px;transition:transform 0.15s,box-shadow 0.15s"
+  onmouseenter="this.style.transform='scale(1.05)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.22)'"
+  onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.18)'">
   🐛 Report an Issue
 </button>
 
-<!-- Issue overlay -->
-<div id="dashIssueOverlay" onclick="if(event.target===this)closeDashIssueModal()"
-  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:400;
-    align-items:center;justify-content:center;flex-direction:column">
-  <div style="background:white;border-radius:16px;width:96%;max-width:520px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.25)">
-    <div style="padding:22px 26px 16px;border-bottom:1px solid #eee;display:flex;align-items:flex-start;justify-content:space-between">
+<!-- Issue Modal -->
+<div class="modal-overlay" id="dashIssueOverlay" onclick="if(event.target===this)closeDashIssueModal()">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
       <div>
-        <div style="font-size:18px;font-weight:700">Report an Issue</div>
-        <div style="font-size:13px;color:#888;margin-top:2px">Your feedback goes to the Master Admin for review</div>
+        <div class="modal-title">Report an Issue</div>
+        <div class="modal-subtitle">Your feedback goes to the Master Admin for review</div>
       </div>
-      <button onclick="closeDashIssueModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888;padding:0">✕</button>
+      <button class="modal-close" onclick="closeDashIssueModal()">✕</button>
     </div>
-    <div style="padding:20px 26px">
-      <div style="margin-bottom:12px">
-        <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Issue Title <span style="color:var(--red)">*</span></label>
-        <input id="dash-issue-title" type="text" placeholder="Short description of the problem…"
-          style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"
-          onfocus="this.style.borderColor='#FF5E00'" onblur="this.style.borderColor='#ddd'">
+    <div class="modal-body">
+      <div class="issue-form-group">
+        <label>Issue Title <span class="req">*</span></label>
+        <input id="dash-issue-title" type="text" placeholder="Short description of the problem…">
       </div>
-      <div style="margin-bottom:12px">
-        <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Details <span style="color:var(--red)">*</span></label>
-        <textarea id="dash-issue-desc" placeholder="What happened? What did you expect?" rows="4"
-          style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;resize:vertical;outline:none"
-          onfocus="this.style.borderColor='#FF5E00'" onblur="this.style.borderColor='#ddd'"></textarea>
+      <div class="issue-form-group">
+        <label>Details <span class="req">*</span></label>
+        <textarea id="dash-issue-desc" placeholder="What happened? What did you expect? What page were you on?"></textarea>
       </div>
-      <div id="dash-issue-err" style="color:#d32f2f;font-size:12px;margin-bottom:10px;display:none">Please fill in both fields.</div>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button onclick="closeDashIssueModal()" style="padding:9px 18px;font-size:13px;font-weight:600;border:1px solid #ddd;border-radius:7px;cursor:pointer;background:white;font-family:inherit">Cancel</button>
-        <button id="dashIssueSubmitBtn" onclick="submitDashIssue()" style="padding:9px 18px;font-size:13px;font-weight:600;border:none;border-radius:7px;cursor:pointer;background:#FF5E00;color:white;font-family:inherit">Submit Report</button>
+      <div id="dash-issue-err" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none">Please fill in both fields.</div>
+      <div class="issue-btn-row">
+        <button class="issue-btn issue-btn-secondary" onclick="closeDashIssueModal()">Cancel</button>
+        <button id="dashIssueSubmitBtn" class="issue-btn issue-btn-primary" onclick="submitDashIssue()">Submit Report</button>
       </div>
     </div>
   </div>
@@ -707,11 +713,11 @@ function openDashIssueModal() {
   document.getElementById('dash-issue-err').style.display = 'none';
   const submitBtn = document.getElementById('dashIssueSubmitBtn');
   if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Report'; }
-  document.getElementById('dashIssueOverlay').style.display = 'flex';
+  document.getElementById('dashIssueOverlay').classList.add('open');
   setTimeout(() => document.getElementById('dash-issue-title').focus(), 120);
 }
 function closeDashIssueModal() {
-  document.getElementById('dashIssueOverlay').style.display = 'none';
+  document.getElementById('dashIssueOverlay').classList.remove('open');
 }
 async function submitDashIssue() {
   const title = document.getElementById('dash-issue-title').value.trim();
@@ -728,12 +734,11 @@ async function submitDashIssue() {
     await dashApiAppend(ISSUES_SHEET_ID, 'Issues!A2',
       [[id, now, eu.name||'Dashboard User', eu.email||'', 'Global Headcount Dashboard', title, desc, 'Open']]);
     closeDashIssueModal();
-    // Show a visible toast-style notification
     const banner = document.createElement('div');
-    banner.textContent = '✓ Issue reported — thank you! The admin team will review it.';
-    banner.style.cssText = 'position:fixed;bottom:80px;right:28px;background:#2E7D32;color:white;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-family:inherit';
+    banner.textContent = '✓ Issue reported — thank you! The admin team will review it shortly.';
+    banner.style.cssText = 'position:fixed;bottom:80px;right:28px;background:#2E7D32;color:white;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-family:inherit;transition:opacity 0.4s';
     document.body.appendChild(banner);
-    setTimeout(() => banner.remove(), 4000);
+    setTimeout(() => { banner.style.opacity = '0'; setTimeout(() => banner.remove(), 400); }, 3600);
   } catch(err) {
     console.error('Issue submit failed:', err);
     document.getElementById('dash-issue-err').textContent = 'Submission failed: ' + err.message;
@@ -3012,19 +3017,44 @@ function renderDmCardView() {
     + '.dci.mono { font-family:monospace;font-size:11px; }'
     + '.dmcard-footer { padding:8px 16px 10px;display:flex;align-items:center;'
     +   'justify-content:space-between;background:var(--gray);border-top:1px solid var(--gray-mid); }'
-    /* Tooltip */
-    + '[data-dm-tip] { position:relative; }'
-    + '[data-dm-tip]:hover::after { content:attr(data-dm-tip);position:absolute;bottom:calc(100% + 6px);'
-    +   'left:0;width:260px;background:#1A1A1A;color:#fff;font-size:11px;font-weight:400;line-height:1.5;'
-    +   'padding:8px 11px;border-radius:7px;z-index:9999;pointer-events:none;'
-    +   'white-space:pre-line;font-family:inherit;letter-spacing:0; }'
-    + '[data-dm-tip].tip-right:hover::after { left:auto;right:0; }'
-    + '[data-dm-tip]:hover::before { content:"";position:absolute;bottom:calc(100% + 1px);left:14px;'
-    +   'border:5px solid transparent;border-top-color:#1A1A1A;z-index:9999; }'
+    /* Tooltip — drawn by JS into #dm-tip-box so it is never clipped by overflow:hidden containers */
+    + '#dm-tip-box { position:fixed;pointer-events:none;z-index:99999;background:#1A1A1A;color:#fff;'
+    +   'font-size:11px;font-weight:400;line-height:1.5;padding:8px 11px;border-radius:7px;'
+    +   'white-space:pre-line;font-family:inherit;letter-spacing:0;max-width:280px;'
+    +   'box-shadow:0 4px 14px rgba(0,0,0,0.35);display:none; }'
     + '#dm-dirty { display:none;position:sticky;bottom:0;background:#1A1A1A;color:white;'
     +   'padding:12px 24px;align-items:center;justify-content:space-between;gap:12px;'
     +   'z-index:50;border-top:2px solid var(--orange); }'
     + '</style>');
+
+  // Tooltip element — appended to body once so it is never clipped by overflow:hidden ancestors
+  if (!document.getElementById('dm-tip-box')) {
+    var tipEl = document.createElement('div');
+    tipEl.id = 'dm-tip-box';
+    document.body.appendChild(tipEl);
+    document.addEventListener('mouseover', function(e) {
+      var t = e.target.closest('[data-dm-tip]');
+      if (!t) { tipEl.style.display = 'none'; return; }
+      tipEl.textContent = t.getAttribute('data-dm-tip');
+      tipEl.style.display = 'block';
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (tipEl.style.display === 'none') return;
+      var vw = window.innerWidth, vh = window.innerHeight;
+      var tw = tipEl.offsetWidth + 16, th = tipEl.offsetHeight + 16;
+      var x = e.clientX + 14;
+      var y = e.clientY - tipEl.offsetHeight - 10;
+      if (x + tw > vw) x = e.clientX - tw + 2;
+      if (y < 4) y = e.clientY + 18;
+      tipEl.style.left = x + 'px';
+      tipEl.style.top  = y + 'px';
+    });
+    document.addEventListener('mouseout', function(e) {
+      if (!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest('[data-dm-tip]')) {
+        tipEl.style.display = 'none';
+      }
+    });
+  }
 
   parts.push('<div class="dmc-wrap">');
   allTabs.forEach(function(tab) {
