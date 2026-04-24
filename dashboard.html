@@ -215,11 +215,11 @@
     .modal-body table { min-width: 480px; }
     .modal-kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
     .modal-header { padding: 14px 18px; }
-    /* Mapping boards: scrollable, no fixed widths causing overflow */
-    #tab-mapping { overflow-x: auto; }
-    .mapping-board, [class*="mapping"] { max-width: 100%; overflow-x: auto; }
-    /* EE/CW tabs: prevent horizontal overflow */
-    #tab-ee, #tab-cw { overflow-x: hidden; }
+    /* Mapping boards: constrain to viewport so inner scroll-wrap handles horizontal scroll */
+    #tab-mapping { width: 100%; max-width: 100%; }
+    #mappingTable, #dm-scroll-wrap { max-width: calc(100vw - 28px) !important; overflow-x: auto; }
+    /* EE/CW tabs: clip horizontal overflow without blocking vertical scrolling */
+    #tab-ee, #tab-cw { overflow-x: clip; }
     /* FAB: circle, clear of any bottom content */
     button[onclick="openDashIssueModal()"] { bottom: 24px !important; right: 16px; width: 48px !important; height: 48px !important; font-size: 20px !important; }
     /* Chip-style quick filters on Reqs tab */
