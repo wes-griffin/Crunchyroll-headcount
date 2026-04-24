@@ -228,6 +228,13 @@ th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
 /* TOAST */
 .toast { position:fixed; bottom:24px; right:24px; background:var(--black); color:white; padding:12px 20px; border-radius:10px; font-size:13px; font-weight:600; z-index:9999; transform:translateY(100px); opacity:0; transition:all 0.3s; max-width:380px; }
 .toast.show{transform:translateY(0);opacity:1} .toast.success{border-left:4px solid var(--green)} .toast.error{border-left:4px solid var(--red)}
+/* C3: keep toast above 56px bottom nav on mobile */
+@media (max-width:600px) {
+  .toast { bottom: calc(56px + 14px); }
+  /* C4: allow scrolling when there are more than 4 tabs */
+  .cr-btm-nav { overflow-x:auto; }
+  .cr-btm-nav .cr-btm-btn { flex:0 0 auto; min-width:58px; }
+}
 
 /* EMPTY STATE */
 .empty-state { text-align:center; padding:48px 24px; color:var(--gray-dark); }
@@ -258,35 +265,93 @@ th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
   .kpi-value { font-size: 26px; }
   .kpi-row-2 { grid-template-columns: repeat(2,1fr); }
   .kpi { padding: 14px 16px; }
-  /* Inline 5-col KPI rows (My Requests, Admin views) */
   .kpi-row[style*="repeat(5"] { grid-template-columns: repeat(2,1fr) !important; }
 
-  /* Nav bar tabs */
-  .nav-bar { padding: 0; gap: 0; }
-  .nav-btn { padding: 11px 12px; font-size: 11px; }
+  /* Hide top nav — replaced by bottom nav */
+  .nav-bar { display: none; }
 
-  /* Tables — horizontal scroll so no columns are clipped */
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
-  .table-wrap table { min-width: 520px; }
-
-  /* Wide tables (7+ cols) need more room */
-  .table-wrap table.wide { min-width: 680px; }
-
-  /* Bug Box description column: allow wrap rather than fixed max-width */
-  #issuesTable td:nth-child(5) { max-width: 160px; white-space: normal; word-break: break-word; }
-
-  /* Row actions stay compact */
+  /* ── Card tables ── */
+  .table-wrap { overflow-x: visible; border-radius: 8px; background: transparent; border: none; }
+  .table-wrap table, .table-wrap table.wide { min-width: 0 !important; display: block; }
+  .table-wrap thead { display: none; }
+  .table-wrap tbody { display: block; }
+  .table-wrap tbody tr {
+    display: block;
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    padding: 12px 14px;
+    border: none !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .table-wrap tbody td {
+    display: inline;
+    padding: 0 5px 0 0 !important;
+    border: none !important;
+    font-size: 11px;
+    color: var(--gray-dark);
+  }
+  /* First cell = title for most tables (date/submitter) */
+  .table-wrap tbody td:first-child {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    padding: 0 0 3px !important;
+    font-weight: 400;
+  }
+  /* Second cell = title (role name) */
+  .table-wrap tbody td:nth-child(2) {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--black);
+    padding: 0 0 6px !important;
+  }
+  /* Bug Box — first cell is reporter (make it title-style) */
+  #issuesTable tbody td:first-child { font-size: 13px; font-weight: 700; color: var(--black); }
+  #issuesTable tbody td:nth-child(2) { font-size: 11px; font-weight: 400; color: var(--gray-dark); }
+  /* Actions cell stays block */
+  .table-wrap tbody td:last-child { display: block; margin-top: 8px; }
   .row-actions { flex-wrap: wrap; gap: 4px; }
   .row-actions select { font-size: 10px; }
 
-  /* Modal adjustments */
-  .modal { border-radius: 10px; }
+  /* ── Filter row as chips ── */
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 0 8px; }
+  .filter-row select {
+    appearance: none; -webkit-appearance: none;
+    padding: 5px 12px;
+    border-radius: 20px; border: 1.5px solid var(--gray-mid);
+    background: white; font-size: 11px; font-weight: 600;
+    color: var(--gray-dark); cursor: pointer; font-family: inherit;
+  }
+  .filter-row button { padding: 5px 12px; border-radius: 20px; font-size: 11px; }
+
+  /* ── Bottom sheet modal (bug report & review) ── */
+  .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+  .modal-overlay .modal {
+    border-radius: 20px 20px 0 0 !important;
+    max-width: 100% !important; width: 100% !important;
+    max-height: 88vh; overflow-y: auto;
+  }
   .modal-body { padding: 16px 18px; }
   .modal-hdr { padding: 14px 18px; }
   .detail-grid { grid-template-columns: 1fr; }
 
-  /* FAB */
-  #reportIssueFAB { bottom: 18px; right: 16px; padding: 10px 16px; font-size: 12px; }
+  /* ── Stepped form ── */
+  .mob-step { display: none; }
+  .mob-step.active { display: block; }
+  .mob-step-indicator { display: flex; align-items: center; gap: 6px; margin-bottom: 20px; }
+  .mob-step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-mid); }
+  .mob-step-dot.active { background: var(--orange); width: 20px; border-radius: 4px; }
+  .mob-step-nav { display: flex; gap: 10px; margin-top: 16px; }
+  .mob-step-nav button { flex: 1; }
+
+  /* FAB above bottom nav */
+  #reportIssueFAB { bottom: 74px !important; right: 16px; padding: 10px 16px; font-size: 12px; }
+}
+@media(min-width:601px){
+  .mob-step { display: block !important; }
+  .mob-step-indicator, .mob-step-nav { display: none !important; }
 }
 </style>
 <script src="nav.js"></script>
@@ -321,6 +386,59 @@ document.addEventListener("DOMContentLoaded", function() {
     userToken = sessionStorage.getItem('cr_token');
     crInjectNav('requests');
     crUpdateHeaderUser(user);
+
+    // ── Mobile bottom nav (C4: all views; M3: rebuilt on resize) ──
+    const REQ_VIEW_META = [
+      { id:'submit',  btn:'nav-submit',   label:'New',     icon:'✚' },
+      { id:'my',      btn:'nav-my',       label:'My Reqs', icon:'📋' },
+      { id:'review',  btn:'nav-review',   label:'Approve', icon:'✓' },
+      { id:'comp',    btn:'nav-comp',     label:'Comp',    icon:'💰' },
+      { id:'adminEE', btn:'nav-admin-ee', label:'EE',      icon:'👤' },
+      { id:'adminCW', btn:'nav-admin-cw', label:'CW',      icon:'🔧' },
+      { id:'matrix',  btn:'nav-matrix',   label:'Matrix',  icon:'📊' },
+      { id:'people',  btn:'nav-people',   label:'Access',  icon:'⚙' },
+    ];
+    function buildReqBtmNav() {
+      const existing = document.getElementById('reqsBtmNav');
+      if (existing) existing.remove();
+      if (window.innerWidth > 600) return;
+      // Only create tabs for views whose desktop nav button is currently visible
+      const visible = REQ_VIEW_META.filter(v => {
+        const el = document.getElementById(v.btn);
+        return el && !el.classList.contains('hidden') && el.style.display !== 'none';
+      });
+      if (!visible.length) { // nav not built yet — show minimal default tabs
+        visible.push(REQ_VIEW_META[0], REQ_VIEW_META[1]);
+      }
+      const btmNav = document.createElement('nav');
+      btmNav.className = 'cr-btm-nav';
+      btmNav.id = 'reqsBtmNav';
+      visible.forEach((v, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'cr-btm-btn' + (i === 0 ? ' cr-btm-active' : '');
+        btn.id = 'reqsBtmBtn-' + v.id;
+        btn.innerHTML = `<span style="font-size:18px">${v.icon}</span><span class="cr-btm-lbl">${v.label}</span>`;
+        btn.addEventListener('click', () => {
+          const navBtn = document.getElementById(v.btn);
+          showView(v.id, navBtn);
+        });
+        btmNav.appendChild(btn);
+      });
+      document.body.appendChild(btmNav);
+    }
+    buildReqBtmNav();
+    // M3: rebuild on orientation change / resize
+    if (window.ResizeObserver) {
+      let _lastMobileReqs = window.innerWidth <= 600;
+      new ResizeObserver(() => {
+        const nowMobile = window.innerWidth <= 600;
+        if (nowMobile !== _lastMobileReqs) { _lastMobileReqs = nowMobile; buildReqBtmNav(); }
+      }).observe(document.body);
+    }
+    window.addEventListener('orientationchange', () => { setTimeout(buildReqBtmNav, 100); });
+    window._buildReqBtmNav = buildReqBtmNav; // expose for setupUI rebuild
+    initMobileSteppedForm();
+
     showScreen('loading', 'Loading data…');
     initApp().catch(function(e) {
       showScreen('auth');
@@ -965,6 +1083,8 @@ function setupUI() {
   populateSMTFilters();
   populateProxySelector();
   renderAll();
+  // C4: now that nav visibility is settled, rebuild the bottom nav with all accessible views
+  if (typeof window._buildReqBtmNav === 'function') window._buildReqBtmNav();
 }
 
 function renderUserBadges() {
@@ -1060,6 +1180,126 @@ function showView(id, btn) {
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('view-'+id)?.classList.add('active');
   if (btn) btn.classList.add('active');
+  // sync mobile bottom nav
+  document.querySelectorAll('.cr-btm-btn').forEach(b => b.classList.remove('cr-btm-active'));
+  // map admin views back to admin button
+  const navId = (id === 'adminEE' || id === 'adminCW' || id === 'matrix') ? 'people' : id;
+  const btmMatch = document.getElementById('reqsBtmBtn-' + navId);
+  if (btmMatch) btmMatch.classList.add('cr-btm-active');
+}
+
+// ── Mobile stepped form ──
+function initMobileSteppedForm() {
+  const form = document.getElementById('requestForm');
+  if (!form) return;
+  const grid = form.querySelector('.form-grid');
+  if (!grid) return;
+  // Group form-group children into 3 steps
+  const groups = Array.from(grid.children);
+  if (!groups.length) return;
+
+  // Step definitions: [0-3] = Step 1 (Role + Cost Center + SMT + PBP)
+  //                  [4-7] = Step 2 (Category, Location, Start, End)
+  //                  [8+] = Step 3 (Justification, JD, Budget, Submit)
+  const stepSizes = [4, 4, groups.length - 8];
+
+  // Wrap each group in a step div
+  const steps = [[], [], []];
+  let g = 0;
+  steps.forEach((step, si) => {
+    const count = si < 2 ? stepSizes[si] : stepSizes[2];
+    for (let i = 0; i < count && g < groups.length; i++, g++) {
+      step.push(groups[g]);
+    }
+  });
+
+  // Create step indicator
+  const indicator = document.createElement('div');
+  indicator.className = 'mob-step-indicator';
+  indicator.id = 'mobStepIndicator';
+  const stepLabels = ['Role Info', 'Details', 'Submit'];
+  stepLabels.forEach((_, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'mob-step-dot' + (i === 0 ? ' active' : '');
+    dot.id = 'mobDot-' + i;
+    indicator.appendChild(dot);
+  });
+  const stepLabel = document.createElement('span');
+  stepLabel.style.cssText = 'font-size:11px;color:#888;margin-left:4px';
+  stepLabel.id = 'mobStepLabel';
+  stepLabel.textContent = 'Step 1 of 3 — Role Info';
+  indicator.appendChild(stepLabel);
+  grid.parentNode.insertBefore(indicator, grid);
+
+  // Wrap groups into step containers
+  const stepDivs = steps.map((stepGroups, i) => {
+    const div = document.createElement('div');
+    div.className = 'mob-step' + (i === 0 ? ' active' : '');
+    div.id = 'mobStep-' + i;
+    stepGroups.forEach(g => div.appendChild(g));
+    return div;
+  });
+  stepDivs.forEach(d => grid.appendChild(d));
+
+  // Move btn-row into last step
+  const btnRow = form.querySelector('.btn-row');
+  if (btnRow) {
+    stepDivs[2].appendChild(btnRow);
+    // On last step, submit behaves normally
+  }
+
+  // Add Back/Continue nav buttons
+  let currentStep = 0;
+  const navDiv = document.createElement('div');
+  navDiv.className = 'mob-step-nav';
+  navDiv.id = 'mobStepNav';
+
+  const backBtn = document.createElement('button');
+  backBtn.type = 'button';
+  backBtn.className = 'btn btn-secondary';
+  backBtn.textContent = '← Back';
+  backBtn.style.display = 'none';
+
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'btn btn-primary';
+  nextBtn.textContent = 'Continue →';
+
+  navDiv.appendChild(backBtn);
+  navDiv.appendChild(nextBtn);
+  grid.parentNode.insertBefore(navDiv, grid.nextSibling);
+
+  function goToStep(n) {
+    document.getElementById('mobStep-' + currentStep).classList.remove('active');
+    document.getElementById('mobDot-' + currentStep).classList.remove('active');
+    currentStep = n;
+    document.getElementById('mobStep-' + currentStep).classList.add('active');
+    document.getElementById('mobDot-' + currentStep).classList.add('active');
+    stepLabel.textContent = 'Step ' + (currentStep+1) + ' of 3 — ' + stepLabels[currentStep];
+    backBtn.style.display = currentStep === 0 ? 'none' : '';
+    nextBtn.style.display = currentStep === 2 ? 'none' : '';
+    window.scrollTo(0, 0);
+  }
+
+  nextBtn.addEventListener('click', () => {
+    if (currentStep < 2) goToStep(currentStep + 1);
+  });
+  backBtn.addEventListener('click', () => {
+    if (currentStep > 0) goToStep(currentStep - 1);
+  });
+
+  // On desktop: always show all steps
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 600) {
+      stepDivs.forEach(d => { d.style.display = ''; d.classList.add('active'); });
+      navDiv.style.display = 'none';
+      indicator.style.display = 'none';
+    } else {
+      stepDivs.forEach((d, i) => { d.classList.toggle('active', i === currentStep); });
+      navDiv.style.display = '';
+      indicator.style.display = '';
+    }
+  });
 }
 
 // ============================================================
