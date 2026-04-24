@@ -83,7 +83,7 @@ body { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background:#F2ED
 .card h3 { font-size:15px; font-weight:700; color:var(--black); margin-bottom:16px; }
 
 /* FORM */
-.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; max-width:860px; }
 .form-group { display:flex; flex-direction:column; gap:6px; }
 .form-group.full { grid-column:1/-1; }
 .form-group label { font-size:12px; font-weight:600; color:var(--text); }
@@ -254,6 +254,11 @@ th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
   .kpi-row-4,.kpi-row-3{grid-template-columns:repeat(2,1fr)}
   .form-grid,.detail-grid{grid-template-columns:1fr}
   .content{padding:20px} .header,.nav-bar{padding:0 16px}
+  /* Proxy row: wrap on narrow screens so dropdown doesn't overflow */
+  .proxy-panel .proxy-row { flex-wrap: wrap; }
+  .proxy-panel select { min-width: 0; width: 100%; }
+  /* FAB: circle on mobile */
+  #reportIssueFAB { bottom: 24px !important; right: 16px; width: 48px !important; height: 48px !important; font-size: 20px !important; padding: 0 !important; }
 }
 
 /* ── Mobile (≤600px) ── */
@@ -278,9 +283,6 @@ th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
   .kpi-row-2 { grid-template-columns: repeat(2,1fr); }
   .kpi { padding: 14px 16px; }
   .kpi-row[style*="repeat(5"] { grid-template-columns: repeat(2,1fr) !important; }
-
-  /* FAB */
-  #reportIssueFAB { bottom: 24px !important; right: 16px; width: 44px; height: 44px; font-size: 18px; }
   .table-wrap { overflow-x: visible; border-radius: 8px; background: transparent; border: none; }
   .table-wrap table, .table-wrap table.wide { min-width: 0 !important; display: block; }
   .table-wrap thead { display: none; }
@@ -881,10 +883,10 @@ document.addEventListener("DOMContentLoaded", function() {
 <button id="reportIssueFAB" onclick="openIssueModal()"
   style="position:fixed;bottom:28px;right:28px;z-index:300;
     background:var(--orange);color:white;border:none;border-radius:50%;
-    width:52px;height:52px;font-size:22px;font-weight:700;cursor:pointer;
+    width:52px;height:52px;font-size:22px;cursor:pointer;
     font-family:inherit;box-shadow:0 4px 16px rgba(0,0,0,0.18);
     display:flex;align-items:center;justify-content:center;transition:transform 0.15s,box-shadow 0.15s"
-  onmouseenter="this.style.transform='scale(1.05)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.22)'"
+  onmouseenter="this.style.transform='scale(1.08)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.28)'"
   onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.18)'"
   title="Report an Issue">
   🐛

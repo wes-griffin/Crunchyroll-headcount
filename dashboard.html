@@ -218,8 +218,10 @@
     /* Mapping boards: scrollable, no fixed widths causing overflow */
     #tab-mapping { overflow-x: auto; }
     .mapping-board, [class*="mapping"] { max-width: 100%; overflow-x: auto; }
-    /* FAB: default position (no bottom nav) */
-    button[onclick="openDashIssueModal()"] { bottom: 24px !important; right: 16px; }
+    /* EE/CW tabs: prevent horizontal overflow */
+    #tab-ee, #tab-cw { overflow-x: hidden; }
+    /* FAB: circle, clear of any bottom content */
+    button[onclick="openDashIssueModal()"] { bottom: 24px !important; right: 16px; width: 48px !important; height: 48px !important; font-size: 20px !important; }
     /* Chip-style quick filters on Reqs tab */
     .mob-chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
     .mob-chip { padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1.5px solid var(--gray-mid); background: white; color: var(--gray-dark); cursor: pointer; font-family: inherit; }
@@ -234,11 +236,11 @@
 <button onclick="openDashIssueModal()"
   style="position:fixed;bottom:28px;right:28px;z-index:300;
     background:#FF5E00;color:white;border:none;border-radius:50%;
-    width:52px;height:52px;font-size:22px;font-weight:700;cursor:pointer;
+    width:52px;height:52px;font-size:22px;cursor:pointer;
     font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
     box-shadow:0 4px 16px rgba(0,0,0,0.18);
     display:flex;align-items:center;justify-content:center;transition:transform 0.15s,box-shadow 0.15s"
-  onmouseenter="this.style.transform='scale(1.05)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.22)'"
+  onmouseenter="this.style.transform='scale(1.08)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.28)'"
   onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.18)'"
   title="Report an Issue">
   🐛
